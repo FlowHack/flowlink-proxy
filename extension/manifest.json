@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FlowLink Proxy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Управление прокси SOCKS5 с масками адресов",
   "icons": {
     "48": "icons/icon48.png",
@@ -22,17 +22,13 @@
     }
   },
   "permissions": [
-    "storage",
-    "proxy",
-    "notifications",
-    "alarms",
     "activeTab",
-    "offscreen"
+    "storage"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "http://127.0.0.1/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://connectivitycheck.gstatic.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://127.0.0.1:*"
   }
 }

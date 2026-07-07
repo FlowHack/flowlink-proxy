@@ -1,0 +1,23 @@
+[Unit]
+Description=FlowLink Proxy Gateway
+Documentation=https://github.com/flowhack/flowlink-proxy
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/flowlink-proxy/server/FlowLink\ Proxy/flowlink-gateway
+WorkingDirectory=%h/flowlink-proxy
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Безопасность
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+PrivateDevices=true
+
+[Install]
+WantedBy=default.target

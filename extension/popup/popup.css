@@ -30,8 +30,8 @@
 
 body {
   width: var(--popup-width);
-  min-height: 480px;
-  max-height: 600px;
+  min-height: 400px;
+  max-height: 520px;
   font-family: var(--font);
   font-size: 14px;
   color: var(--text-primary);
@@ -319,6 +319,39 @@ body {
   background: var(--accent-red-hover);
 }
 
+/* ───── Обновление (баннер) ───── */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(230, 126, 34, 0.2);
+  border-bottom: 1px solid var(--accent-orange);
+  font-size: 12px;
+  color: var(--accent-orange);
+  flex-wrap: wrap;
+}
+
+.update-banner.hidden {
+  display: none;
+}
+
+.update-banner .btn-small {
+  background: var(--accent-orange);
+  color: #fff;
+  border: none;
+}
+
+.update-banner .btn-small:hover {
+  opacity: 0.85;
+}
+
+.update-banner .btn-icon {
+  color: var(--accent-orange);
+  margin-left: auto;
+  font-size: 14px;
+}
+
 /* ───── Модальные окна ───── */
 .modal-overlay {
   position: fixed;
@@ -345,6 +378,10 @@ body {
   overflow-y: auto;
 }
 
+.modal-wide {
+  width: 520px;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -364,6 +401,33 @@ body {
   padding-top: 4px;
 }
 
+.modal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin: 8px 16px 0;
+}
+
+.tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab-active {
+  color: var(--accent-red);
+  border-bottom-color: var(--accent-red);
+}
+
 .modal-body {
   padding: 12px 16px;
   display: flex;
@@ -380,6 +444,55 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
+}
+
+/* ───── Содержимое помощи ───── */
+.help-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.help-content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-red);
+  margin: 12px 0 4px;
+}
+
+.help-content h3:first-child {
+  margin-top: 0;
+}
+
+.help-content ol {
+  padding-left: 20px;
+  margin: 4px 0 8px;
+}
+
+.help-content li {
+  margin-bottom: 6px;
+}
+
+.help-content code {
+  display: inline-block;
+  background: var(--bg-input);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: Consolas, Monaco, monospace;
+  color: var(--accent-orange);
+  word-break: break-all;
+}
+
+.help-content a {
+  color: var(--accent-red);
+  text-decoration: none;
+}
+
+.help-content a:hover {
+  text-decoration: underline;
 }
 
 /* ───── Поля ввода ───── */
@@ -501,10 +614,124 @@ body {
   overflow-y: auto;
 }
 
-/* ───── Версия ───── */
-.version-text {
+/* ───── Спиннер на кнопке ───── */
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ───── Настройки ───── */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 16px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-row.hidden {
+  display: none;
+}
+
+.settings-row label {
+  white-space: nowrap;
+}
+
+.settings-row .input-settings {
+  width: 70px;
+  padding: 3px 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font);
+  outline: none;
   text-align: center;
-  padding: 6px 16px 10px;
+}
+
+.settings-row .input-settings:focus {
+  border-color: var(--accent-red);
+}
+
+.btn-settings-save {
+  padding: 3px 10px;
+  font-size: 11px;
+  background: var(--accent-red);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-settings-save:hover {
+  background: var(--accent-red-hover);
+}
+
+.btn-settings-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-settings {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-muted);
+  padding: 0 2px;
+  transition: color 0.15s;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.btn-settings:hover {
+  color: var(--text-primary);
+}
+
+/* ───── Контакт для обратной связи ───── */
+.contact-email {
+  text-align: center;
+  padding: 2px 16px 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.contact-email a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.contact-email a:hover {
+  color: var(--accent-red);
+}
+
+/* ───── Версия ───── */
+.version-wrap {
+  text-align: center;
+  padding: 6px 16px 4px;
   font-size: 11px;
   color: var(--text-muted);
   user-select: text;

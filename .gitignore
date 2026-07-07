@@ -3,8 +3,6 @@
 .vscode/
 *.iml
 .gradle/
-build/
-dist/
 node_modules/
 
 # --- Конфиденциальные данные и папка агентов ---
@@ -15,6 +13,33 @@ AGENTS.md
 # --- Системные файлы ---
 .DS_Store
 Thumbs.db
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg-info
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# --- Логи ---
+logs/
+
+# --- Конфигурация прокси (содержит пароли) ---
+config.json
+.flowlink.key
+
+# --- PyInstaller сборка ---
+server/dist/
+server/FlowLink Proxy/
+server/work/
+build-tmp/
+*.spec
+
+# --- Сгенерированные иконки ---
+extension/icons/*.ico
 
 # --- Окружение ---
 .env
