@@ -82,9 +82,6 @@ class ProxyController {
       await this._rebuildAll();
 
       this._ready = true;
-
-      /* Регистрируем монитор навигации по маскированным сайтам */
-      this._registerTabMonitor();
     } catch (error) {
       console.error('[FlowLink Proxy] Ошибка инициализации ProxyController:', error);
       throw error;
@@ -387,6 +384,9 @@ class ProxyController {
         }
         if (tabId !== targetTabId || changeInfo.status !== 'complete') return;
 
+        /* Проверяем, что итоговый URL — наш тестовый (успех), а не страница ошибки */
+        if (tabInfo.url !== TEST_URL) return;
+
         settled = true;
         chrome.tabs.onUpdated.removeListener(onUpdated);
         if (timeoutId) clearTimeout(timeoutId);
@@ -553,61 +553,6 @@ class ProxyController {
       results.push(result);
     }
     return results;
-  }
-
-  /* ───── Монитор навигации по маскированным сайтам ───── */
-
-  /**
-   * @private Регистрирует chrome.tabs.onUpdated для автоматической проверки
-   * прокси при входе пользователя на сайт, совпадающий с маской.
-   * Если прокси мёртв — триггерит failover (блокировку трафика через PAC).
-   */
-  _registerTabMonitor() {
-    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-      /* Ждём полной загрузки страницы */
-      if (changeInfo.status !== 'complete') return;
-      if (!tab.url || tab.url === 'about:blank') return;
-      if (!this._ready || !this._extensionEnabled) return;
-
-      /* Ищем маску, совпадающую с URL вкладки */
-      const rules = this._maskCache.rules;
-      for (let i = 0; i < rules.length; i++) {
-        const rule = rules[i];
-        try {
-          if (!new RegExp(rule.regexString).test(tab.url)) continue;
-        } catch {
-          continue;
-        }
-
-        /* Маска совпала — проверяем состояние прокси */
-        const proxyId = rule.proxyId;
-        if (this._failoverState.get(proxyId)) {
-          /* Уже заблокирован — PAC вернёт 0.0.0.0:9, ничего не делаем */
-          return;
-        }
-
-        /* Прокси активен — проверяем жив ли он; тест запускаем без ожидания */
-        this._checkProxyOnMaskMatch(proxyId).catch(err => {
-          console.warn('[FlowLink Proxy] Ошибка проверки прокси по маске:', err);
-        });
-        return;
-      }
-    });
-  }
-
-  /**
-   * @private Проверяет прокси при совпадении маски.
-   * Если прокси недоступен — триггерит failover (блокировка).
-   * @param {string} proxyId
-   */
-  async _checkProxyOnMaskMatch(proxyId) {
-    const proxyConfig = this._maskCache.getProxyConfig(proxyId);
-    if (!proxyConfig) return;
-
-    const alive = await this._testProxy(proxyConfig.host, proxyConfig.port);
-    if (!alive) {
-      await this.handleFailover(proxyId);
-    }
   }
 
   /* ───── Публичные геттеры для интеграции с UI ───── */

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>FlowLink Proxy Test</title>
+</head>
+<body>
+  <!--
+    Скрытая offscreen-страница для тестирования прокси.
+    Единственная задача: выполнить fetch() через установленный прокси
+    и вернуть результат в Service Worker через chrome.runtime.onMessage.
+  -->
+  <script src="offscreen-proxy-test.js"></script>
+</body>
+</html>
