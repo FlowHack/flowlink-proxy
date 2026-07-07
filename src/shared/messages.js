@@ -16,9 +16,13 @@ const MESSAGES = Object.freeze({
   ADD_MASK: 'addMask',
   UPDATE_MASK: 'updateMask',
   DELETE_MASK: 'deleteMask',
+  CLEAR_MASKS: 'clearMasks',
   GET_EXTENSION_STATUS: 'getExtensionStatus',
   SET_EXTENSION_STATUS: 'setExtensionStatus',
   PING_PROXY: 'pingProxy',
+  PING_ALL: 'pingAll',
+  PING_PROXY_SETUP: 'pingProxySetup',
+  PING_PROXY_CLEANUP: 'pingProxyCleanup',
   GET_CURRENT_TAB_STATUS: 'getCurrentTabStatus',
   CHECK_MASK_CONFLICT: 'checkMaskConflict'
 });

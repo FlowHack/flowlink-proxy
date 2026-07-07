@@ -6,7 +6,7 @@
  * Чувствительные поля (username, password) шифруются/дешифруются через CryptoService.
  */
 
-import { STORAGE_KEYS, generateId, isValidPort, isValidIP } from '../shared/constants.js';
+import { STORAGE_KEYS, generateId, isValidPort, isValidIP, convertMaskIdn } from '../shared/constants.js';
 import { CryptoService } from './crypto-service.js';
 
 /**
@@ -122,7 +122,7 @@ class DataController {
           isEnabled: entry.isEnabled
         });
       } catch (error) {
-        console.warn(`[FlowLink] Ошибка расшифровки прокси ${proxyId}: ${error.message}`);
+        console.warn(`[FlowLink Proxy] Ошибка расшифровки прокси ${proxyId}: ${error.message}`);
       }
     }
     return results;
@@ -151,7 +151,7 @@ class DataController {
         isEnabled: entry.isEnabled
       };
     } catch (error) {
-      console.warn(`[FlowLink] Ошибка расшифровки прокси ${proxyId}: ${error.message}`);
+      console.warn(`[FlowLink Proxy] Ошибка расшифровки прокси ${proxyId}: ${error.message}`);
       return null;
     }
   }
@@ -187,7 +187,7 @@ class DataController {
       port,
       username: encryptedUsername,
       password: encryptedPassword,
-      isActive: false,
+      isActive: true,
       isEnabled: true
     };
     await this._saveProxyTable(proxyTable);
@@ -315,8 +315,10 @@ class DataController {
   async addMask(proxyId, regexString) {
     await this._ensureReady();
     const maskId = generateId();
+    /* Punycode-конвертация IDN-доменов в маске */
+    const punycodeStr = convertMaskIdn(regexString);
     const maskTable = await this._loadMaskTable();
-    maskTable.push({ maskId, proxyId, regexString });
+    maskTable.push({ maskId, proxyId, regexString: punycodeStr });
     await this._saveMaskTable(maskTable);
     return maskId;
   }
@@ -329,12 +331,14 @@ class DataController {
    */
   async updateMask(maskId, regexString) {
     await this._ensureReady();
+    /* Punycode-конвертация IDN-доменов в маске */
+    const punycodeStr = convertMaskIdn(regexString);
     const maskTable = await this._loadMaskTable();
     const index = maskTable.findIndex(m => m.maskId === maskId);
     if (index === -1) {
       throw new Error(`Маска с ID ${maskId} не найдена`);
     }
-    maskTable[index].regexString = regexString;
+    maskTable[index].regexString = punycodeStr;
     await this._saveMaskTable(maskTable);
   }
 
@@ -350,6 +354,17 @@ class DataController {
     if (filtered.length === maskTable.length) {
       throw new Error(`Маска с ID ${maskId} не найдена`);
     }
+    await this._saveMaskTable(filtered);
+  }
+
+  /**
+   * Удаляет все маски для указанного прокси.
+   * @param {string} proxyId - UUID прокси.
+   */
+  async clearMasksByProxy(proxyId) {
+    await this._ensureReady();
+    const maskTable = await this._loadMaskTable();
+    const filtered = maskTable.filter(m => m.proxyId !== proxyId);
     await this._saveMaskTable(filtered);
   }
 

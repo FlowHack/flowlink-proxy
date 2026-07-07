@@ -1,17 +1,14 @@
 /**
  * @fileoverview
  * Контроллер прокси-маршрутизации FlowLink Proxy.
- * Управляет динамическим PAC-скриптом, кэшем масок, состоянием failover
- * и фоновым Health Check для обеспечения Strict Proxy Policy.
+ * Управляет динамическим PAC-скриптом, кэшем масок и состоянием failover
+ * для обеспечения Strict Proxy Policy.
  */
 
 import { MaskCache } from './mask-cache.js';
 
-/** Имя константы для chrome.alarms */
-const HEALTH_CHECK_ALARM = 'flowlink-health-check';
-
-/** Таймаут Health Check в миллисекундах */
-const HC_TIMEOUT_MS = 5000;
+/** Таймаут пинга прокси в миллисекундах */
+const PING_TIMEOUT_MS = 5000;
 
 /**
  * Контроллер прокси — центральный компонент сетевого стека.
@@ -43,17 +40,17 @@ class ProxyController {
     /** @private {boolean} Флаг готовности */
     this._ready = false;
 
-    /** @private {string|null} Текущий PAC-скрипт для восстановления после Health Check */
+    /** @private {string|null} Текущий PAC-скрипт для восстановления после пинга */
     this._currentPacScript = null;
-
-    /** @private {boolean} Флаг, предотвращающий параллельные Health Check */
-    this._healthCheckInProgress = false;
 
     /** @private {Promise<void>|null} Промис текущей пересборки */
     this._rebuildPromise = null;
 
     /** @private {Promise<void>|null} Замок для _testProxy — предотвращает конкурентные тесты PAC */
     this._testProxyLock = null;
+
+    /** @private {number|null} Safety timer для автовосстановления PAC после пинга из popup */
+    this._pingSafetyTimer = null;
   }
 
   /* ───── Инициализация ───── */
@@ -71,14 +68,25 @@ class ProxyController {
     try {
       /* Загружаем начальное состояние */
       this._extensionEnabled = await this._dc.getExtensionStatus();
+
+      /* Инициализируем failoverState из isActive (только при старте — чтобы не сбросить
+       * блокировку при конкурентном handleFailover во время refresh) */
+      const allProxies = await this._dc.getAllProxies();
+      this._failoverState.clear();
+      for (const proxy of allProxies) {
+        if (!proxy.isActive) {
+          this._failoverState.set(proxy.proxyId, true);
+        }
+      }
+
       await this._rebuildAll();
 
-      /* Регистрируем периодический Health Check (каждые 30 секунд) */
-      chrome.alarms.create(HEALTH_CHECK_ALARM, { periodInMinutes: 0.5 });
-
       this._ready = true;
+
+      /* Регистрируем монитор навигации по маскированным сайтам */
+      this._registerTabMonitor();
     } catch (error) {
-      console.error('[FlowLink] Ошибка инициализации ProxyController:', error);
+      console.error('[FlowLink Proxy] Ошибка инициализации ProxyController:', error);
       throw error;
     }
   }
@@ -116,11 +124,11 @@ class ProxyController {
         const enabledProxies = proxies.filter(p => p.isEnabled);
         this._maskCache.build(enabledProxies, masks);
 
-        /* Инициализируем failoverState из isActive */
-        this._failoverState.clear();
-        for (const proxy of proxies) {
-          if (!proxy.isActive) {
-            this._failoverState.set(proxy.proxyId, true);
+        /* Очищаем устаревшие записи failover (для удалённых прокси) */
+        const activeProxyIds = new Set(proxies.map(p => p.proxyId));
+        for (const proxyId of this._failoverState.keys()) {
+          if (!activeProxyIds.has(proxyId)) {
+            this._failoverState.delete(proxyId);
           }
         }
 
@@ -130,7 +138,7 @@ class ProxyController {
 
       await this._rebuildPromise;
     } catch (rebuildError) {
-      console.error('[FlowLink] Ошибка пересборки PAC:', rebuildError);
+      console.error('[FlowLink Proxy] Ошибка пересборки PAC:', rebuildError);
     } finally {
       this._rebuildPromise = null;
     }
@@ -201,7 +209,7 @@ class ProxyController {
         scope: 'regular'
       });
     } catch (error) {
-      console.error('[FlowLink] Ошибка применения PAC-скрипта:', error);
+      console.error('[FlowLink Proxy] Ошибка применения PAC-скрипта:', error);
     }
   }
 
@@ -228,7 +236,7 @@ class ProxyController {
         scope: 'regular'
       });
     } catch (error) {
-      console.error('[FlowLink] Ошибка отключения прокси:', error);
+      console.error('[FlowLink Proxy] Ошибка отключения прокси:', error);
     }
   }
 
@@ -252,6 +260,60 @@ class ProxyController {
     }
   }
 
+  /* ───── Ping из popup (временная установка прокси) ───── */
+
+  /**
+   * Временно устанавливает фиксированный SOCKS5 прокси для пинга из popup.
+   * После вызова restoreProxy() или через 10 секунд safety timer
+   * восстанавливает основной PAC-скрипт.
+   *
+   * @param {string} host - IP прокси.
+   * @param {number} port - Порт прокси.
+   */
+  async setTestProxy(host, port) {
+    /* Отменяем предыдущий safety timer, если есть */
+    if (this._pingSafetyTimer) {
+      clearTimeout(this._pingSafetyTimer);
+      this._pingSafetyTimer = null;
+    }
+
+    try {
+      await chrome.proxy.settings.set({
+        value: {
+          mode: 'fixed_servers',
+          rules: {
+            singleProxy: {
+              scheme: 'socks5',
+              host,
+              port
+            }
+          }
+        },
+        scope: 'regular'
+      });
+    } catch (error) {
+      console.error('[FlowLink Proxy] Ошибка установки тестового прокси:', error);
+    }
+
+    /* Safety timer: автовосстановление через 10 секунд */
+    this._pingSafetyTimer = setTimeout(() => {
+      this._pingSafetyTimer = null;
+      this.restoreProxy();
+    }, 10000);
+  }
+
+  /**
+   * Восстанавливает основной PAC-скрипт после пинга из popup.
+   * Отменяет safety timer.
+   */
+  async restoreProxy() {
+    if (this._pingSafetyTimer) {
+      clearTimeout(this._pingSafetyTimer);
+      this._pingSafetyTimer = null;
+    }
+    await this._applyCurrentPac();
+  }
+
   /* ───── Failover ───── */
 
   /**
@@ -264,7 +326,9 @@ class ProxyController {
     this._failoverState.set(proxyId, true);
 
     /* Асинхронно сохраняем статус в DataController */
-    this._dc.updateProxy(proxyId, { isActive: false }).catch(() => {});
+    this._dc.updateProxy(proxyId, { isActive: false }).catch(err => {
+      console.warn('[FlowLink Proxy] Не удалось сохранить статус failover:', err);
+    });
 
     this._showNotification(proxyId, true);
     await this._buildAndApplyPac();
@@ -279,110 +343,141 @@ class ProxyController {
     if (!this._failoverState.get(proxyId)) return; /* Уже активен */
     this._failoverState.set(proxyId, false);
 
-    this._dc.updateProxy(proxyId, { isActive: true }).catch(() => {});
+    this._dc.updateProxy(proxyId, { isActive: true }).catch(err => {
+      console.warn('[FlowLink Proxy] Не удалось сохранить статус восстановления:', err);
+    });
 
     this._showNotification(proxyId, false);
     await this._buildAndApplyPac();
   }
 
-  /* ───── Health Check ───── */
+  /* ───── Health Check (удалён — заменён событийным пингом) ───── */
+
+  /* ───── Тест прокси через реальную вкладку браузера ───── */
 
   /**
-   * Запускает проверку всех прокси (активных и заблокированных).
-   * Вызывается по аларму каждые 30 секунд.
-   * - Заблокированные прокси: если тест успешен → восстановление.
-   * - Активные прокси: если тест не удался → failover (блокировка).
-   * Предотвращает параллельные запуски через _healthCheckInProgress.
+   * @private Создаёт временную вкладку и навигирует на тестовый URL.
+   * Вкладка — полноценный browser request, который:
+   * - Уважает chrome.proxy.settings
+   * - Использует кэшированные credentials SOCKS5 (или показывает диалог Chrome)
+   *
+   * @returns {Promise<boolean>} true, если тест пройден.
    */
-  async runHealthCheck() {
-    if (this._healthCheckInProgress) return;
-    if (!this._ready) return;
-    this._healthCheckInProgress = true;
+  async _testProxyViaTab() {
+    const TEST_URL = 'https://connectivitycheck.gstatic.com/generate_204';
 
-    try {
-      const proxies = await this._dc.getAllProxies();
-      if (!proxies || proxies.length === 0) return;
+    return new Promise((resolve) => {
+      let settled = false;
+      let targetTabId = null;
+      let timeoutId = null;
 
-      for (const proxy of proxies) {
-        const proxyId = proxy.proxyId;
-        const isBlocked = this._failoverState.get(proxyId) || false;
+      /**
+       * Регистрируем onUpdated ДО создания вкладки, чтобы не пропустить
+       * событие complete, если Chrome обработает навигацию быстрее колбэка create.
+       */
+      function onUpdated(tabId, changeInfo, tabInfo) {
+        if (settled) return;
+        /* Пропускаем about:blank и вкладки без URL */
+        if (!tabInfo.url || tabInfo.url === 'about:blank') return;
 
-        const proxyConfig = this._maskCache.getProxyConfig(proxyId);
-        if (!proxyConfig) continue;
-
-        const isAlive = await this._testProxy(proxyConfig.host, proxyConfig.port);
-
-        if (isBlocked && isAlive) {
-          /* Был заблокирован — теперь доступен */
-          await this._handleRecovery(proxyId);
-        } else if (!isBlocked && !isAlive) {
-          /* Был активен — теперь недоступен */
-          await this.handleFailover(proxyId);
+        /* Если targetTabId ещё не назначен, идентифицируем вкладку по URL */
+        if (targetTabId === null) {
+          if (tabInfo.url === TEST_URL) targetTabId = tabId;
+          else return;
         }
+        if (tabId !== targetTabId || changeInfo.status !== 'complete') return;
+
+        settled = true;
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        if (timeoutId) clearTimeout(timeoutId);
+        /* Вкладка успешно загрузила тестовый URL — прокси работает */
+        chrome.tabs.remove(tabId).catch(() => {});
+        resolve(true);
       }
-    } catch (error) {
-      console.error('[FlowLink] Ошибка Health Check:', error);
-    } finally {
-      this._healthCheckInProgress = false;
-    }
+
+      chrome.tabs.onUpdated.addListener(onUpdated);
+
+      chrome.tabs.create({ url: TEST_URL, active: false }, (tab) => {
+        if (chrome.runtime.lastError) {
+          settled = true;
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          resolve(false);
+          return;
+        }
+
+        targetTabId = tab.id;
+
+        timeoutId = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          chrome.tabs.remove(targetTabId).catch(() => {});
+          resolve(false);
+        }, PING_TIMEOUT_MS);
+      });
+    });
   }
 
   /**
-   * @private Проверяет доступность прокси через fetch с таймаутом.
+   * @private Проверяет доступность прокси через реальную вкладку браузера.
    *
-   * Временно устанавливает минимальный PAC-скрипт, направляющий
-   * http://detectportal.firefox.com/success.txt через целевой прокси.
+   * Временно устанавливает фиксированный SOCKS5 прокси
+   * (fixed_servers) для всего трафика.
    * После проверки восстанавливает основной PAC-скрипт.
    *
-   * Использует AbortController для принудительного таймаута в 5 секунд.
+   * Вкладка браузера — единственный способ выполнить запрос,
+   * который гарантированно проходит через chrome.proxy.settings
+   * и корректно обрабатывает SOCKS5-аутентификацию (через диалог Chrome).
    *
    * @param {string} host - IP прокси-сервера.
    * @param {number} port - Порт прокси-сервера.
    * @returns {Promise<boolean>} true, если прокси доступен.
    */
   async _testProxy(host, port) {
+    /* Если расширение выключено — не пингуем */
+    if (!this._extensionEnabled) return false;
+    /* Если popup тестирует прокси, не трогаем настройки — пропускаем */
+    if (this._pingSafetyTimer) return false;
+
     /* Ожидаем освобождения замка (последовательный доступ к PAC) */
     while (this._testProxyLock) {
       await this._testProxyLock;
     }
 
-    const testPacScript = [
-      'function FindProxyForURL(url, host) {',
-      `  if (host === 'detectportal.firefox.com') return 'SOCKS5 ${host}:${port}';`,
-      "  return 'DIRECT';",
-      '}'
-    ].join('\n');
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), HC_TIMEOUT_MS);
-
     /** Устанавливаем замок — сохраняем промис текущего теста */
     this._testProxyLock = (async () => {
       try {
-        /* Временно применяем тестовый PAC */
+        /* Временно применяем фиксированный SOCKS5 прокси (без PAC) */
         await chrome.proxy.settings.set({
           value: {
-            mode: 'pac_script',
-            pacScript: { data: testPacScript }
+            mode: 'fixed_servers',
+            rules: {
+              singleProxy: {
+                scheme: 'socks5',
+                host,
+                port
+              }
+            }
           },
           scope: 'regular'
         });
 
-        const response = await fetch(
-          'http://detectportal.firefox.com/success.txt',
-          { signal: controller.signal }
-        );
+        /* Небольшая задержка для применения прокси */
+        await new Promise(r => setTimeout(r, 100));
 
-        return response.ok;
-      } catch {
+        /* Тест через реальную вкладку браузера */
+        const result = await this._testProxyViaTab();
+
+        return result;
+      } catch (err) {
+        console.warn('[FlowLink Proxy] Ошибка теста прокси:', err);
         return false;
       } finally {
-        clearTimeout(timeoutId);
-        /* Восстанавливаем основной PAC (с try/catch, чтобы не потерять тестовый PAC) */
+        /* Восстанавливаем основной PAC */
         try {
           await this._applyCurrentPac();
         } catch (restoreError) {
-          console.error('[FlowLink] Ошибка восстановления PAC после теста:', restoreError);
+          console.error('[FlowLink Proxy] Ошибка восстановления прокси после теста:', restoreError);
         }
       }
     })();
@@ -415,12 +510,12 @@ class ProxyController {
     try {
       await chrome.notifications.create(`flowlink-failover-${proxyId}`, {
         type: 'basic',
-        iconUrl: 'icons/icon48.png',
+        iconUrl: chrome.runtime.getURL('icons/icon48.png'),
         title: 'FlowLink Proxy — Внимание',
         message
       });
     } catch (error) {
-      console.warn('[FlowLink] Ошибка показа уведомления:', error);
+      console.warn('[FlowLink Proxy] Ошибка показа уведомления:', error);
     }
   }
 
@@ -437,6 +532,7 @@ class ProxyController {
   async pingProxy(proxyId) {
     const proxy = await this._dc.getProxy(proxyId);
     if (!proxy) throw new Error(`Прокси с ID ${proxyId} не найден`);
+    if (!this._extensionEnabled) return { proxyId, alive: false, latency: null };
 
     const startTime = performance.now();
     const alive = await this._testProxy(proxy.host, proxy.port);
@@ -457,6 +553,61 @@ class ProxyController {
       results.push(result);
     }
     return results;
+  }
+
+  /* ───── Монитор навигации по маскированным сайтам ───── */
+
+  /**
+   * @private Регистрирует chrome.tabs.onUpdated для автоматической проверки
+   * прокси при входе пользователя на сайт, совпадающий с маской.
+   * Если прокси мёртв — триггерит failover (блокировку трафика через PAC).
+   */
+  _registerTabMonitor() {
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      /* Ждём полной загрузки страницы */
+      if (changeInfo.status !== 'complete') return;
+      if (!tab.url || tab.url === 'about:blank') return;
+      if (!this._ready || !this._extensionEnabled) return;
+
+      /* Ищем маску, совпадающую с URL вкладки */
+      const rules = this._maskCache.rules;
+      for (let i = 0; i < rules.length; i++) {
+        const rule = rules[i];
+        try {
+          if (!new RegExp(rule.regexString).test(tab.url)) continue;
+        } catch {
+          continue;
+        }
+
+        /* Маска совпала — проверяем состояние прокси */
+        const proxyId = rule.proxyId;
+        if (this._failoverState.get(proxyId)) {
+          /* Уже заблокирован — PAC вернёт 0.0.0.0:9, ничего не делаем */
+          return;
+        }
+
+        /* Прокси активен — проверяем жив ли он; тест запускаем без ожидания */
+        this._checkProxyOnMaskMatch(proxyId).catch(err => {
+          console.warn('[FlowLink Proxy] Ошибка проверки прокси по маске:', err);
+        });
+        return;
+      }
+    });
+  }
+
+  /**
+   * @private Проверяет прокси при совпадении маски.
+   * Если прокси недоступен — триггерит failover (блокировка).
+   * @param {string} proxyId
+   */
+  async _checkProxyOnMaskMatch(proxyId) {
+    const proxyConfig = this._maskCache.getProxyConfig(proxyId);
+    if (!proxyConfig) return;
+
+    const alive = await this._testProxy(proxyConfig.host, proxyConfig.port);
+    if (!alive) {
+      await this.handleFailover(proxyId);
+    }
   }
 
   /* ───── Публичные геттеры для интеграции с UI ───── */

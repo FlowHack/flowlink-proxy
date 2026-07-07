@@ -47,4 +47,51 @@ function isValidIP(ip) {
   return IP_REGEX.test(ip);
 }
 
-export { STORAGE_KEYS, generateId, isValidPort, isValidIP };
+/**
+ * Преобразует IDN-домены (с кириллицей и другими не-ASCII символами)
+ * в Punycode-формат внутри строки регулярного выражения маски.
+ * Например: ".*\\.сайт\\.рф" → ".*\\.xn--80aswg\\.xn--p1ai"
+ *
+ * Алгоритм:
+ * 1. Заменяет экранированные точки (\\.) на маркер, чтобы не разбить escape-последовательность
+ * 2. Разбивает остаток по реальным точкам
+ * 3. Каждый сегмент с не-ASCII символами пытается преобразовать через new URL()
+ * 4. Собирает результат обратно
+ *
+ * @param {string} mask - Строка регулярного выражения маски.
+ * @returns {string} Маска с Punycode-преобразованными IDN-доменами.
+ */
+function convertMaskIdn(mask) {
+  /* Если нет не-ASCII символов — возврат без изменений */
+  if (!/[^\x20-\x7E]/.test(mask)) return mask;
+
+  try {
+    /* Маркер для экранированных точек */
+    const ED = '\x00ED\x00';
+    const withMarkers = mask.replace(/\\\./g, ED);
+
+    /* Разбиваем по незаэкранированным точкам */
+    const parts = withMarkers.split('.');
+    const converted = parts.map(part => {
+      /* Если нет не-ASCII — пропускаем */
+      if (!/[^\x20-\x7E]/.test(part)) return part;
+
+      try {
+        /* Пытаемся декодировать как IDN-метку */
+        const url = new URL('http://' + part);
+        return url.hostname;
+      } catch {
+        /* Не удалось — оставляем как есть */
+        return part;
+      }
+    });
+
+    /* Склеиваем обратно и восстанавливаем экранированные точки */
+    return converted.join('.').split(ED).join('\\.');
+  } catch {
+    /* Любая ошибка парсинга — возвращаем исходную маску */
+    return mask;
+  }
+}
+
+export { STORAGE_KEYS, generateId, isValidPort, isValidIP, convertMaskIdn };

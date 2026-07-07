@@ -2,8 +2,7 @@
  * @fileoverview
  * Точка входа Service Worker расширения FlowLink Proxy.
  * Инициализирует DataController, ProxyController и MessageRouter при старте SW.
- * Регистрирует глобальные обработчики: chrome.alarms (Health Check),
- * chrome.notifications (клик по уведомлению).
+ * Регистрирует глобальный обработчик chrome.notifications (клик по уведомлению).
  *
  * ВАЖНО: MessageRouter.init() вызывается на каждый старт Service Worker,
  * а НЕ только внутри onInstalled. В MV3 onInstalled не гарантирован
@@ -30,7 +29,7 @@ const initPromise = (async () => {
     await dataController.init();
     await proxyController.init(dataController);
   } catch (error) {
-    console.error('[FlowLink] Ошибка инициализации:', error);
+    console.error('[FlowLink Proxy] Ошибка инициализации:', error);
   }
 })();
 
@@ -44,20 +43,7 @@ messageRouter.init(initPromise);
  */
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    console.log('[FlowLink] Расширение установлено');
-  }
-});
-
-/**
- * Обработчик алармов — запускает Health Check для заблокированных прокси.
- */
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'flowlink-health-check') {
-    try {
-      await proxyController.runHealthCheck();
-    } catch (error) {
-      console.error('[FlowLink] Ошибка Health Check:', error);
-    }
+    console.log('[FlowLink Proxy] Расширение установлено');
   }
 });
 

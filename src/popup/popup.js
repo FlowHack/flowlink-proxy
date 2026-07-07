@@ -64,21 +64,22 @@ async function loadAndRender() {
     proxies = await sendMessage(MESSAGES.GET_ALL_PROXIES);
     state.proxies = proxies;
   } catch (error) {
-    console.error('[FlowLink] Ошибка загрузки прокси:', error);
+    console.error('[FlowLink Proxy] Ошибка загрузки прокси:', error);
   }
 
   try {
     extensionEnabled = await sendMessage(MESSAGES.GET_EXTENSION_STATUS);
   } catch (error) {
-    console.error('[FlowLink] Ошибка загрузки статуса:', error);
+    console.error('[FlowLink Proxy] Ошибка загрузки статуса:', error);
   }
 
   try {
     tabStatus = await sendMessage(MESSAGES.GET_CURRENT_TAB_STATUS);
   } catch (error) {
-    console.error('[FlowLink] Ошибка загрузки статуса вкладки:', error);
+    console.error('[FlowLink Proxy] Ошибка загрузки статуса вкладки:', error);
   }
 
+  renderVersion();
   renderGlobalToggle(extensionEnabled);
   renderStatusBar(tabStatus);
   renderProxyList(proxies);
@@ -92,9 +93,20 @@ async function loadAndRender() {
     _loadFailed = false;
     errorEl.classList.add('hidden');
   }
+
+  /* Авто-пинг при открытии popup (только если расширение включено) */
+  if (extensionEnabled && proxies.length > 0) {
+    handlePingAll();
+  }
 }
 
 /* ───── Рендер ───── */
+
+function renderVersion() {
+  const el = document.getElementById('version-text');
+  const manifest = chrome.runtime.getManifest();
+  el.textContent = `Версия: ${manifest.version}`;
+}
 
 /**
  * Рендерит глобальный переключатель расширения.
@@ -202,7 +214,7 @@ function attachGlobalListeners() {
     try {
       await sendMessage(MESSAGES.SET_EXTENSION_STATUS, { enabled: e.target.checked });
     } catch (error) {
-      console.error('[FlowLink] Ошибка переключения расширения:', error);
+      console.error('[FlowLink Proxy] Ошибка переключения расширения:', error);
       e.target.checked = !e.target.checked;
     }
   });
@@ -230,17 +242,13 @@ function attachGlobalListeners() {
   /* Модал масок */
   document.getElementById('btn-masks-close').addEventListener('click', closeModal);
   document.getElementById('btn-add-mask').addEventListener('click', () => openAddMaskModal());
+  document.getElementById('btn-clear-masks').addEventListener('click', handleClearMasks);
 
-  /* Модал маски */
-  document.getElementById('btn-mask-cancel').addEventListener('click', closeModal);
-  document.getElementById('btn-mask-save').addEventListener('click', handleSaveMask);
-
-  /* Закрытие модалок по клику на оверлей */
-  document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) closeModal();
-    });
+  /* Модал маски: Отмена → возврат к списку масок, а не на главный экран */
+  document.getElementById('btn-mask-cancel').addEventListener('click', () => {
+    document.getElementById('modal-mask').classList.add('hidden');
   });
+  document.getElementById('btn-mask-save').addEventListener('click', handleSaveMask);
 
   /* Закрытие по Escape */
   document.addEventListener('keydown', (e) => {
@@ -258,20 +266,20 @@ async function handlePingAll() {
   state.pingResults.clear();
 
   try {
-    /* Последовательный пинг — чтобы один отказавший не ломал все остальные */
+    /* Каждый прокси тестируем последовательно через SW (который создаёт вкладку) */
     for (const p of state.proxies) {
       try {
         const r = await sendMessage(MESSAGES.PING_PROXY, { proxyId: p.proxyId });
         state.pingResults.set(r.proxyId, { alive: r.alive, latency: r.latency });
       } catch (pingError) {
-        console.warn(`[FlowLink] Ошибка пинга прокси ${p.proxyId}:`, pingError);
+        console.warn(`[FlowLink Proxy] Ошибка пинга прокси ${p.proxyId}:`, pingError);
         state.pingResults.set(p.proxyId, { alive: false, latency: null });
       }
     }
 
     renderProxyList(state.proxies);
   } catch (error) {
-    console.error('[FlowLink] Ошибка пинга:', error);
+    console.error('[FlowLink Proxy] Ошибка пинга:', error);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Пинг всех';
@@ -295,7 +303,7 @@ async function handleToggleProxy(proxyId, itemEl) {
     const proxy = state.proxies.find(p => p.proxyId === proxyId);
     if (proxy) proxy.isEnabled = newState;
   } catch (error) {
-    console.error('[FlowLink] Ошибка переключения прокси:', error);
+    console.error('[FlowLink Proxy] Ошибка переключения прокси:', error);
     input.checked = !newState;
   }
 }
@@ -316,7 +324,7 @@ async function handleDeleteProxy(proxyId) {
     state.pingResults.delete(proxyId);
     renderProxyList(state.proxies);
   } catch (error) {
-    console.error('[FlowLink] Ошибка удаления:', error);
+    console.error('[FlowLink Proxy] Ошибка удаления:', error);
   }
 }
 
@@ -345,7 +353,7 @@ async function openEditProxyModal(proxyId) {
 
     showModal('modal-proxy');
   } catch (error) {
-    console.error('[FlowLink] Ошибка загрузки прокси:', error);
+    console.error('[FlowLink Proxy] Ошибка загрузки прокси:', error);
   }
 }
 
@@ -427,7 +435,7 @@ async function handleSaveProxy() {
     }
     closeModal();
   } catch (error) {
-    console.error('[FlowLink] Ошибка сохранения прокси:', error);
+    console.error('[FlowLink Proxy] Ошибка сохранения прокси:', error);
     /* Парсим ошибку и показываем в нужном поле */
     const msg = error.message;
     if (msg.includes('IP')) {
@@ -457,10 +465,15 @@ async function _refreshMaskList(proxyId) {
     const masks = await sendMessage(MESSAGES.GET_MASKS_BY_PROXY, { proxyId });
     const container = document.getElementById('mask-list');
 
+    const clearBtn = document.getElementById('btn-clear-masks');
+
     if (!masks || masks.length === 0) {
       container.innerHTML = '<div class="empty-state small">Нет масок</div>';
+      clearBtn.classList.add('hidden');
       return;
     }
+
+    clearBtn.classList.remove('hidden');
 
     container.innerHTML = masks.map(mask => `
       <div class="mask-item" data-mask-id="${mask.maskId}">
@@ -483,12 +496,27 @@ async function _refreshMaskList(proxyId) {
           await sendMessage(MESSAGES.DELETE_MASK, { maskId });
           await _refreshMaskList(proxyId);
         } catch (error) {
-          console.error('[FlowLink] Ошибка удаления маски:', error);
+          console.error('[FlowLink Proxy] Ошибка удаления маски:', error);
         }
       });
     });
   } catch (error) {
-    console.error('[FlowLink] Ошибка загрузки масок:', error);
+    console.error('[FlowLink Proxy] Ошибка загрузки масок:', error);
+  }
+}
+
+/**
+ * Удаляет все маски текущего прокси.
+ */
+async function handleClearMasks() {
+  if (!state.masksProxyId) return;
+  if (!confirm('Удалить все маски для этого прокси?')) return;
+
+  try {
+    await sendMessage(MESSAGES.CLEAR_MASKS, { proxyId: state.masksProxyId });
+    await _refreshMaskList(state.masksProxyId);
+  } catch (error) {
+    console.error('[FlowLink Proxy] Ошибка очистки масок:', error);
   }
 }
 
@@ -522,11 +550,42 @@ function openEditMaskModal(maskId, regexString) {
 }
 
 /**
+ * Авто-экранирует пользовательский ввод в regex.
+ * - Экранирует точки (\.), если они не экранированы
+ * - Конвертирует * в .* (glob-стиль)
+ *
+ * @param {string} str - Ввод пользователя.
+ * @returns {string} Строка, безопасная для new RegExp().
+ */
+function autoEscapeMaskInput(str) {
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    const next = str[i + 1];
+
+    if (ch === '\\' && next === '.') {
+      /* Уже экранировано — пропускаем оба символа */
+      result += '\\.';
+      i++;
+    } else if (ch === '.') {
+      /* Неэкранированная точка — экранируем */
+      result += '\\.';
+    } else if (ch === '*') {
+      /* Glob wildcard — конвертируем в regex */
+      result += '.*';
+    } else {
+      result += ch;
+    }
+  }
+  return result;
+}
+
+/**
  * Обработчик сохранения маски.
  * Проверяет на конфликты с другими масками.
  */
 async function handleSaveMask() {
-  const regexString = document.getElementById('mask-input').value.trim();
+  let regexString = document.getElementById('mask-input').value.trim();
   const errorEl = document.getElementById('mask-error');
   errorEl.classList.add('hidden');
 
@@ -536,10 +595,16 @@ async function handleSaveMask() {
     return;
   }
 
+  /* Авто-экранирование: упрощает ввод для не-regex пользователей */
+  const autoEscaped = autoEscapeMaskInput(regexString);
+
   try {
     /* Валидация: проверяем что RegExp компилируется */
-    new RegExp(regexString);
+    new RegExp(autoEscaped);
+    /* Если авто-экранирование изменило строку — используем его, иначе оригинал */
+    regexString = autoEscaped;
   } catch {
+    /* Авто-экранирование не помогло — показываем ошибку */
     errorEl.textContent = 'Неверное регулярное выражение';
     errorEl.classList.remove('hidden');
     return;
@@ -557,7 +622,7 @@ async function handleSaveMask() {
       return;
     }
   } catch (error) {
-    console.warn('[FlowLink] Ошибка проверки конфликта маски:', error);
+    console.warn('[FlowLink Proxy] Ошибка проверки конфликта маски:', error);
   }
 
   try {
@@ -573,8 +638,9 @@ async function handleSaveMask() {
       });
     }
 
-    /* Обновляем список масок без закрытия всего модала */
+    /* Возвращаемся к списку масок и обновляем его */
     if (state.masksProxyId) {
+      showModal('modal-masks');
       await _refreshMaskList(state.masksProxyId);
     }
   } catch (error) {

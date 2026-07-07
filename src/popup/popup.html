@@ -37,6 +37,12 @@
 
     <!-- Кнопка добавления -->
     <button id="btn-add-proxy" class="btn-add">+ Добавить прокси</button>
+
+    <!-- Пожертвования -->
+    <a class="donation-link" href="https://yoomoney.ru/to/4100119569298015" target="_blank" rel="noopener" title="Поддержать проект">❤ Поддержать проект</a>
+
+    <!-- Версия -->
+    <div id="version-text" class="version-text"></div>
   </div>
 
   <!-- ========== Модал: Добавление/редактирование прокси ========== -->
@@ -66,9 +72,14 @@
   <!-- ========== Модал: Управление масками ========== -->
   <div id="modal-masks" class="modal-overlay hidden">
     <div class="modal">
-      <h2 id="modal-masks-title" class="modal-title">Маски</h2>
-      <div id="modal-masks-subtitle" class="modal-subtitle"></div>
-      <div class="modal-body">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-masks-title" class="modal-title">Маски</h2>
+          <div id="modal-masks-subtitle" class="modal-subtitle"></div>
+        </div>
+        <button id="btn-clear-masks" class="btn btn-sm btn-danger hidden">Очистить</button>
+      </div>
+      <div class="modal-body modal-body--masks">
         <div id="mask-list" class="mask-list">
           <div id="mask-empty" class="empty-state small">Нет масок</div>
         </div>

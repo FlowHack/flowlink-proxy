@@ -70,7 +70,7 @@ class MaskCache {
           });
         } catch (error) {
           console.warn(
-            `[FlowLink] Невалидная маска ${mask.maskId}: "${mask.regexString}" — ${error.message}`
+            `[FlowLink Proxy] Невалидная маска ${mask.maskId}: "${mask.regexString}" — ${error.message}`
           );
         }
       }

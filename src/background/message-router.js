@@ -41,7 +41,7 @@ class MessageRouter {
     this._initialized = true;
     this._readyPromise = readyPromise || Promise.resolve();
 
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       this._handle(message, sendResponse);
       return true; /* Асинхронный ответ */
     });
@@ -117,6 +117,12 @@ class MessageRouter {
           sendResponse({ success: true });
           break;
 
+        case MESSAGES.CLEAR_MASKS:
+          await this._dc.clearMasksByProxy(message.data.proxyId);
+          await this._pc.refresh();
+          sendResponse({ success: true });
+          break;
+
         case MESSAGES.GET_EXTENSION_STATUS:
           sendResponse({ success: true, data: await this._dc.getExtensionStatus() });
           break;
@@ -128,6 +134,20 @@ class MessageRouter {
 
         case MESSAGES.PING_PROXY:
           sendResponse({ success: true, data: await this._pc.pingProxy(message.data.proxyId) });
+          break;
+
+        case MESSAGES.PING_ALL:
+          sendResponse({ success: true, data: await this._pc.pingAllProxies() });
+          break;
+
+        case MESSAGES.PING_PROXY_SETUP:
+          await this._pc.setTestProxy(message.data.host, message.data.port);
+          sendResponse({ success: true });
+          break;
+
+        case MESSAGES.PING_PROXY_CLEANUP:
+          await this._pc.restoreProxy();
+          sendResponse({ success: true });
           break;
 
         case MESSAGES.GET_CURRENT_TAB_STATUS:
@@ -181,7 +201,7 @@ class MessageRouter {
         blocked
       };
     } catch (error) {
-      console.warn('[FlowLink] Ошибка определения статуса вкладки:', error);
+      console.warn('[FlowLink Proxy] Ошибка определения статуса вкладки:', error);
       return { hasTab: true, status: 'allowed', domain: null, proxyHost: null };
     }
   }
