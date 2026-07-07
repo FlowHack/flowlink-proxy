@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowLink Proxy</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- Шапка -->
+    <header class="header">
+      <h1 class="title">FlowLink Proxy</h1>
+      <label class="switch" id="global-toggle" title="Вкл/Выкл расширение">
+        <input type="checkbox" id="global-toggle-input">
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <!-- Статус текущего сайта -->
+    <div id="status-bar" class="status-bar hidden">
+      <span id="status-icon" class="status-icon">&#9679;</span>
+      <span id="status-text" class="status-text"></span>
+      <button id="btn-ping-all" class="btn-small">Пинг всех</button>
+    </div>
+
+    <!-- Ошибка соединения с SW -->
+    <div id="error-state" class="error-state hidden">
+      <span>Ошибка соединения с сервис-воркером</span>
+      <button id="btn-retry" class="btn-small">Повторить</button>
+    </div>
+
+    <!-- Список прокси -->
+    <div id="proxy-list" class="proxy-list">
+      <div id="empty-state" class="empty-state">Нет добавленных прокси</div>
+    </div>
+
+    <!-- Кнопка добавления -->
+    <button id="btn-add-proxy" class="btn-add">+ Добавить прокси</button>
+  </div>
+
+  <!-- ========== Модал: Добавление/редактирование прокси ========== -->
+  <div id="modal-proxy" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="modal-proxy-title" class="modal-title">Добавить прокси</h2>
+      <div class="modal-body">
+        <input id="proxy-ip" class="input" type="text" placeholder="IP адрес" autocomplete="off">
+        <div id="proxy-ip-error" class="field-error hidden"></div>
+
+        <input id="proxy-port" class="input" type="number" placeholder="Порт" min="1" max="65535">
+        <div id="proxy-port-error" class="field-error hidden"></div>
+
+        <input id="proxy-username" class="input" type="text" placeholder="Логин" autocomplete="off">
+        <div id="proxy-username-error" class="field-error hidden"></div>
+
+        <input id="proxy-password" class="input" type="password" placeholder="Пароль" autocomplete="off">
+        <div id="proxy-password-error" class="field-error hidden"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-proxy-cancel" class="btn btn-secondary">Отменить</button>
+        <button id="btn-proxy-save" class="btn btn-primary">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Модал: Управление масками ========== -->
+  <div id="modal-masks" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="modal-masks-title" class="modal-title">Маски</h2>
+      <div id="modal-masks-subtitle" class="modal-subtitle"></div>
+      <div class="modal-body">
+        <div id="mask-list" class="mask-list">
+          <div id="mask-empty" class="empty-state small">Нет масок</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-add-mask" class="btn btn-primary">+ Добавить маску</button>
+        <button id="btn-masks-close" class="btn btn-secondary">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Модал: Добавление/редактирование маски ========== -->
+  <div id="modal-mask" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="modal-mask-title" class="modal-title">Добавить маску</h2>
+      <div class="modal-body">
+        <input id="mask-input" class="input" type="text" placeholder="Регулярное выражение" autocomplete="off">
+        <div id="mask-error" class="field-error hidden"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-mask-cancel" class="btn btn-secondary">Отменить</button>
+        <button id="btn-mask-save" class="btn btn-primary">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

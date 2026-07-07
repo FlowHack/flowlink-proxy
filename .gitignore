@@ -1,0 +1,22 @@
+# --- Локальные настройки и среда ---
+.idea/
+.vscode/
+*.iml
+.gradle/
+build/
+dist/
+node_modules/
+
+# --- Конфиденциальные данные и папка агентов ---
+/myAgents/
+AI_DEV_LOG.md
+AGENTS.md
+
+# --- Системные файлы ---
+.DS_Store
+Thumbs.db
+
+# --- Окружение ---
+.env
+*.local
+*.secret

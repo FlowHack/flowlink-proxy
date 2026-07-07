@@ -1,0 +1,468 @@
+/* ───── Сброс и база ───── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0d0d1a;
+  --bg-surface: #1a1a2e;
+  --bg-surface-hover: #222244;
+  --bg-input: #16213e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #999;
+  --text-muted: #666;
+  --accent-red: #e74c3c;
+  --accent-red-hover: #c0392b;
+  --accent-green: #2ecc71;
+  --accent-green-dim: #1a8c4a;
+  --accent-orange: #e67e22;
+  --border: #2a2a4a;
+  --danger: #ff4444;
+  --switch-bg-off: #c0392b;
+  --switch-bg-on: #2ecc71;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --popup-width: 420px;
+}
+
+body {
+  width: var(--popup-width);
+  min-height: 300px;
+  max-height: 600px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  overflow-x: hidden;
+  user-select: none;
+}
+
+/* ───── Шапка ───── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-red);
+  letter-spacing: 0.5px;
+}
+
+/* ───── Переключатель (switch) ───── */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  background: var(--switch-bg-off);
+  border-radius: 24px;
+  transition: background 0.2s;
+}
+
+.slider::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.switch input:checked + .slider {
+  background: var(--switch-bg-on);
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(18px);
+}
+
+/* ───── Статус-бар ───── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.status-bar.hidden {
+  display: none;
+}
+
+.status-icon {
+  font-size: 10px;
+}
+
+.status-text {
+  flex: 1;
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-small:hover {
+  background: var(--bg-surface-hover);
+}
+
+.btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ───── Ошибка соединения ───── */
+.error-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(231, 76, 60, 0.15);
+  border-bottom: 1px solid var(--accent-red);
+  font-size: 13px;
+  color: var(--accent-red);
+}
+
+.error-state.hidden {
+  display: none;
+}
+
+/* ───── Список прокси ───── */
+.proxy-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.empty-state.small {
+  padding: 12px 8px;
+  font-size: 13px;
+}
+
+/* ───── Элемент прокси ───── */
+.proxy-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.proxy-item:hover {
+  background: var(--bg-surface);
+}
+
+.proxy-item .switch {
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.proxy-item .switch .slider::before {
+  width: 14px;
+  height: 14px;
+}
+
+.proxy-item .switch input:checked + .slider::before {
+  transform: translateX(16px);
+}
+
+.proxy-toggle {
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 4px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.btn-icon.edit-icon {
+  font-size: 15px;
+}
+
+.btn-icon.delete-icon {
+  color: var(--danger);
+}
+
+.btn-icon.delete-icon:hover {
+  color: #ff6666;
+  background: rgba(255, 68, 68, 0.15);
+}
+
+.proxy-ip {
+  flex: 1;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-primary);
+  padding: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proxy-ip:hover {
+  color: var(--accent-red);
+}
+
+.proxy-ping {
+  flex-shrink: 0;
+  font-size: 12px;
+  min-width: 40px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.ping-ok {
+  color: var(--accent-green);
+}
+
+.ping-fail {
+  color: var(--accent-red);
+}
+
+/* ───── Кнопка добавления ───── */
+.btn-add {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 12px 16px;
+  padding: 10px 0;
+  background: var(--accent-red);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-add:hover {
+  background: var(--accent-red-hover);
+}
+
+/* ───── Модальные окна ───── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 380px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent-red);
+  padding: 16px 16px 0;
+}
+
+.modal-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 16px 0;
+}
+
+.modal-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+/* ───── Поля ввода ───── */
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--accent-red);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ───── Ошибки полей ───── */
+.field-error {
+  font-size: 12px;
+  color: var(--accent-red);
+  padding: 2px 4px;
+}
+
+.field-error.hidden {
+  display: none;
+}
+
+/* ───── Кнопки ───── */
+.btn {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-red);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-red-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+}
+
+/* ───── Список масок ───── */
+.mask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mask-item:last-child {
+  border-bottom: none;
+}
+
+.mask-text {
+  flex: 1;
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 0;
+  word-break: break-all;
+}
+
+.mask-text:hover {
+  color: var(--accent-red);
+}
+
+.mask-delete {
+  flex-shrink: 0;
+}
+
+.mask-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* ───── Скроллбар ───── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
