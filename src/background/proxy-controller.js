@@ -82,6 +82,9 @@ class ProxyController {
       await this._rebuildAll();
 
       this._ready = true;
+
+      /* Прогрев кэша SOCKS5 credentials — чтобы PAC не выдавал ERR_SOCKS_CONNECTION_FAILED */
+      this._warmCredentials();
     } catch (error) {
       console.error('[FlowLink Proxy] Ошибка инициализации ProxyController:', error);
       throw error;
@@ -252,6 +255,8 @@ class ProxyController {
 
     if (enabled) {
       await this._buildAndApplyPac();
+      /* Прогрев credentials после применения PAC */
+      this._warmCredentials();
     } else {
       await this._disableProxy();
     }
@@ -486,6 +491,34 @@ class ProxyController {
       return await this._testProxyLock;
     } finally {
       this._testProxyLock = null;
+    }
+  }
+
+  /* ───── Прогрев кэша SOCKS5 credentials ───── */
+
+  /**
+   * @private Прогревает кэш SOCKS5 credentials для включённых прокси.
+   * Вызывается после применения PAC (init, включение расширения).
+   * Без прогрева Chrome не имеет кэшированных credentials для SOCKS5,
+   * и PAC-скрипт получает ERR_SOCKS_CONNECTION_FAILED при первом запросе.
+   *
+   * Тест через _testProxy создаёт временную fixed_servers + вкладку,
+   * Chrome кэширует credentials для host:port, и PAC начинает работать.
+   *
+   * Прогрев бесшумный: вкладка active:false, закрывается за <1c.
+   * Ошибки прогрева не фатальны — пользователь увидит ошибку и нажмёт «Пинг».
+   */
+  async _warmCredentials() {
+    try {
+      const proxies = await this._dc.getAllProxies();
+      for (const proxy of proxies) {
+        if (proxy.isEnabled && !this._failoverState.get(proxy.proxyId)) {
+          /* Не ждём — прогреваем фоново, параллельно */
+          this._testProxy(proxy.host, proxy.port).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('[FlowLink Proxy] Ошибка прогрева credentials:', err);
     }
   }
 
