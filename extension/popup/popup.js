@@ -560,7 +560,7 @@ const HELP_TEXTS = {
     </ol>
     <h3>2. Запустите gateway</h3>
     <ol>
-      <li>Откройте папку и запустите <code>flowlink-gateway.exe</code></li>
+      <li>Откройте папку и запустите <code>FlowLink Proxy.exe</code></li>
       <li>В окне консоли должны появиться строки «Прокси-сервер запущен» и «API сервер запущен»</li>
       <li>Не закрывайте это окно — оно должно быть открыто всё время работы</li>
     </ol>
@@ -574,7 +574,7 @@ const HELP_TEXTS = {
     <h3>4. Автозагрузка (чтобы не запускать вручную)</h3>
     <ol>
       <li>Нажмите <code>Win+R</code>, введите <code>shell:startup</code>, нажмите Enter</li>
-      <li>Создайте ярлык для <code>flowlink-gateway.exe</code> и поместите его в открывшуюся папку</li>
+      <li>Создайте ярлык для <code>FlowLink Proxy.exe</code> и поместите его в открывшуюся папку</li>
       <li>Теперь FlowLink будет запускаться автоматически при входе в Windows</li>
     </ol>
   `,
@@ -608,7 +608,7 @@ const HELP_TEXTS = {
     <h3>Если используете .exe</h3>
     <ol>
       <li>Скачайте последний релиз со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Распакуйте ZIP, замените старый <code>flowlink-gateway.exe</code> новым в вашей папке</li>
+      <li>Распакуйте ZIP, замените старый <code>FlowLink Proxy.exe</code> новым в вашей папке</li>
       <li>Остановите старый процесс (закройте окно), запустите новый .exe</li>
     </ol>
     <h3>Если используете исходный код</h3>

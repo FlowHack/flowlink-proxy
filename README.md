@@ -22,9 +22,9 @@ cd flowlink-proxy
 
 **Вариант Б — standalone-бинарник (Python не нужен):**
 
-1. Скачайте `flowlink-gateway` (Linux/macOS) или `flowlink-gateway.exe` (Windows) со [страницы релизов](https://github.com/flowhack/flowlink-proxy/releases)
-2. Дайте права на запуск (Linux/macOS): `chmod +x flowlink-gateway`
-3. Запустите: `./flowlink-gateway` или `flowlink-gateway.exe`
+1. Скачайте `FlowLink Proxy` (Linux/macOS) или `FlowLink Proxy.exe` (Windows) со [страницы релизов](https://github.com/flowhack/flowlink-proxy/releases)
+2. Дайте права на запуск (Linux/macOS): `chmod +x FlowLink Proxy`
+3. Запустите: `./"FlowLink Proxy"` или `FlowLink Proxy.exe`
 
 > Бинарник собран через PyInstaller — в нём уже есть Python и все зависимости.
 
@@ -78,7 +78,7 @@ gsettings set org.gnome.system.proxy.https port 8080
 gsettings set org.gnome.system.proxy mode 'manual'
 ```
 
-> **Важно:** порт в `--proxy-server` должен совпадать с портом, который слушает FlowLink Gateway (`--proxy-port`, по умолч. 8080). Если вы сменили порт — укажите его там.
+> **Важно:** порт в `--proxy-server` должен совпадать с портом, который слушает FlowLink Proxy (`--proxy-port`, по умолч. 8080). Если вы сменили порт — укажите его там.
 
 > **Важно:** Python принимает HTTP CONNECT, браузер ничего не знает про SOCKS5. Пароль тоже не указывается — SOCKS5-аутентификацию делает Python.
 
@@ -129,7 +129,7 @@ FlowLink Proxy уведомляет о новой версии баннером 
 **Если используете standalone-бинарник (.exe):**
 
 1. Скачайте последний релиз со [страницы релизов](https://github.com/flowhack/flowlink-proxy/releases/latest)
-2. Распакуйте ZIP, замените старый `flowlink-gateway.exe` новым
+2. Распакуйте ZIP, замените старый `FlowLink Proxy.exe` новым
 3. Остановите старый процесс и запустите новый
 
 **Если используете исходный код (Python):**
@@ -176,13 +176,13 @@ systemctl --user start flowlink.service
 ```bash
 # Linux / macOS
 ./scripts/build.sh
-# Результат: "server/FlowLink Proxy/flowlink-gateway"
-# Запуск: ./"server/FlowLink Proxy"/flowlink-gateway
+# Результат: "server/FlowLink Proxy/FlowLink Proxy"
+# Запуск: ./"server/FlowLink Proxy"/"FlowLink Proxy"
 
 # Windows (PowerShell)
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
-# Результат: "server\FlowLink Proxy\flowlink-gateway.exe"
-# Запуск: .\server\"FlowLink Proxy"\flowlink-gateway.exe
+# Результат: "server\FlowLink Proxy\FlowLink Proxy.exe"
+# Запуск: .\server\"FlowLink Proxy"\FlowLink Proxy.exe
 ```
 
 ---
@@ -199,13 +199,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 ```bash
 # Только сменить порты
-flowlink-gateway --proxy-port 9090 --api-port 9091
+"FlowLink Proxy" --proxy-port 9090 --api-port 9091
 
 # Режим отладки
-flowlink-gateway --debug
+"FlowLink Proxy" --debug
 
 # Сменить порт прокси и включить отладку
-flowlink-gateway --proxy-port 7777 --api-port 8888 --debug
+"FlowLink Proxy" --proxy-port 7777 --api-port 8888 --debug
 ```
 
 Для Python-версии флаги те же:
@@ -216,9 +216,9 @@ python -m server --proxy-port 9090 --api-port 9091 --debug
 
 ### Windows: ярлык для gateway
 
-Создайте ярлык для `flowlink-gateway.exe`, откройте его свойства и в поле «Объект» допишите флаги **после закрывающей кавычки**:
+Создайте ярлык для `FlowLink Proxy.exe`, откройте его свойства и в поле «Объект» допишите флаги **после закрывающей кавычки**:
 ```
-C:\FlowLink\flowlink-gateway.exe --proxy-port 9090 --api-port 9091
+"C:\FlowLink\FlowLink Proxy.exe" --proxy-port 9090 --api-port 9091
 ```
 
 ---
@@ -252,11 +252,11 @@ lsof -i :8080
 lsof -i :8081
 
 # Принудительно завершить старый FlowLink
-pkill -f flowlink-gateway
+pkill -f "FlowLink Proxy"
 pkill -f "python -m server"
 ```
 
-**Windows:** Диспетчер задач → Процессы → найдите `flowlink-gateway.exe` или `python.exe` → Снять задачу.
+**Windows:** Диспетчер задач → Процессы → найдите `FlowLink Proxy.exe` или `python.exe` → Снять задачу.
 
 ---
 
@@ -320,7 +320,7 @@ flowlink-proxy/
 - Мастер-ключ хранится в `.flowlink.key` (права доступа 600)
 - Пароли никогда не логируются
 - Chrome не имеет доступа к паролям — вся аутентификация в Python
-- **Standalone-бинарник:** `config.json` и `.flowlink.key` лежат рядом с `flowlink-gateway.exe` — достаточно просто положить `.exe` в отдельную папку
+- **Standalone-бинарник:** `config.json` и `.flowlink.key` лежат рядом с `FlowLink Proxy.exe` — достаточно просто положить `.exe` в отдельную папку
 
 ---
 
@@ -336,7 +336,7 @@ FlowLink Proxy пишет логи в два места:
 **Расположение файла `flowlink.log`:**
 
 - **Python-версия** (`./scripts/flowlink.sh` / `python -m server`) — `logs/flowlink.log` в корне проекта
-- **Standalone-бинарник** (`.exe` / `flowlink-gateway`) — `logs/flowlink.log` рядом с самим бинарником
+- **Standalone-бинарник** (`.exe` / `FlowLink Proxy`) — `logs/flowlink.log` рядом с самим бинарником
 
 Файл ротируется: 5 МБ на файл, до 3 старых копий (`flowlink.log.1`, `.2`, `.3`).
 

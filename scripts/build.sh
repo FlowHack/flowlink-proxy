@@ -3,7 +3,7 @@
 # Сборка FlowLink Proxy в standalone-бинарник через PyInstaller.
 # Создаёт временное venv, устанавливает зависимости, собирает, чистит.
 #
-# На выходе: server/dist/flowlink-gateway (.exe на Windows)
+# На выходе: server/dist/FlowLink Proxy (.exe на Windows)
 #
 # Использование:
 #   ./scripts/build.sh
@@ -49,7 +49,7 @@ case "$(uname -s)" in
     *)          OS_DIR="unknown"; EXT="";;
 esac
 
-BINARY_NAME="flowlink-gateway${EXT}"
+BINARY_NAME="FlowLink Proxy${EXT}"
 
 # --- Проверка Python ---
 if ! command -v python3 &>/dev/null; then
@@ -81,14 +81,14 @@ VERSION="0.2.0"
 info "Очистка предыдущей сборки..."
 rm -rf server/dist server/work "server/FlowLink Proxy"
 
-info "Сборка FlowLink Gateway v$VERSION для $OS_DIR..."
+info "Сборка FlowLink Proxy v$VERSION для $OS_DIR..."
 
 ICON_FLAG=""
-[ -f "extension/icons/icon.ico" ] && ICON_FLAG="--icon=extension/icons/icon.ico"
+[ -f "server/icon.ico" ] && ICON_FLAG="--icon=server/icon.ico"
 
 $PYTHON -m PyInstaller \
     --onefile \
-    --name "flowlink-gateway" \
+    --name "FlowLink Proxy" \
     $ICON_FLAG \
     --add-data "server/requirements.txt:server/" \
     --paths=server \

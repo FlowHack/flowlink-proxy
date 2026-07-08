@@ -6,7 +6,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/flowlink-proxy/server/FlowLink\ Proxy/flowlink-gateway
+ExecStart=%h/flowlink-proxy/server/FlowLink\ Proxy/FlowLink\ Proxy
 WorkingDirectory=%h/flowlink-proxy
 Restart=on-failure
 RestartSec=5
