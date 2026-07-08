@@ -172,9 +172,22 @@ body {
 /* ───── Список прокси ───── */
 .proxy-list {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   padding: 4px 0;
   min-height: 0;
+}
+
+.list-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 16px;
+  text-align: center;
 }
 
 .empty-state {
@@ -190,48 +203,55 @@ body {
 }
 
 /* ───── Элемент прокси ───── */
-.proxy-item {
+.proxy-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
   transition: background 0.15s;
+  cursor: pointer;
 }
 
-.proxy-item:hover {
+.proxy-row:hover {
   background: var(--bg-surface);
 }
 
-.proxy-item .switch {
-  width: 36px;
-  height: 20px;
+.proxy-row:hover .btn-icon {
+  color: var(--text-primary);
+}
+
+.proxy-row.proxy-disabled {
+  opacity: 0.5;
+}
+
+/* Компактный переключатель */
+.proxy-toggle-wrap {
+  width: 32px;
+  height: 18px;
   flex-shrink: 0;
 }
 
-.proxy-item .switch .slider::before {
-  width: 14px;
-  height: 14px;
+.proxy-toggle-wrap .slider::before {
+  width: 12px;
+  height: 12px;
 }
 
-.proxy-item .switch input:checked + .slider::before {
-  transform: translateX(16px);
-}
-
-.proxy-toggle {
-  flex-shrink: 0;
+.proxy-toggle-wrap input:checked + .slider::before {
+  transform: translateX(14px);
 }
 
 .btn-icon {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 15px;
   padding: 2px 4px;
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   transition: color 0.15s, background 0.15s;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .btn-icon:hover {
@@ -239,48 +259,47 @@ body {
   background: var(--bg-surface-hover);
 }
 
-.btn-icon.edit-icon {
-  font-size: 15px;
-}
-
-.btn-icon.delete-icon {
+.btn-delete {
   color: var(--danger);
 }
 
-.btn-icon.delete-icon:hover {
+.btn-delete:hover {
   color: #ff6666;
   background: rgba(255, 68, 68, 0.15);
 }
 
 .proxy-ip {
   flex: 1;
+  min-width: 0;
   font-weight: 500;
-  cursor: pointer;
   color: var(--text-primary);
-  padding: 2px 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: default;
+  font-size: 13px;
 }
 
-.proxy-ip:hover {
-  color: var(--accent-red);
-}
-
+/* Пинг — посередине между названием и удалением */
 .proxy-ping {
   flex-shrink: 0;
-  font-size: 12px;
-  min-width: 40px;
-  text-align: center;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-.ping-ok {
+.proxy-ping.ping-ok {
   color: var(--accent-green);
 }
 
-.ping-fail {
+.proxy-ping.ping-fail {
   color: var(--accent-red);
+}
+
+.proxy-ping.ping-none {
+  color: var(--text-muted);
 }
 
 /* ───── Пожертвования ───── */
@@ -317,6 +336,16 @@ body {
 
 .btn-add:hover {
   background: var(--accent-red-hover);
+}
+
+.btn-add.btn-disabled,
+.btn-settings.btn-disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-add.btn-disabled:hover {
+  background: var(--accent-red);
 }
 
 /* ───── Обновление (баннер) ───── */
@@ -515,6 +544,44 @@ body {
 
 .input::placeholder {
   color: var(--text-muted);
+}
+
+/* ───── Контейнер поля с паролем ───── */
+.password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input--password {
+  padding-right: 36px;
+}
+
+.btn-password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-muted);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+
+.btn-password-toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.eye-icon {
+  display: block;
 }
 
 /* ───── Ошибки полей ───── */
@@ -735,6 +802,29 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   user-select: text;
+}
+
+/* ───── Toast-уведомление ───── */
+.toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-red);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 200;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.toast.visible {
+  opacity: 1;
 }
 
 /* ───── Скроллбар ───── */

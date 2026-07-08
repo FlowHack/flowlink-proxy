@@ -180,6 +180,8 @@ systemctl --user start flowlink.service
 # Запуск: ./"server/FlowLink Proxy"/"FlowLink Proxy"
 
 # Windows (PowerShell)
+scripts\build.bat
+# или напрямую:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 # Результат: "server\FlowLink Proxy\FlowLink Proxy.exe"
 # Запуск: .\server\"FlowLink Proxy"\FlowLink Proxy.exe
@@ -277,6 +279,7 @@ flowlink-proxy/
 │   └── requirements.txt    # Зависимости (только cryptography)
 ├── scripts/                # Вспомогательные скрипты
 │   ├── build.sh            # Сборка standalone-бинарника (Linux/macOS)
+│   ├── build.bat           # Обёртка для build.ps1 (обходит ExecutionPolicy)
 │   ├── build.ps1           # Сборка standalone-бинарника (Windows)
 │   ├── flowlink.sh         # Лаунчер (venv + запуск, Linux/macOS)
 │   ├── flowlink.service    # systemd-сервис
@@ -358,7 +361,11 @@ FlowLink Proxy пишет логи в два места:
 
 **Не работает SOCKS5** → проверьте логи: `./scripts/flowlink.sh --debug`. Пинг в расширении покажет, доступен ли сервер.
 
-**PowerShell: «не имеет цифровой подписи»** → политика выполнения по умолчанию блокирует `.ps1`. Запускайте с флагом:
+**PowerShell: «не имеет цифровой подписи»** → политика выполнения по умолчанию блокирует `.ps1`. Запускайте через обёртку:
+```bat
+scripts\build.bat
+```
+Или напрямую с флагом:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```

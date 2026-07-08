@@ -1,0 +1,65 @@
+/**
+ * @fileoverview
+ * Проверка обновлений и версии бэкенда.
+ * Единственная ответственность: обновления.
+ */
+
+import { apiGet } from '../shared/api.js';
+import { compareVersions } from '../shared/utils.js';
+import { GITHUB_API_RELEASES } from '../shared/constants.js';
+
+let backendVersion = null;
+
+export { backendVersion };
+
+/**
+ * Запрашивает версию бэкенда через /api/version.
+ * Если версия бэкенда отличается от версии расширения — отображает обе.
+ * @returns {Promise<boolean>} — true, если бэкенд ответил.
+ */
+export async function checkBackendVersion() {
+  try {
+    const resp = await apiGet('/version');
+    backendVersion = resp.version;
+    const extVer = document.getElementById('version-text');
+    const extVersion = chrome.runtime.getManifest().version;
+    if (extVer && resp.version && resp.version !== extVersion) {
+      extVer.textContent = `Версия: ${chrome.runtime.getManifest().version} (бэкенд: ${resp.version})`;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Проверяет GitHub API на наличие новой версии.
+ * Если последний релиз новее текущей — показывает баннер с предложением обновления.
+ * @param {boolean} [simulate=false] — если true, принудительно подменяет текущую версию на '0.0.0'.
+ */
+export async function checkForUpdates(simulate = false) {
+  try {
+    const resp = await fetch(GITHUB_API_RELEASES);
+    if (!resp.ok) return;
+    const release = await resp.json();
+    const latestTag = release.tag_name || '';
+    if (!latestTag) return;
+    const latestVer = latestTag.replace(/^v/, '');
+    const currentVer = simulate ? '0.0.0' : (backendVersion || '0.0.0');
+    if (compareVersions(latestVer, currentVer) > 0) {
+      showUpdateBanner(latestTag, release.html_url);
+    }
+  } catch {}
+}
+
+/**
+ * Отображает баннер с информацией о доступном обновлении.
+ * @param {string} tag — тег релиза (например 'v0.3.0').
+ * @param {string} url — URL релиза на GitHub.
+ */
+function showUpdateBanner(tag, url) {
+  const banner = document.getElementById('update-banner');
+  document.getElementById('update-text').textContent = `Доступно обновление ${tag}`;
+  document.getElementById('btn-update-download').href = url;
+  banner.classList.remove('hidden');
+}

@@ -76,21 +76,30 @@ info "Установка зависимостей..."
 pip install -q -r server/requirements.txt
 pip install -q pyinstaller
 
+# --- Версия из server/version.py ---
+VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from version import __version__; print(__version__)")
+info "Версия: $VERSION"
+
 # --- Сборка ---
-VERSION="0.2.0"
 info "Очистка предыдущей сборки..."
 rm -rf server/dist server/work "server/FlowLink Proxy"
 
 info "Сборка FlowLink Proxy v$VERSION для $OS_DIR..."
 
 ICON_FLAG=""
-[ -f "server/icon.ico" ] && ICON_FLAG="--icon=server/icon.ico"
+[ -f "server/icons/icon.ico" ] && ICON_FLAG="--icon=server/icons/icon.ico"
+
+# --noconsole только для Windows (скрыть терминал при двойном клике)
+NOCONSOLE_FLAG=""
+[ "$OS_DIR" = "windows" ] && NOCONSOLE_FLAG="--noconsole"
 
 $PYTHON -m PyInstaller \
     --onefile \
+    $NOCONSOLE_FLAG \
     --name "FlowLink Proxy" \
     $ICON_FLAG \
     --add-data "server/requirements.txt:server/" \
+    --add-data "server/icons:icons/" \
     --paths=server \
     --distpath server/dist \
     --workpath server/work \

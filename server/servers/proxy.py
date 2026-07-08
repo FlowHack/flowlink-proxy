@@ -1,0 +1,110 @@
+"""
+HTTP CONNECT прокси-сервер на asyncio.
+
+Единственная ответственность: запуск/остановка сервера и диспетчеризация запросов.
+Парсинг протокола, туннелирование и пересылка данных вынесены в отдельные модули.
+"""
+
+import asyncio
+import logging
+
+from server.protocols.parser import parse_connect, parse_http, skip_headers
+from server.servers.base_server import BaseServer
+from server.services.router import MaskRouter
+from server.services.tunnel import tunnel_connect, tunnel_http, validate_target
+
+logger = logging.getLogger('flowlink.proxy')
+
+
+class ProxyServer(BaseServer):
+    """
+    HTTP CONNECT прокси-сервер.
+
+    Принимает HTTP/HTTPS-запросы от клиента (Chrome), парсит их,
+    определяет целевой прокси через MaskRouter и устанавливает туннель.
+    """
+
+    def __init__(self, router: MaskRouter, host: str = '127.0.0.1', port: int = 8080):
+        """
+        Args:
+            router: Экземпляр MaskRouter для маршрутизации URL.
+            host: Интерфейс (по умолч. localhost).
+            port: Порт для HTTP CONNECT прокси (по умолч. 8080).
+        """
+        super().__init__(host=host, port=port, name='proxy')
+        self._router = router
+
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        """Читает первую строку запроса и диспетчеризует: CONNECT → _handle_connect, GET/POST → _handle_http."""
+        peername = writer.get_extra_info('peername', ('?', 0))
+        try:
+            first_line = await asyncio.wait_for(reader.readline(), timeout=10)
+            if not first_line:
+                logger.debug(f'Клиент {peername} закрыл соединение без отправки данных')
+                writer.close()
+                return
+
+            line = first_line.decode(errors='ignore').strip().replace('\n', ' ').replace('\r', '')[:500]
+            logger.debug('Входящий запрос от %s: %s', peername, line)
+
+            if first_line.upper().startswith(b'CONNECT '):
+                await self._handle_connect(reader, writer, first_line)
+            elif first_line.upper().startswith((b'GET ', b'POST ', b'PUT ', b'DELETE ')):
+                await self._handle_http(reader, writer, first_line)
+            else:
+                logger.warning('Неподдерживаемый метод от %s: %s', peername, line[:200])
+                writer.close()
+
+        except asyncio.TimeoutError:
+            logger.debug('Таймаут ожидания запроса от %s', peername)
+            writer.close()
+        except Exception as e:
+            logger.error('Ошибка обработки клиента %s: %s', peername, e, exc_info=True)
+            try:
+                writer.close()
+            except Exception:
+                pass
+
+    async def _handle_connect(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, first_line: bytes):
+        """Обрабатывает HTTPS CONNECT-запрос: парсит host:port, находит прокси, устанавливает туннель."""
+        parsed = parse_connect(first_line)
+        if not parsed:
+            logger.warning(f'Неверный CONNECT запрос: {first_line.decode(errors="ignore").strip()}')
+            writer.write(b'HTTP/1.1 400 Bad Request\r\n\r\n')
+            await writer.drain()
+            writer.close()
+            return
+
+        target_host, target_port = parsed
+        await skip_headers(reader)
+        await validate_target(target_host, target_port)
+        full_url = f'https://{target_host}:{target_port}/'
+        proxy = self._router.route(full_url)
+
+        logger.debug(
+            f'Туннель HTTPS {target_host}:{target_port} через {proxy["host"]}:{proxy["port"]}'
+            if proxy else
+            f'Туннель HTTPS {target_host}:{target_port} напрямую'
+        )
+        await tunnel_connect(reader, writer, target_host, target_port, full_url, proxy)
+
+    async def _handle_http(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, first_line: bytes):
+        """Обрабатывает plain HTTP запрос: переписывает URL (абсолютный → относительный), туннелирует."""
+        parsed = parse_http(first_line)
+        if not parsed:
+            logger.warning(f'Не удалось распарсить HTTP запрос: {first_line.decode(errors="ignore").strip()}')
+            writer.write(b'HTTP/1.1 400 Bad Request\r\n\r\n')
+            await writer.drain()
+            writer.close()
+            return
+
+        method, host, port, path, relative_line = parsed
+        full_url = f'http://{host}:{port}{path}'
+        proxy = self._router.route(full_url)
+
+        logger.debug(
+            f'HTTP {host}:{port}{path} через {proxy["host"]}:{proxy["port"]}'
+            if proxy else
+            f'HTTP {host}:{port}{path} напрямую'
+        )
+        await tunnel_http(reader, writer, host, port, full_url, relative_line, proxy)

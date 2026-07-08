@@ -1,0 +1,165 @@
+"""
+Тесты обработки исключений и краевых случаев router.py.
+"""
+
+import os
+import tempfile
+import unittest
+
+from server.config import repo as config_repo
+from server.services.router import MaskRouter
+
+
+class TestRouterExceptions(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_config_file = config_repo.CONFIG_FILE
+        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
+        config_repo.save_raw({
+            'proxies': [
+                {'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': True},
+                {'proxyId': 'p2', 'host': '10.0.0.2', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': False},
+            ],
+            'masks': [
+                {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'},
+                {'maskId': 'm2', 'proxyId': 'p2', 'regexString': r'\.test\.com'},
+            ],
+            'isEnabled': True,
+        })
+
+    def tearDown(self):
+        config_repo.CONFIG_FILE = self.orig_config_file
+        for f in os.listdir(self.tmpdir):
+            os.remove(os.path.join(self.tmpdir, f))
+        os.rmdir(self.tmpdir)
+
+    def test_route_matching_url(self):
+        """URL совпадает с маской → возвращается прокси"""
+        router = MaskRouter()
+        result = router.route('https://www.example.com/page')
+        self.assertIsNotNone(result)
+        self.assertEqual(result['host'], '10.0.0.1')
+
+    def test_route_non_matching_url(self):
+        """URL не совпадает → None"""
+        router = MaskRouter()
+        result = router.route('https://www.other.com/page')
+        self.assertIsNone(result)
+
+    def test_route_disabled_proxy_skipped(self):
+        """Выключенный прокси пропускается"""
+        router = MaskRouter()
+        result = router.route('https://www.test.com/page')
+        self.assertIsNone(result)
+
+    def test_route_global_disable(self):
+        """Глобальное выключение → все маршруты игнорируются"""
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'}],
+            'isEnabled': False,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNone(result)
+
+    def test_route_corrupted_regex_skipped(self):
+        """Битая regex-маска → пропускается, роутер не падает"""
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [
+                {'maskId': 'm_bad', 'proxyId': 'p1', 'regexString': r'[invalid'},
+                {'maskId': 'm_good', 'proxyId': 'p1', 'regexString': r'\.example\.com'},
+            ],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNotNone(result)
+
+    def test_route_nonexistent_proxy_skipped(self):
+        """Маска ссылается на несуществующий прокси → пропускается"""
+        config_repo.save_raw({
+            'proxies': [],
+            'masks': [{'maskId': 'm_orphan', 'proxyId': 'ghost', 'regexString': r'\.example\.com'}],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNone(result)
+
+    def test_route_empty_masks(self):
+        """Пустой список масок → None"""
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNone(result)
+
+    def test_route_empty_proxies(self):
+        """Пустой список прокси → None"""
+        config_repo.save_raw({
+            'proxies': [],
+            'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'}],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNone(result)
+
+    def test_proxy_without_id_skipped(self):
+        """Прокси без proxyId → пропускается, роутер не падает"""
+        config_repo.save_raw({
+            'proxies': [
+                {'host': 'no-id', 'port': 1111, 'username': '', 'password': '', 'isEnabled': True},
+                {'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': True},
+            ],
+            'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'}],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNotNone(result)
+
+    def test_mask_without_proxy_id_skipped(self):
+        """Маска без proxyId → пропускается"""
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [
+                {'maskId': 'm_no_pid', 'regexString': r'\.example\.com'},
+                {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.other\.com'},
+            ],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.other.com/')
+        self.assertIsNotNone(result)
+
+    def test_route_refresh(self):
+        """refresh() загружает новые маски"""
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNotNone(result)
+
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.changed\.com'}],
+            'isEnabled': True,
+        })
+        router.refresh()
+        result_old = router.route('https://www.example.com/')
+        result_new = router.route('https://www.changed.com/')
+        self.assertIsNone(result_old)
+        self.assertIsNotNone(result_new)

@@ -1,0 +1,133 @@
+"""
+Модуль шифрования AES-GCM для хранения паролей прокси.
+
+Генерирует мастер-ключ при первом запуске (.flowlink.key),
+шифрует/расшифровывает username/password для config.json.
+
+Требуется библиотека cryptography (pip install cryptography).
+"""
+
+import base64
+import logging
+import os
+import sys
+from hashlib import pbkdf2_hmac
+
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    HAS_CRYPTO = True
+except ImportError:
+    AESGCM = None
+    HAS_CRYPTO = False
+
+logger = logging.getLogger('flowlink.crypto')
+
+
+# Путь к файлу мастер-ключа
+if getattr(sys, 'frozen', False):
+    KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), '.flowlink.key')
+else:
+    KEY_FILE = '.flowlink.key'
+# Количество итераций PBKDF2 для выведения ключа шифрования
+PBKDF2_ITERATIONS = 600_000
+# Соль PBKDF2 (несекретная, но константная — для детерминированного выведения ключа)
+SALT = b'flowlink_proxy_salt_v1'
+
+
+def _check_crypto():
+    """Проверяет наличие библиотеки cryptography. Вызывает ImportError, если её нет."""
+    if not HAS_CRYPTO:
+        logger.error('Библиотека cryptography не установлена')
+        raise ImportError(
+            'Требуется библиотека cryptography. '
+            'Установите: pip install cryptography'
+        )
+
+
+def _load_or_create_key() -> bytes:
+    """
+    Загружает мастер-ключ из KEY_FILE или создаёт новый (32 байта).
+
+    Если файл существует, но имеет неверный размер — перезаписывает.
+    Устанавливает права 600 на файл ключа для безопасности.
+    """
+    if os.path.exists(KEY_FILE):
+        with open(KEY_FILE, 'rb') as f:
+            key = f.read()
+            if len(key) == 32:
+                logger.debug(f'Мастер-ключ загружен из {KEY_FILE}')
+                return key
+        logger.warning(f'Файл ключа {KEY_FILE} имеет неверный размер ({len(key)} байт), создаю новый')
+
+    key = os.urandom(32)
+    with open(KEY_FILE, 'wb') as f:
+        f.write(key)
+    try:
+        os.chmod(KEY_FILE, 0o600)
+    except NotImplementedError:
+        logger.debug('chmod не поддерживается на этой платформе (Windows)')
+    except OSError as e:
+        logger.warning(f'Не удалось установить права на {KEY_FILE}: {e}')
+    logger.info(f'Создан новый мастер-ключ шифрования: {KEY_FILE}')
+    return key
+
+
+def _derive_key(master_key: bytes) -> bytes:
+    """
+    Выводит 256-битный ключ AES из мастер-ключа через PBKDF2-HMAC-SHA256.
+
+    PBKDF2 замедляет перебор в случае компрометации зашифрованных данных,
+    делая атаку по словарю практически нереализуемой.
+    """
+    derived = pbkdf2_hmac('sha256', master_key, SALT, PBKDF2_ITERATIONS, dklen=32)
+    logger.debug(f'Ключ шифрования получен через PBKDF2 ({PBKDF2_ITERATIONS} итераций)')
+    return derived
+
+
+def encrypt(plaintext: str) -> str:
+    """
+    Шифрует строку AES-256-GCM.
+
+    Формат: base64(iv (12 байт) + ciphertext + auth_tag (16 байт)).
+    GCM обеспечивает аутентифицированное шифрование — целостность данных проверяется при расшифровке.
+    """
+    if not plaintext:
+        return ''
+
+    _check_crypto()
+    master_key = _load_or_create_key()
+    aes_key = _derive_key(master_key)
+    aesgcm = AESGCM(aes_key)
+
+    # 96-битный IV (nonce) для AES-GCM — генерируется случайно каждый раз
+    iv = os.urandom(12)
+    ciphertext = aesgcm.encrypt(iv, plaintext.encode(), None)
+    encrypted = base64.b64encode(iv + ciphertext).decode()
+    logger.debug(f'Данные зашифрованы AES-GCM ({len(encrypted)} байт в base64)')
+    return encrypted
+
+
+def decrypt(ciphertext_b64: str) -> str:
+    """
+    Расшифровывает строку, зашифрованную encrypt().
+
+    Ожидает base64-формат: iv (12) + ciphertext + auth_tag (16).
+    GCM автоматически проверяет аутентификацию — повреждённые данные вызовут исключение.
+    """
+    if not ciphertext_b64:
+        return ''
+
+    _check_crypto()
+    try:
+        master_key = _load_or_create_key()
+        aes_key = _derive_key(master_key)
+        aesgcm = AESGCM(aes_key)
+
+        raw = base64.b64decode(ciphertext_b64)
+        # Первые 12 байт — IV, остальное — ciphertext + GCM auth tag (16 байт)
+        iv, ciphertext = raw[:12], raw[12:]
+        plaintext = aesgcm.decrypt(iv, ciphertext, None).decode()
+        return plaintext
+    except Exception as e:
+        logger.error(f'Ошибка расшифровки данных: {e}')
+        raise

@@ -30,7 +30,7 @@
     </div>
 
     <div id="error-state" class="error-state hidden">
-      <span>Ошибка соединения с FlowLink Proxy</span>
+      <span>Нет связи с бэкендом</span>
       <button id="btn-retry" class="btn-small">Повторить</button>
       <button id="btn-help-setup" class="btn-small">Помощь</button>
     </div>
@@ -47,11 +47,13 @@
       <span id="version-text"></span>
       <button id="btn-settings-toggle" class="btn-settings" title="Настройки">⚙</button>
     </div>
-    <div id="settings-row" class="settings-row hidden">
-      <label for="settings-api-port">Порт API:</label>
-      <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
-      <button id="btn-settings-save" class="btn-settings-save">Сохранить</button>
-    </div>
+    <form id="settings-form">
+      <div id="settings-row" class="settings-row hidden">
+        <label for="settings-api-port">Порт API:</label>
+        <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
+        <button id="btn-settings-save" type="submit" class="btn-settings-save">Сохранить</button>
+      </div>
+    </form>
   </div>
 
   <!-- Модальное окно: помощь с настройкой -->
@@ -76,23 +78,51 @@
 
   <div id="modal-proxy" class="modal-overlay hidden">
     <div class="modal">
-      <div class="modal-header">
-        <h2 id="modal-proxy-title" class="modal-title">Добавить прокси</h2>
-      </div>
-      <div class="modal-body">
-        <input id="proxy-ip" class="input" type="text" placeholder="IP адрес" autocomplete="off">
-        <div id="proxy-ip-error" class="field-error hidden"></div>
-        <input id="proxy-port" class="input" type="number" placeholder="Порт" min="1" max="65535">
-        <div id="proxy-port-error" class="field-error hidden"></div>
-        <input id="proxy-username" class="input" type="text" placeholder="Логин" autocomplete="off">
-        <div id="proxy-username-error" class="field-error hidden"></div>
-        <input id="proxy-password" class="input" type="password" placeholder="Пароль" autocomplete="off">
-        <div id="proxy-password-error" class="field-error hidden"></div>
-      </div>
-      <div class="modal-actions">
-        <button id="btn-proxy-cancel" class="btn btn-secondary">Отменить</button>
-        <button id="btn-proxy-save" class="btn btn-primary">Сохранить</button>
-      </div>
+      <form id="proxy-form">
+        <div class="modal-header">
+          <h2 id="modal-proxy-title" class="modal-title">Добавить прокси</h2>
+        </div>
+        <div class="modal-body">
+          <input id="proxy-id" type="hidden">
+          <div class="field-group">
+            <input id="proxy-host" class="input" type="text" placeholder="IP адрес" autocomplete="off">
+            <div id="proxy-host-error" class="field-error hidden"></div>
+          </div>
+          <div class="field-group">
+            <input id="proxy-port" class="input" type="number" placeholder="Порт" min="1" max="65535">
+            <div id="proxy-port-error" class="field-error hidden"></div>
+          </div>
+          <div class="field-group">
+            <input id="proxy-username" class="input" type="text" placeholder="Логин" autocomplete="off">
+            <div id="proxy-username-error" class="field-error hidden"></div>
+          </div>
+          <div class="field-group password-field">
+            <div class="password-wrap">
+              <input id="proxy-password" class="input input--password" type="password" placeholder="Пароль" autocomplete="off">
+              <button id="btn-password-toggle" class="btn-password-toggle" type="button" title="Показать пароль">
+                <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+                <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+            <div id="proxy-password-error" class="field-error hidden"></div>
+          </div>
+          <div class="field-group">
+            <input id="proxy-label" class="input" type="text" placeholder="Название (необязательно)" autocomplete="off" maxlength="21">
+            <div id="proxy-label-error" class="field-error hidden"></div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="btn-proxy-cancel" type="button" class="btn btn-secondary">Отменить</button>
+          <button id="btn-proxy-save" type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -119,20 +149,25 @@
 
   <div id="modal-mask" class="modal-overlay hidden">
     <div class="modal">
-      <div class="modal-header">
-        <h2 id="modal-mask-title" class="modal-title">Добавить маску</h2>
-      </div>
-      <div class="modal-body">
-        <input id="mask-input" class="input" type="text" placeholder='Например: *gemini.google.com* или *.google.com' autocomplete="off">
-        <div id="mask-error" class="field-error hidden"></div>
-      </div>
-      <div class="modal-actions">
-        <button id="btn-mask-cancel" class="btn btn-secondary">Отменить</button>
-        <button id="btn-mask-save" class="btn btn-primary">Сохранить</button>
-      </div>
+      <form id="mask-form">
+        <div class="modal-header">
+          <h2 id="modal-mask-title" class="modal-title">Добавить маску</h2>
+        </div>
+        <div class="modal-body">
+          <input id="mask-id" type="hidden">
+          <select id="mask-proxy" class="input"></select>
+          <input id="mask-pattern" class="input" type="text" placeholder='Например: *gemini.google.com* или *.google.com' autocomplete="off">
+          <div id="mask-error" class="field-error hidden"></div>
+        </div>
+        <div class="modal-actions">
+          <button id="btn-mask-cancel" type="button" class="btn btn-secondary">Отменить</button>
+          <button id="btn-mask-save" type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </form>
     </div>
   </div>
 
+  <div id="toast" class="toast"></div>
   <script src="popup.js" type="module"></script>
 </body>
 </html>
