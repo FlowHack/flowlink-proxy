@@ -24,6 +24,37 @@ info()  { echo -e "${GREEN}[+]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 error() { echo -e "${RED}[✗]${NC} $1"; }
 
+# PID-файлы для отслеживания фоновых процессов
+PID_DIR="/tmp/flowlink-proxy"
+mkdir -p "$PID_DIR"
+BACKEND_PIDFILE="$PID_DIR/backend.pid"
+BROWSER_PIDFILE="$PID_DIR/browser.pid"
+
+# Cleanup — убиваем фоновые процессы при выходе
+cleanup() {
+    local exit_code=$?
+    if [ -f "$BACKEND_PIDFILE" ]; then
+        local pid
+        pid=$(cat "$BACKEND_PIDFILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            info "Остановка бэкенда (PID $pid)..."
+            kill "$pid" 2>/dev/null || true
+        fi
+        rm -f "$BACKEND_PIDFILE"
+    fi
+    if [ -f "$BROWSER_PIDFILE" ]; then
+        local pid
+        pid=$(cat "$BROWSER_PIDFILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+        fi
+        rm -f "$BROWSER_PIDFILE"
+    fi
+    rm -rf "$PID_DIR"
+    exit "$exit_code"
+}
+trap cleanup EXIT INT TERM
+
 # ═══ УКАЖИТЕ ПУТЬ К БРАУЗЕРУ ═══
 # Примеры:
 #   BROWSER_PATH="/usr/bin/google-chrome-stable"
@@ -43,13 +74,27 @@ if [ ! -f "$BACKEND_EXE" ]; then
     exit 1
 fi
 
-if pgrep -f "^$BACKEND_EXE" >/dev/null 2>&1; then
-    info "Бэкенд уже запущен."
+if [ -f "$BACKEND_PIDFILE" ] && kill -0 "$(cat "$BACKEND_PIDFILE")" 2>/dev/null; then
+    info "Бэкенд уже запущен (PID $(cat "$BACKEND_PIDFILE"))."
 else
     info "Запускаю бэкенд FlowLink Proxy..."
     chmod +x "$BACKEND_EXE"
     "$BACKEND_EXE" --proxy-port "$PROXY_PORT" &
-    sleep 1
+    BACKEND_PID=$!
+    echo "$BACKEND_PID" > "$BACKEND_PIDFILE"
+    # Ждём готовности бэкенда
+    for i in $(seq 1 10); do
+        if curl -s -o /dev/null -w '' http://127.0.0.1:"$PROXY_PORT"/ 2>/dev/null ||
+           curl -s -o /dev/null -w '' http://127.0.0.1:"$PROXY_PORT" 2>/dev/null; then
+            info "Бэкенд запущен (PID $BACKEND_PID)."
+            break
+        fi
+        sleep 0.5
+    done
+    if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+        error "Бэкенд не запустился. Проверьте логи."
+        exit 1
+    fi
 fi
 
 # --- Запуск браузера ---
@@ -68,11 +113,13 @@ if [ ! -f "$BROWSER_PATH" ] && [ ! -d "$BROWSER_PATH" ]; then
     exit 1
 fi
 
-if pgrep -f "^$BROWSER_PATH" >/dev/null 2>&1; then
-    info "Браузер уже запущен."
+if [ -f "$BROWSER_PIDFILE" ] && kill -0 "$(cat "$BROWSER_PIDFILE")" 2>/dev/null; then
+    info "Браузер уже запущен (PID $(cat "$BROWSER_PIDFILE"))."
 else
     info "Запускаю браузер с --proxy-server=127.0.0.1:$PROXY_PORT..."
     "$BROWSER_PATH" --proxy-server="127.0.0.1:$PROXY_PORT" &
+    BROWSER_PID=$!
+    echo "$BROWSER_PID" > "$BROWSER_PIDFILE"
 fi
 
 echo ""

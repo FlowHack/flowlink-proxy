@@ -21,7 +21,11 @@ export async function apiGet(endpoint) {
     } catch {}
     throw new Error(msg);
   }
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+  }
 }
 
 /**
@@ -44,5 +48,8 @@ export async function apiPost(endpoint, body) {
     } catch {}
     throw new Error(msg);
   }
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
 }

@@ -14,6 +14,7 @@ export async function renderTabStatus(url, state) {
     const bar = document.getElementById('status-bar');
     const icon = document.getElementById('status-icon');
     const text = document.getElementById('status-text');
+    if (!bar || !icon || !text) return;
     if (!state.enabled) {
       bar.classList.remove('hidden');
       icon.style.color = 'var(--accent-orange)';

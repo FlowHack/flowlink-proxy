@@ -29,7 +29,7 @@ const state = {
 window.__FLOWLINK_STATE = state;
 
 /** Показывает toast-уведомление на 2 секунды. */
-function showToast(msg) {
+export function showToast(msg) {
   const el = document.getElementById('toast');
   if (!el) return;
   el.textContent = msg;
@@ -123,15 +123,19 @@ async function handleGlobalToggle(checkbox) {
   // SSE-события config_changed прочитал актуальное значение, а не устаревшее.
   chrome.storage.local.set({ extEnabled: enabled });
   try {
-    await fetch(`${API_BASE}/enabled`, {
+    const res = await fetch(`${API_BASE}/enabled`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled }),
     });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
     state.enabled = enabled;
     render(state);
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения:', e);
+    showToast('Не удалось переключить состояние. Проверьте соединение с бэкендом.');
     chrome.storage.local.set({ extEnabled: !enabled });
     checkbox.checked = !enabled;
   } finally {
@@ -359,6 +363,25 @@ function attachGlobalListeners() {
 
   // Переключение видимости пароля
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);
+
+  // Копирование email в буфер обмена
+  document.getElementById('contact-email')?.addEventListener('click', copyEmailToClipboard);
+}
+
+/** Копирует email поддержки в буфер обмена и показывает toast. */
+function copyEmailToClipboard() {
+  const email = 'flowlink.proxy@atomicmail.io';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(email)
+      .then(() => showToast('Email скопирован: ' + email))
+      .catch(() => {
+        // Если clipboard API недоступен — показываем для ручного копирования
+        showToast('Не удалось скопировать. Выделите email вручную: ' + email);
+      });
+  } else {
+    // Если API clipboard нет — показываем подсказку
+    showToast('Выделите email вручную: ' + email);
+  }
 }
 
 /** Переключает видимость пароля в форме прокси. */
@@ -375,30 +398,35 @@ function togglePasswordVisibility() {
 
 /** Точка входа — инициализация. */
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadStoredPort();
-  attachGlobalListeners();
+  try {
+    await loadStoredPort();
+    attachGlobalListeners();
 
-  // Проверяем, не изменился ли конфиг с прошлого открытия popup (SSE-уведомление)
-  const storage = await chrome.storage.local.get(['configChanged']);
-  if (storage.configChanged) {
-    await chrome.storage.local.remove('configChanged');
-  }
+    // Проверяем, не изменился ли конфиг с прошлого открытия popup (SSE-уведомление)
+    const storage = await chrome.storage.local.get(['configChanged']);
+    if (storage.configChanged) {
+      await chrome.storage.local.remove('configChanged');
+    }
 
-  // Первая загрузка — один раз, без поллинга
-  await loadAndRender();
-  // Если бэкенд ответил — проверяем версию и обновления
-  const backendOk = await checkBackendVersion();
-  if (backendOk) {
-    // 1. Проверка GitHub API (работает когда репозиторий публичный)
-    await checkForUpdates(false);
-    // 2. Дополнительная проверка флага от бэкенда (--need-update)
-    try {
-      const status = await apiGet('/status');
-      if (status.needUpdate) {
-        await checkForUpdates(true, backendVersion || '');
-      }
-    } catch {}
+    // Первая загрузка — один раз, без поллинга
+    await loadAndRender();
+    // Если бэкенд ответил — проверяем версию и обновления
+    const backendOk = await checkBackendVersion();
+    if (backendOk) {
+      // 1. Проверка GitHub API (работает когда репозиторий публичный)
+      await checkForUpdates(false);
+      // 2. Дополнительная проверка флага от бэкенда (--need-update)
+      try {
+        const status = await apiGet('/status');
+        if (status.needUpdate) {
+          await checkForUpdates(true, backendVersion || '');
+        }
+      } catch {}
+    }
+    // Запускаем поллинг для отслеживания изменений
+    startPolling();
+  } catch (e) {
+    console.error('[FlowLink Proxy] Ошибка инициализации:', e);
+    showError(true);
   }
-  // Запускаем поллинг для отслеживания изменений
-  startPolling();
 });

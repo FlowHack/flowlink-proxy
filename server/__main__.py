@@ -158,8 +158,17 @@ async def _run_server(args: argparse.Namespace) -> None:
         server_root = os.path.dirname(os.path.abspath(__file__))
         asyncio.create_task(_file_watcher(server_root))
         mock_socks5 = MockSocks5Server()
-        await mock_socks5.start()
-        logger.info('Mock-SOCKS5 сервер для тестирования: 127.0.0.1:%d', mock_socks5.port)
+        try:
+            await mock_socks5.start()
+            logger.info(
+                'Mock-SOCKS5 сервер для тестирования: 127.0.0.1:%d',
+                mock_socks5.port,
+            )
+        except OSError as e:
+            logger.warning(
+                'Не удалось запустить Mock-SOCKS5 сервер: %s. '
+                'Пинг прокси будет недоступен.', e,
+            )
 
     await stop_event.wait()
     del tray_icon
@@ -224,3 +233,11 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        logger = logging.getLogger('flowlink')
+        logger.critical(
+            'Критическая ошибка: %s. Если проблема повторяется, '
+            'обратитесь в поддержку: flowlink.proxy@atomicmail.io',
+            e, exc_info=True,
+        )
+        sys.exit(1)

@@ -122,6 +122,7 @@ export function openHelpModal(tab, isUpdate) {
   const isWindows = navigator.platform.includes('Win');
   const defaultTab = isWindows ? 'windows' : 'source';
   const title = document.querySelector('#modal-help .modal-title');
+  if (!title) return;
   title.textContent = _isUpdateMode ? 'Обновление' : 'Настройка FlowLink Proxy';
   switchHelpTab(tab || defaultTab);
   showModal('modal-help');
@@ -135,17 +136,19 @@ export function switchHelpTab(tab) {
   const tabs = ['windows', 'source', 'ext'];
   tabs.forEach(t => {
     const el = document.getElementById('tab-' + t);
-    el.classList.toggle('tab-active', t === tab);
+    if (el) el.classList.toggle('tab-active', t === tab);
   });
 
   const container = document.getElementById('help-content');
+  if (!container) return;
 
   if (_isUpdateMode) {
     const key = tab === 'windows' ? 'updateExe'
       : tab === 'source' ? 'updateSource'
       : 'updateExt';
-    const rawTag = document.getElementById('update-text').textContent
-      .replace('Доступно обновление ', '');
+    const updateText = document.getElementById('update-text');
+    const rawTag = updateText ? updateText.textContent
+      .replace('Доступно обновление ', '') : '';
     const tag = escapeHtml(rawTag);
     container.innerHTML = `<h3>${tab === 'windows' ? 'Windows (.exe)' : tab === 'source' ? 'Исходный код' : 'Расширение'}</h3>`
       + HELP_TEXTS[key](tag);

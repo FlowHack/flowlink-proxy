@@ -23,7 +23,13 @@ async def ping_proxy(proxy_id: str) -> dict:
     Returns:
         Словарь с полями: alive (bool), latency (int | None), error (str | None).
     """
-    proxies = cfg.get_all_proxies()
+    try:
+        proxies = cfg.get_all_proxies()
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка загрузки конфига для пинга: %s', e)
+        return {'alive': False, 'latency': None,
+                'error': 'Не удалось загрузить конфигурацию. Проверьте подключение к бэкенду.'}
+
     proxy = None
     for p in proxies:
         if p.get('proxyId') == proxy_id:
@@ -34,7 +40,11 @@ async def ping_proxy(proxy_id: str) -> dict:
         return {'alive': False, 'latency': None, 'error': 'Прокси не найден'}
 
     start = time.monotonic()
-    proto = get_protocol(proxy)
+    try:
+        proto = get_protocol(proxy)
+    except ValueError as e:
+        return {'alive': False, 'latency': None, 'error': f'Неизвестный тип прокси: {e}'}
+
     alive = await proto.ping(timeout=5)
 
     if not alive:

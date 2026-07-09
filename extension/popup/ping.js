@@ -15,6 +15,7 @@ import { setLoading } from '../shared/utils.js';
  */
 export async function handlePingAll(state, renderProxyList) {
   const btn = document.getElementById('btn-ping-all');
+  if (!btn) return;
   setLoading(btn, true);
   btn.textContent = 'Проверка...';
   state.pingResults.clear();

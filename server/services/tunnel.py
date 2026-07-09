@@ -127,6 +127,8 @@ async def validate_target(host: str, port: int):
         addrs = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
         raise ValueError(f'Не удалось разрешить {host}: {e}') from e
+    except (UnicodeError, OverflowError) as e:
+        raise ValueError(f'Некорректный хост или порт: {host}:{port} — {e}') from e
 
     for _, _, _, _, sockaddr in addrs:
         ip = sockaddr[0]
@@ -188,7 +190,7 @@ async def tunnel_connect(
     """Устанавливает HTTPS-туннель через SOCKS5 (если proxy) или напрямую."""
     client_reader, client_writer = client
     target_host, target_port = target
-    proxy_addr = f'{proxy["host"]}:{proxy.get("port", 0)}' if proxy else 'direct'
+    proxy_addr = f'{proxy.get("host", "?")}:{proxy.get("port", 0)}' if proxy else 'direct'
     proxy_id = proxy.get('proxyId') if proxy else None
     remote_writer = None
     try:
@@ -233,7 +235,7 @@ async def tunnel_http(
     """Пересылает plain HTTP запрос через SOCKS5 (если proxy) или напрямую."""
     client_reader, client_writer = client
     target_host, target_port = target
-    proxy_addr = f'{proxy["host"]}:{proxy.get("port", 0)}' if proxy else 'direct'
+    proxy_addr = f'{proxy.get("host", "?")}:{proxy.get("port", 0)}' if proxy else 'direct'
     proxy_id = proxy.get('proxyId') if proxy else None
     remote_writer = None
     try:

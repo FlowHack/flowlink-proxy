@@ -106,51 +106,70 @@ def _log_config_changes(
 
 def handle_get_config() -> dict:
     """GET /api/config — возвращает текущую конфигурацию (с isEnabled из памяти)."""
-    data = cfg.load_config()
-    data['isEnabled'] = cfg.is_enabled()
-    return data
+    try:
+        data = cfg.load_config()
+        data['isEnabled'] = cfg.is_enabled()
+        return data
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка загрузки конфига: %s', e)
+        return {'error': 'Не удалось загрузить конфигурацию', 'isEnabled': cfg.is_enabled()}
 
 
 async def handle_post_config(data: dict, router: MaskRouter) -> dict:
     """POST /api/config — обновляет конфигурацию и перезагружает маршруты."""
-    old_data = cfg.load_config()
-    old_proxies = _extract_proxies_dict(old_data)
-    old_masks = _extract_masks_dict(old_data)
+    try:
+        old_data = cfg.load_config()
+        old_proxies = _extract_proxies_dict(old_data)
+        old_masks = _extract_masks_dict(old_data)
 
-    if not isinstance(data, dict):
-        raise ValueError('Тело запроса должно быть JSON-объектом')
+        if not isinstance(data, dict):
+            raise ValueError('Тело запроса должно быть JSON-объектом')
 
-    cfg.save_config(data)
+        cfg.save_config(data)
 
-    new_proxies = _extract_proxies_dict(data)
-    new_masks = _extract_masks_dict(data)
+        new_proxies = _extract_proxies_dict(data)
+        new_masks = _extract_masks_dict(data)
 
-    # Закрываем туннели при любом изменении конфига (прокси или маски)
-    # чтобы Chrome переподключился с актуальной маршрутизацией
-    needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies)
-    if needs_full_flush or old_masks != new_masks:
-        close_all_connections()
+        # Закрываем туннели при любом изменении конфига (прокси или маски)
+        # чтобы Chrome переподключился с актуальной маршрутизацией
+        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies)
+        if needs_full_flush or old_masks != new_masks:
+            close_all_connections()
 
-    router.refresh()
+        router.refresh()
 
-    _log_config_changes(old_proxies, new_proxies, old_masks, new_masks)
-    log_config_state()
+        _log_config_changes(old_proxies, new_proxies, old_masks, new_masks)
+        log_config_state()
 
-    await emit_event('config_changed', {})
+        await emit_event('config_changed', {})
 
-    return {'success': True}
+        return {'success': True}
+    except (OSError, RuntimeError, ImportError) as e:
+        logger.error('Ошибка сохранения конфига: %s', e)
+        return {'error': 'Не удалось сохранить конфигурацию'}
 
 
 def handle_get_status(debug: bool, need_update: bool = False) -> dict:
     """GET /api/status — возвращает статус gateway."""
-    return {
-        'isEnabled': cfg.is_enabled(),
-        'proxiesCount': len(cfg.get_all_proxies()),
-        'masksCount': len(cfg.get_all_masks()),
-        'status': 'running',
-        'debug': debug,
-        'needUpdate': need_update,
-    }
+    try:
+        return {
+            'isEnabled': cfg.is_enabled(),
+            'proxiesCount': len(cfg.get_all_proxies()),
+            'masksCount': len(cfg.get_all_masks()),
+            'status': 'running',
+            'debug': debug,
+            'needUpdate': need_update,
+        }
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка получения статуса: %s', e)
+        return {
+            'isEnabled': cfg.is_enabled(),
+            'proxiesCount': 0, 'masksCount': 0,
+            'status': 'error',
+            'error': 'Не удалось загрузить конфигурацию',
+            'debug': debug,
+            'needUpdate': need_update,
+        }
 
 
 def handle_get_version() -> dict:
@@ -160,19 +179,23 @@ def handle_get_version() -> dict:
 
 async def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
     """POST /api/enabled — устанавливает глобальный флаг включения."""
-    if not isinstance(data, dict) or 'enabled' not in data:
-        raise ValueError('Требуется поле "enabled" (true/false)')
-    enabled = bool(data['enabled'])
-    cfg.set_enabled(enabled)
-    router.refresh()
-    if enabled:
-        logger.info('Глобальное включение: закрытие всех соединений для перемаршрутизации')
-        close_all_connections()
-    else:
-        logger.info('Глобальное выключение: закрытие всех прокси-туннелей')
-        close_all_proxy_tunnels()
-    await emit_event('config_changed', {})
-    return {'success': True, 'enabled': cfg.is_enabled()}
+    try:
+        if not isinstance(data, dict) or 'enabled' not in data:
+            raise ValueError('Требуется поле "enabled" (true/false)')
+        enabled = bool(data['enabled'])
+        cfg.set_enabled(enabled)
+        router.refresh()
+        if enabled:
+            logger.info('Глобальное включение: закрытие всех соединений для перемаршрутизации')
+            close_all_connections()
+        else:
+            logger.info('Глобальное выключение: закрытие всех прокси-туннелей')
+            close_all_proxy_tunnels()
+        await emit_event('config_changed', {})
+        return {'success': True, 'enabled': cfg.is_enabled()}
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка переключения состояния: %s', e)
+        return {'error': 'Не удалось переключить состояние', 'enabled': cfg.is_enabled()}
 
 
 async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:

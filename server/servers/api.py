@@ -73,7 +73,11 @@ async def _build_response(
     response_body: dict,
 ):
     """Собирает и отправляет HTTP JSON-ответ."""
-    response_json = json.dumps(response_body, ensure_ascii=False)
+    try:
+        response_json = json.dumps(response_body, ensure_ascii=False)
+    except TypeError:
+        logger.error('API: не удалось сериализовать ответ')
+        response_json = json.dumps({'error': 'Внутренняя ошибка сервера'}, ensure_ascii=False)
     reason = {
         200: 'OK', 400: 'Bad Request', 404: 'Not Found',
         413: 'Request Entity Too Large',
@@ -162,7 +166,10 @@ class ApiServer(BaseServer):
             return status_code, response_body
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning('API: неверный запрос от %s: %s', peername, e)
-            return 400, {'error': 'Invalid request'}
+            return 400, {'error': 'Неверный запрос'}
+        except (OSError, RuntimeError) as e:
+            logger.error('API: ошибка сервера от %s: %s', peername, e, exc_info=True)
+            return 500, {'error': 'Внутренняя ошибка сервера. Если проблема повторяется, обратитесь в поддержку: flowlink.proxy@atomicmail.io'}
 
     async def _handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,

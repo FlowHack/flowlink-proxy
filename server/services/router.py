@@ -32,7 +32,16 @@ class MaskRouter:
         Перестраивает список правил из текущего конфига.
         Вызывается при инициализации и refresh().
         """
-        cfg = config.load_config(force=True)
+        try:
+            cfg = config.load_config(force=True)
+        except (OSError, RuntimeError) as e:
+            logger.error(
+                'Не удалось загрузить конфиг для маршрутизации: %s. '
+                'Маршрутизация временно отключена.', e,
+            )
+            self._rules = []
+            self._proxy_map = {}
+            return
         enabled = config.is_enabled()
 
         proxies = cfg.get('proxies', [])

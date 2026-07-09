@@ -106,7 +106,7 @@ def save_config(data: dict):
         if proxy_copy.get('username'):
             try:
                 proxy_copy['username'] = crypto.encrypt(proxy_copy['username'])
-            except (ValueError, OSError, CryptographyException) as e:
+            except (ValueError, OSError, CryptographyException, ImportError) as e:
                 logger.error(
                     'Ошибка шифрования имени пользователя для прокси %s: %s',
                     proxy_copy.get('proxyId', '?'), e
@@ -115,7 +115,7 @@ def save_config(data: dict):
         if proxy_copy.get('password'):
             try:
                 proxy_copy['password'] = crypto.encrypt(proxy_copy['password'])
-            except (ValueError, OSError, CryptographyException) as e:
+            except (ValueError, OSError, CryptographyException, ImportError) as e:
                 logger.error(
                     'Ошибка шифрования пароля для прокси %s: %s',
                     proxy_copy.get('proxyId', '?'), e
@@ -130,7 +130,11 @@ def save_config(data: dict):
         proxy_count, mask_count
     )
     _invalidate_cache()
-    save_raw(to_save)
+    try:
+        save_raw(to_save)
+    except OSError as e:
+        logger.error('Не удалось записать конфиг на диск: %s. Убедитесь, что диск не переполнен.', e)
+        raise
 
 
 def get_all_proxies() -> list:

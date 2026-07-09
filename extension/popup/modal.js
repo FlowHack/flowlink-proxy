@@ -10,7 +10,12 @@
  */
 export function showModal(id) {
   document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
+  const el = document.getElementById(id);
+  if (!el) {
+    console.warn('[FlowLink Proxy] Модальное окно не найдено:', id);
+    return;
+  }
+  el.classList.remove('hidden');
 }
 
 /** Скрывает все модальные окна. */

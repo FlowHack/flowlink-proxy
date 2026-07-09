@@ -71,10 +71,27 @@ class ProxyServer(BaseServer):
         except asyncio.TimeoutError:
             logger.debug('Таймаут ожидания запроса от %s', peername)
             writer.close()
-        except (ConnectionError, OSError,
+        except (ValueError,
+                ConnectionError, OSError,
                 asyncio.IncompleteReadError) as e:
+            if isinstance(e, ValueError) and 'SSRF' in str(e):
+                try:
+                    body = 'SSRF: запрос к локальному адресу запрещён'
+                    writer.write(
+                        f'HTTP/1.1 502 Bad Gateway\r\n'
+                        f'Content-Type: text/plain; charset=utf-8\r\n'
+                        f'Content-Length: {len(body.encode())}\r\n\r\n'
+                        f'{body}'.encode(),
+                    )
+                    await writer.drain()
+                except (ConnectionError, OSError):
+                    pass
             logger.error('Ошибка обработки клиента %s: %s',
                          peername, e, exc_info=True)
+        except Exception as e:
+            logger.error('Неожиданная ошибка в клиенте %s: %s',
+                         peername, e, exc_info=True)
+        finally:
             try:
                 writer.close()
             except (ConnectionError, OSError):

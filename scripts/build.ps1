@@ -34,6 +34,9 @@ $python = Join-Path $venvPath "Scripts" | Join-Path -ChildPath "python.exe"
 
 Info "Обновление pip..."
 & $python -m pip install --upgrade pip -q
+if ($LASTEXITCODE -ne 0) {
+    Warn "Не удалось обновить pip, продолжаем с текущей версией..."
+}
 
 Info "Установка зависимостей..."
 & $pip install -q -r "server/requirements.txt"
@@ -90,7 +93,10 @@ if ($buildExit -ne 0) {
     Error "Сборка не удалась"
 }
 
-$binary = Get-Item "server/FlowLink Proxy/FlowLink Proxy.exe"
+$binary = Get-Item "server/FlowLink Proxy/FlowLink Proxy.exe" -ErrorAction SilentlyContinue
+if (-not $binary) {
+    Error "Бинарник не найден. Сборка могла завершиться с ошибкой."
+}
 $size = "{0:N0} КБ" -f ($binary.Length / 1KB)
 
 Info "Сборка завершена!"

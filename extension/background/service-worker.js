@@ -24,13 +24,20 @@ chrome.storage.local.get('apiPort').then((result) => {
     apiPort = result.apiPort;
   }
   connectSSE();
+}).catch((e) => {
+  console.warn('[FlowLink Proxy] Не удалось загрузить порт из storage:', e);
+  connectSSE();
 });
 
 // Слушаем изменения порта
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.apiPort) {
-    apiPort = changes.apiPort.newValue;
-    connectSSE();
+  try {
+    if (changes.apiPort) {
+      apiPort = changes.apiPort.newValue;
+      connectSSE();
+    }
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Ошибка обработки изменения storage:', e);
   }
 });
 

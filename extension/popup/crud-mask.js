@@ -7,6 +7,7 @@
 import { apiGet, apiPost } from '../shared/api.js';
 import { convertWildcardToRegex, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
+import { showToast } from './popup.js';
 
 /**
  * Открывает модальное окно добавления маски.
@@ -139,7 +140,10 @@ export async function handleSaveMask(state, loadAndRender) {
     await loadAndRender();
     showModal('modal-masks');
   } catch (e) {
-    errorEl.textContent = e.message;
+    const msg = e.message.includes('Failed to fetch') || e.message.includes('HTTP')
+      ? 'Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy.'
+      : e.message;
+    errorEl.textContent = msg;
     errorEl.classList.remove('hidden');
   } finally {
     setLoading(saveBtn, false);
@@ -161,6 +165,7 @@ export async function handleDeleteMask(maskId, loadAndRender, btn) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления маски:', e);
+    showToast('Не удалось удалить маску. Проверьте соединение с бэкендом.');
   } finally {
     setLoading(btn, false);
   }
@@ -180,6 +185,7 @@ export async function handleClearMasks(loadAndRender) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка очистки масок:', e);
+    showToast('Не удалось очистить маски. Проверьте соединение с бэкендом.');
   } finally {
     setLoading(btn, false);
   }

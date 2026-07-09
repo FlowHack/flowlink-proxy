@@ -54,30 +54,38 @@ def load_or_create_key() -> bytes:
     Если файл существует, но имеет неверный размер — перезаписывает.
     Устанавливает права 600 на файл ключа для безопасности.
     """
-    if os.path.exists(KEY_FILE):
-        with open(KEY_FILE, 'rb') as f:
-            key = f.read()
-            if len(key) == 32:
-                logger.debug('Мастер-ключ загружен из %s', KEY_FILE)
-                return key
-        logger.warning(
-            'Файл ключа %s имеет неверный размер (%d байт), создаю новый',
-            KEY_FILE, len(key)
-        )
-
-    key = os.urandom(32)
-    with open(KEY_FILE, 'wb') as f:
-        f.write(key)
-    # Генерируем уникальную соль для нового ключа
-    _save_salt(os.urandom(32))
     try:
-        os.chmod(KEY_FILE, 0o600)
-    except NotImplementedError:
-        logger.debug('chmod не поддерживается на этой платформе (Windows)')
+        if os.path.exists(KEY_FILE):
+            with open(KEY_FILE, 'rb') as f:
+                key = f.read()
+                if len(key) == 32:
+                    logger.debug('Мастер-ключ загружен из %s', KEY_FILE)
+                    return key
+            logger.warning(
+                'Файл ключа %s имеет неверный размер (%d байт), создаю новый',
+                KEY_FILE, len(key)
+            )
+
+        key = os.urandom(32)
+        with open(KEY_FILE, 'wb') as f:
+            f.write(key)
+        # Генерируем уникальную соль для нового ключа
+        _save_salt(os.urandom(32))
+        try:
+            os.chmod(KEY_FILE, 0o600)
+        except NotImplementedError:
+            logger.debug('chmod не поддерживается на этой платформе (Windows)')
+        except OSError as e:
+            logger.warning('Не удалось установить права на %s: %s', KEY_FILE, e)
+        logger.info('Создан новый мастер-ключ шифрования: %s', KEY_FILE)
+        return key
     except OSError as e:
-        logger.warning('Не удалось установить права на %s: %s', KEY_FILE, e)
-    logger.info('Создан новый мастер-ключ шифрования: %s', KEY_FILE)
-    return key
+        logger.error(
+            'Не удалось получить доступ к файлу ключа %s: %s. '
+            'Убедитесь, что у программы есть права на запись в '
+            'директорию данных.', KEY_FILE, e
+        )
+        raise
 
 
 def _load_salt() -> bytes:
@@ -87,12 +95,15 @@ def _load_salt() -> bytes:
     Если файл соли существует — используем уникальную соль.
     Если нет — используем константную соль (обратная совместимость со старыми ключами).
     """
-    if os.path.exists(SALT_FILE):
-        with open(SALT_FILE, 'rb') as f:
-            salt = f.read()
-            if len(salt) == 32:
-                return salt
-        logger.warning('Файл соли повреждён, используется legacy-соль')
+    try:
+        if os.path.exists(SALT_FILE):
+            with open(SALT_FILE, 'rb') as f:
+                salt = f.read()
+                if len(salt) == 32:
+                    return salt
+            logger.warning('Файл соли повреждён, используется legacy-соль')
+    except OSError as e:
+        logger.warning('Не удалось прочитать файл соли %s: %s', SALT_FILE, e)
     return _LEGACY_SALT
 
 

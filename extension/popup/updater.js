@@ -65,7 +65,10 @@ export async function checkForUpdates(simulate = false, simulateVersion = '') {
  */
 function showUpdateBanner(tag, url) {
   const banner = document.getElementById('update-banner');
-  document.getElementById('update-text').textContent = `Доступно обновление ${tag}`;
-  document.getElementById('btn-update-download').href = url;
+  const updateText = document.getElementById('update-text');
+  const downloadBtn = document.getElementById('btn-update-download');
+  if (!banner || !updateText || !downloadBtn) return;
+  updateText.textContent = `Доступно обновление ${tag}`;
+  downloadBtn.href = url;
   banner.classList.remove('hidden');
 }

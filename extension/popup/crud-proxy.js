@@ -7,6 +7,7 @@
 import { apiGet, apiPost } from '../shared/api.js';
 import { isValidIP, isValidPort, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
+import { showToast } from './popup.js';
 
 /**
  * Открывает модальное окно добавления нового прокси.
@@ -131,7 +132,10 @@ export async function handleSaveProxy(loadAndRender) {
     closeModal();
     await loadAndRender();
   } catch (e) {
-    showFieldError('proxy-host', e.message);
+    const msg = e.message.includes('Failed to fetch') || e.message.includes('HTTP')
+      ? 'Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy.'
+      : e.message;
+    showFieldError('proxy-host', msg);
   } finally {
     setLoading(saveBtn, false);
   }
@@ -153,6 +157,7 @@ export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления прокси:', e);
+    showToast('Не удалось удалить прокси. Проверьте соединение с бэкендом.');
   } finally {
     setLoading(btn, false);
   }
@@ -176,6 +181,7 @@ export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения прокси:', e);
+    showToast('Не удалось переключить прокси. Проверьте соединение с бэкендом.');
   } finally {
     checkbox.disabled = false;
   }

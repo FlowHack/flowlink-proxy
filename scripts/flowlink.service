@@ -10,6 +10,8 @@ ExecStart=%h/.local/share/flowlink-proxy/FlowLink\ Proxy
 WorkingDirectory=%h/.local/share/flowlink-proxy
 Restart=on-failure
 RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
 StandardOutput=journal
 StandardError=journal
 Environment=FLOWLINK_DATA_DIR=%h/.local/share/flowlink-proxy
