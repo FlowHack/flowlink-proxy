@@ -1,264 +1,117 @@
 # FlowLink Proxy
 
-Автоматическая маршрутизация трафика в Chrome: сайты по маскам → через SOCKS5-прокси с паролем, остальные → напрямую.
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-green.svg)](LICENSE.txt)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-orange?logo=googlechrome&logoColor=white)](extension/)
+[![Status](https://img.shields.io/badge/Status-Active-brightgreen)](https://github.com/flowhack/flowlink-proxy/releases/latest)
 
-> **Зачем?** Chrome не умеет передавать логин/пароль в SOCKS5. FlowLink Proxy делает SOCKS5-туннель на своей стороне, а Chrome просто работает через HTTP-прокси `localhost:8080` — без пароля.
+Автоматическая маршрутизация трафика: сайты по маскам — через SOCKS5-прокси с паролем, остальные — напрямую.
 
----
-
-## Быстрый старт (2 минуты)
-
-### 1. Запустите gateway
-
-**Вариант А — через Python (если установлен Python 3.10+):**
-
-```bash
-git clone https://github.com/flowhack/flowlink-proxy.git
-cd flowlink-proxy
-./scripts/flowlink.sh
-```
-
-Скрипт сам создаст виртуальное окружение, установит зависимости и запустит сервер.
-
-**Вариант Б — standalone-бинарник (Python не нужен):**
-
-1. Скачайте `FlowLink Proxy` (Linux/macOS) или `FlowLink Proxy.exe` (Windows) со [страницы релизов](https://github.com/flowhack/flowlink-proxy/releases)
-2. Дайте права на запуск (Linux/macOS): `chmod +x FlowLink Proxy`
-3. Запустите: `./"FlowLink Proxy"` или `FlowLink Proxy.exe`
-
-> Бинарник собран через PyInstaller — в нём уже есть Python и все зависимости.
-
-### 2. Установите расширение в Chrome
-
-1. Откройте `chrome://extensions`
-2. Включите **«Режим разработчика»** (правый верхний угол)
-3. Нажмите **«Загрузить распакованное расширение»**
-4. Выберите папку `extension/` внутри `flowlink-proxy`
-
-### 3. Настройте браузер на прокси
-
-Браузер нужно направить на HTTP-прокси `127.0.0.1:<прокси_порт>` (по умолчанию порт `8080`).  
-Самый надёжный способ — **флаг `--proxy-server` в ярлыке** — он не затрагивает другие приложения.
-
-> Флаг работает в Chrome, Яндекс Браузере, Opera, Edge и любом Chromium-браузере.
-
-#### Windows: ярлык браузера
-
-1. Найдите ярлык браузера на рабочем столе или в меню «Пуск»
-2. Правый клик → **Свойства**
-3. В поле **«Объект»** допишите **после закрывающей кавычки** через пробел:
+> Chrome не умеет передавать логин/пароль в SOCKS5. FlowLink Proxy берёт аутентификацию на себя, а браузер работает через обычный HTTP-прокси `localhost:8080`.
 
 ```
-"C:\Program Files\Yandex\YandexBrowser\Application\browser.exe" --proxy-server=127.0.0.1:8080
-```
-
-4. Нажмите «Применить» → «ОК»
-5. Запускайте браузер только через этот ярлык
-
-Для Chrome путь обычно такой:
-```
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --proxy-server=127.0.0.1:8080
-```
-
-#### Linux / macOS: терминал
-
-```bash
-google-chrome --proxy-server=127.0.0.1:8080
-# или
-yandex-browser --proxy-server=127.0.0.1:8080
-```
-
-#### Linux: системный прокси (все приложения)
-
-```bash
-gsettings set org.gnome.system.proxy.http host '127.0.0.1'
-gsettings set org.gnome.system.proxy.http port 8080
-gsettings set org.gnome.system.proxy.https host '127.0.0.1'
-gsettings set org.gnome.system.proxy.https port 8080
-gsettings set org.gnome.system.proxy mode 'manual'
-```
-
-> **Важно:** порт в `--proxy-server` должен совпадать с портом, который слушает FlowLink Proxy (`--proxy-port`, по умолч. 8080). Если вы сменили порт — укажите его там.
-
-> **Важно:** Python принимает HTTP CONNECT, браузер ничего не знает про SOCKS5. Пароль тоже не указывается — SOCKS5-аутентификацию делает Python.
-
-> **Важно про порты:** По умолчанию используются порты `8080` (прокси) и `8081` (API). Если они заняты — см. раздел «Настройка портов» ниже.
-
----
-
-## Как это работает
-
-```
-Chrome → HTTP CONNECT localhost:8080 (без пароля)
+Браузер → HTTP CONNECT localhost:8080 (без пароля)
                 │
-        Python-шлюз (server/)
+        Python-бэкенд (server/)
                 │
      ┌──────────┴──────────┐
      ▼                      ▼
-URL совпал с маской?   Нет совпадения?
+Маска совпала?         Маска не совпала?
      │                      │
      ▼                      ▼
-SOCKS5 c паролем      Прямое соединение
-(ваш сервер)          (Happ / обычный интернет)
-```
-
-- **Прокси-сервер** (`:8080`) — принимает HTTP CONNECT от Chrome
-- **API-сервер** (`:8081`) — расширение читает/пишет настройки
-- **Расширение** — только интерфейс для добавления прокси и масок
-
----
-
-## Использование расширения
-
-После установки нажмите на иконку FlowLink в панели расширений Chrome:
-
-1. **Добавить прокси** — введите IP, порт, логин и пароль вашего SOCKS5-сервера
-2. **Добавить маску** — можно через `*` (например `*gemini.google.com*` или `*.google.com`) или regex
-3. **Включить/выключить** — глобальный переключатель и отдельно для каждого прокси
-4. **Пинг** — проверить доступность прокси-сервера
-5. **Настройка порта API** — нажмите ⚙ рядом с версией, чтобы изменить порт подключения к Python gateway
-
----
-
-## Обновление
-
-FlowLink Proxy уведомляет о новой версии баннером в расширении.
-
-### Как обновить
-
-**Если используете standalone-бинарник (.exe):**
-
-1. Скачайте последний релиз со [страницы релизов](https://github.com/flowhack/flowlink-proxy/releases/latest)
-2. Распакуйте ZIP, замените старый `FlowLink Proxy.exe` новым
-3. Остановите старый процесс и запустите новый
-
-**Если используете исходный код (Python):**
-
-```bash
-cd flowlink-proxy
-git pull
-python -m server
-```
-
-**Если используете unpacked-расширение:**
-
-1. Откройте `chrome://extensions`
-2. Нажмите «Обновить» (круглая стрелка) или переустановите расширение
-
-> Бэкенд и расширение должны быть одной версии. Сначала обновите бэкенд, потом расширение.
-
-### Как отключить уведомления
-
-Уведомления об обновлениях приходят только для стабильных релизов (GitHub releases).  
-Если вы запускаете Python с флагом `--debug`, уведомления автоматически отключаются.
-
----
-
-## Автозапуск (Linux)
-
-**Через systemd (для standalone-бинарника):**
-
-```bash
-# Отредактируйте путь к бинарнику в scripts/flowlink.service при необходимости
-systemctl --user enable "$PWD/scripts/flowlink.service"
-systemctl --user start flowlink.service
-```
-
-**Через автозагрузку (для Python-версии):**
-Добавьте `./flowlink.sh` в автозагрузку вашей системы.
-
----
-
-## Сборка standalone-бинарника
-
-Если у вас есть Python, вы можете собрать бинарник сами:
-
-```bash
-# Linux / macOS
-./scripts/build.sh
-# Результат: "server/FlowLink Proxy/FlowLink Proxy"
-# Запуск: ./"server/FlowLink Proxy"/"FlowLink Proxy"
-
-# Windows (PowerShell)
-scripts\build.bat
-# или напрямую:
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
-# Результат: "server\FlowLink Proxy\FlowLink Proxy.exe"
-# Запуск: .\server\"FlowLink Proxy"\FlowLink Proxy.exe
+SOCKS5 с паролем       Прямое соединение
+(ваш сервер)           ( Happ / интернет )
 ```
 
 ---
 
-## Флаги запуска
+## Быстрый старт
 
-| Флаг | По умолч. | Описание |
-|------|-----------|----------|
-| `--proxy-port` | `8080` | Порт HTTP CONNECT прокси (браузер подключается сюда) |
-| `--api-port` | `8081` | Порт HTTP API для расширения |
-| `--debug` | выкл. | Подробные логи в консоль (SOCKS5 handshake, все маршруты) |
+### 1. Установите бэкенд
 
-### Примеры
+| Способ | Что делать |
+|--------|-----------|
+| **Установщик Windows** | Скачайте `.exe`-установщик из [релизов](https://github.com/flowhack/flowlink-proxy/releases/latest) → запустите → выберите браузер. Всё остальное автоматически. |
+| **Standalone-бинарник** | Скачайте архив из [релизов](https://github.com/flowhack/flowlink-proxy/releases/latest) → распакуйте в любую папку → см. ниже. |
+| **Исходный код** | `git clone` → `./scripts/flowlink.sh` (см. [SETUP.md](SETUP.md#исходный-код-python)). |
 
-```bash
-# Только сменить порты
-"FlowLink Proxy" --proxy-port 9090 --api-port 9091
+### 2. Установите расширение
 
-# Режим отладки
-"FlowLink Proxy" --debug
+> **Из магазина:** ссылка будет добавлена после публикации.
 
-# Сменить порт прокси и включить отладку
-"FlowLink Proxy" --proxy-port 7777 --api-port 8888 --debug
-```
+**Из исходника:** откройте страницу расширений → включите «Режим разработчика» → «Загрузить распакованное расширение» → выберите папку `extension/`.
 
-Для Python-версии флаги те же:
-```bash
-python -m server --proxy-port 9090 --api-port 9091 --debug
-./scripts/flowlink.sh --proxy-port 9090 --api-port 9091
-```
+| Браузер | Страница расширений |
+|---------|---------------------|
+| Chrome | `chrome://extensions` |
+| Yandex Browser | `browser://extensions` |
+| Opera | `opera://extensions` |
+| Edge | `edge://extensions` |
+| Firefox | `about:debugging#/runtime/this-firefox` → «Загрузить временный дополнитель» |
 
-### Windows: ярлык для gateway
+### 3. Настройте браузер
 
-Создайте ярлык для `FlowLink Proxy.exe`, откройте его свойства и в поле «Объект» допишите флаги **после закрывающей кавычки**:
-```
-"C:\FlowLink\FlowLink Proxy.exe" --proxy-port 9090 --api-port 9091
-```
+Добавьте флаг `--proxy-server=127.0.0.1:8080` к запуску браузера. Подробности: **[SETUP.md](SETUP.md#настройка-браузера)**
+
+> **Если вы используете установщик или лаунчер (`flowlink-proxy-run.bat` / `.sh`) — браузер настраивается автоматически.**
 
 ---
 
-## Настройка портов
+## Использование
 
-Если порт по умолчанию занят — смените его флагами `--proxy-port` и `--api-port` (см. раздел «Флаги запуска» выше).
+### Запуск
 
-**После смены порта обязательно сделайте три вещи:**
+**Установщик (Windows):** кликните по ярлыку FlowLink Proxy в меню «Пуск» или на рабочем столе — бэкенд и браузер запустятся автоматически.
 
-1. **Обновите флаг браузера:** `--proxy-server=127.0.0.1:<новый_прокси_порт>`
-2. **Укажите тот же API-порт в расширении** (см. ниже) — иначе расширение не подключится к gateway
-3. **Перезапустите gateway**
+**Standalone / исходный код:** запустите лаунчер:
+- Windows: `flowlink-proxy-run.bat`
+- Linux / macOS: `./flowlink-proxy-run.sh`
 
-### Настройка порта API в расширении
+> При первом запуске лаунчера нужно указать путь к браузеру в текстовом редакторе. Подробности: **[SETUP.md](SETUP.md#windows-standalone)**
 
-1. Нажмите на иконку FlowLink Proxy → найдите шестерёнку ⚙ рядом с версией
-2. Нажмите ⚙ — появится строка «Порт API»
-3. Введите новый порт и нажмите «Сохранить»
-4. Расширение перезагрузит данные с новым портом
+### Интерфейс расширения
 
-> Порт сохраняется в `chrome.storage.local` и сохраняется после перезапуска браузера.
+Нажмите иконку FlowLink Proxy в панели расширений.
 
-### Устранение проблем с портами
+#### Добавление прокси
 
-Если при запуске gateway вы видите ошибку `address already in use`:
+1. Нажмите **«Добавить прокси»**
+2. Заполните поля:
+   - **IP** — адрес SOCKS5-сервера (например `80.243.18.120`)
+   - **Порт** — порт SOCKS5-сервера (например `10000`)
+   - **Логин** — имя пользователя
+   - **Пароль** — пароль (хранится в зашифрованном виде)
+   - **Метка** — удобное название (например «Мой прокси»)
+3. Нажмите **«Сохранить»**
 
-```bash
-# Linux / macOS — кто занял порт?
-lsof -i :8080
-lsof -i :8081
+#### Добавление маски
 
-# Принудительно завершить старый FlowLink
-pkill -f "FlowLink Proxy"
-pkill -f "python -m server"
-```
+Маска определяет, какие сайты идут через прокси, а какие — напрямую.
 
-**Windows:** Диспетчер задач → Процессы → найдите `FlowLink Proxy.exe` или `python.exe` → Снять задачу.
+1. Нажмите **«Добавить маску»**
+2. Введите шаблон. Примеры:
+   - `*google.com*` — все домены google.com
+   - `*translate.google.com*` — только Google Translate
+   - `*github.com*` — все домены github.com
+3. Выберите прокси, через который будет идти трафик
+4. Нажмите **«Сохранить»**
+
+> Символ `*` заменяет любую часть адреса. Маски автоматически конвертируются в регулярные выражения.
+
+#### Включение и выключение
+
+- **Глобальный тоггл** (внизу окна) — включает/выключает весь FlowLink Proxy. При выключении весь трафик идёт напрямую (минуя прокси).
+- **Тоггл прокси** (ряду с каждым прокси) — включает/выключает отдельный прокси. Маски, привязанные к выключенному прокси, игнорируются.
+
+#### Пинг
+
+Нажмите **«Пинг всех»** чтобы проверить доступность всех прокси. Результат показывает время отклика (в мс) или «н/д» если прокси недоступен.
+
+#### Настройки (⚙)
+
+Нажмите шестерёнку рядом с версией:
+- **Порт API** — измените если бэкенд работает на другом порту (по умолчанию `8081`)
+- **Обновление** — проверить наличие новой версии
 
 ---
 
@@ -266,106 +119,118 @@ pkill -f "python -m server"
 
 ```
 flowlink-proxy/
-├── server/                 # Python-бэкенд (пакет)
-│   ├── __init__.py         # Экспорт версии
-│   ├── __main__.py         # Точка входа
-│   ├── version.py          # Каноническая версия проекта
-│   ├── proxy.py            # HTTP CONNECT прокси (:8080)
-│   ├── api.py              # HTTP API (:8081)
-│   ├── socks5.py           # SOCKS5 клиент (asyncio, без зависимостей)
-│   ├── router.py           # Маршрутизация по маскам
-│   ├── config.py           # Загрузка/сохранение config.json
-│   ├── crypto.py           # AES-GCM шифрование паролей
-│   └── requirements.txt    # Зависимости (только cryptography)
-├── scripts/                # Вспомогательные скрипты
-│   ├── build.sh            # Сборка standalone-бинарника (Linux/macOS)
-│   ├── build.bat           # Обёртка для build.ps1 (обходит ExecutionPolicy)
-│   ├── build.ps1           # Сборка standalone-бинарника (Windows)
-│   ├── flowlink.sh         # Лаунчер (venv + запуск, Linux/macOS)
-│   ├── flowlink.service    # systemd-сервис
-│   └── flowlink.desktop    # Десктоп-файл для меню приложений
-├── extension/              # Chrome-расширение
-│   ├── manifest.json
-│   ├── background/service-worker.js
-│   ├── popup/popup.{html,css,js}
-│   └── icons/
-├── server/FlowLink Proxy/  # Готовый бинарник (после сборки)
-├── config.json             # Конфигурация (пароли зашифрованы)
-└── README.md
+├── server/                    # Python-бэкенд
+│   ├── __main__.py            # Точка входа (CLI + tray icon)
+│   ├── version.py             # Версия проекта
+│   ├── logging_config.py      # Настройка логгера (файл + консоль)
+│   ├── tray.py                # System tray icon (только Windows)
+│   ├── config/
+│   │   ├── config.py          # Бизнес-логика конфига (proxies, masks, enabled)
+│   │   ├── repo.py            # Чтение/запись config.json
+│   │   └── crypto.py          # AES-GCM шифрование паролей (PBKDF2)
+│   ├── protocols/
+│   │   ├── base.py            # ABC ProxyProtocol
+│   │   ├── socks5.py          # SOCKS5-клиент (чистый asyncio + struct)
+│   │   ├── factory.py         # Фабрика протоколов
+│   │   ├── parser.py          # Парсинг CONNECT/HTTP-запросов
+│   │   └── mock_socks5.py     # Тестовый SOCKS5-сервер (--dev)
+│   ├── services/
+│   │   ├── router.py          # Маршрутизация URL по маскам
+│   │   ├── tunnel.py          # Установка туннелей (SOCKS5 / прямой)
+│   │   ├── pipe.py            # Двусторонняя пересылка данных
+│   │   ├── ping.py            # Пинг прокси (SOCKS5 handshake)
+│   │   ├── debug.py           # Debug-утилиты
+│   │   └── events.py          # SSE-шина событий
+│   ├── servers/
+│   │   ├── base_server.py     # ABC BaseServer
+│   │   ├── proxy.py           # HTTP CONNECT прокси (порт 8080)
+│   │   ├── api.py             # HTTP API (порт 8081)
+│   │   └── handlers.py        # Обработчики API-эндпоинтов
+│   ├── utils.py               # Утилиты (get_data_dir, get_resource_dir)
+│   ├── requirements.txt       # Зависимости Python
+│   └── tests/                 # Юнит-тесты
+│       ├── test_config.py
+│       ├── test_crypto.py
+│       ├── test_handlers.py
+│       ├── test_events.py
+│       ├── test_proxy.py
+│       ├── test_router.py
+│       └── test_socks5.py
+│
+├── extension/                 # Chrome-расширение (Manifest V3)
+│   ├── manifest.json          # Манифест расширения
+│   ├── background/
+│   │   └── service-worker.js  # SSE-клиент + pushEnabledState
+│   ├── popup/
+│   │   ├── popup.html         # Главное окно
+│   │   ├── popup.css          # Стили
+│   │   ├── popup.js           # Главный контроллер
+│   │   ├── crud-proxy.js      # CRUD-операции с прокси
+│   │   ├── crud-mask.js       # CRUD-операции с масками
+│   │   ├── ping.js            # Пинг прокси
+│   │   ├── settings.js        # Настройки порта API
+│   │   ├── tab-status.js      # Статус текущей вкладки
+│   │   ├── modal.js           # Модальные окна
+│   │   ├── help.js            # Окно помощи
+│   │   └── updater.js         # Проверка обновлений
+│   ├── shared/
+│   │   ├── api.js             # HTTP GET/POST хелперы
+│   │   ├── constants.js       # API_BASE, GitHub URLs
+│   │   ├── dom.js             # escapeHtml, утилиты DOM
+│   │   └── utils.js           # Валидация IP/port, wildcard→regex
+│   └── icons/                 # Иконки расширения
+│
+├── scripts/                   # Скрипты сборки и запуска
+│   ├── flowlink-proxy-run.bat # Windows-лаунчер: запускает бэкенд + браузер
+│   │                          # (пользователь указывает путь к браузеру)
+│   ├── flowlink-proxy-run.sh  # Linux/macOS-лаунчер: аналогично
+│   ├── flowlink.sh            # Dev-лаунчер: venv + зависимости + запуск
+│   ├── build.bat              # Windows: обёртка для build.ps1
+│   ├── build.ps1              # Windows: сборка standalone (PyInstaller)
+│   ├── build.sh               # Linux/macOS: сборка standalone (PyInstaller)
+│   ├── flowlink.service       # Linux: systemd-сервис
+│   └── flowlink.desktop       # Linux: десктоп-файл
+│
+├── myAgents/                  # Конфиги агента (для разработки)
+├── AI_DEV_LOG.md              # Журнал разработки
+├── SETUP.md                   # Подробная установка и настройка
+├── DEBUG.md                   # Отладка, CLI-флаги, API
+├── PRIVACY_POLICY.md          # Политика конфиденциальности
+├── README.md                  # Этот файл
+└── LICENSE.txt                # GNU AGPL v3
 ```
-
----
-
-## API (для разработчиков)
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/config` | Получить конфигурацию |
-| `POST` | `/api/config` | Обновить конфигурацию |
-| `GET` | `/api/status` | Статус gateway |
-| `GET` | `/api/version` | Версия gateway |
-| `POST` | `/api/ping` | Пинг прокси `{"proxyId": "..."}` |
-
----
-
-## Требования
-
-- **Вариант А (через Python):** Python 3.10+, pip
-- **Вариант Б (standalone):** ничего
-- **Chrome:** версия 100+ (для Manifest V3)
-- **ОС:** Linux, macOS, Windows (WSL)
-
----
-
-## Безопасность
-
-- Пароли шифруются AES-GCM-256 перед записью в `config.json`
-- Мастер-ключ хранится в `.flowlink.key` (права доступа 600)
-- Пароли никогда не логируются
-- Chrome не имеет доступа к паролям — вся аутентификация в Python
-- **Standalone-бинарник:** `config.json` и `.flowlink.key` лежат рядом с `FlowLink Proxy.exe` — достаточно просто положить `.exe` в отдельную папку
-
----
-
-## Логи
-
-FlowLink Proxy пишет логи в два места:
-
-| Куда | Уровень | Где найти |
-|------|---------|-----------|
-| **Консоль** (stdout) | INFO+, DEBUG с `--debug` | Терминал, в котором запущен gateway |
-| **Файл** (ротация) | DEBUG+ | См. ниже |
-
-**Расположение файла `flowlink.log`:**
-
-- **Python-версия** (`./scripts/flowlink.sh` / `python -m server`) — `logs/flowlink.log` в корне проекта
-- **Standalone-бинарник** (`.exe` / `FlowLink Proxy`) — `logs/flowlink.log` рядом с самим бинарником
-
-Файл ротируется: 5 МБ на файл, до 3 старых копий (`flowlink.log.1`, `.2`, `.3`).
-
-**Режим отладки:** `--debug` — подробные логи в консоль + файл (все запросы, SOCKS5 handshake, ошибки).
-
-> **Важно:** пароли никогда не пишутся в логи. В логах фигурирует только `host:port` прокси.
 
 ---
 
 ## Устранение проблем
 
-**Расширение показывает «Ошибка соединения»** → gateway не запущен. Запустите `./scripts/flowlink.sh`.
+| Симптом | Причина | Решение |
+|---------|---------|---------|
+| Расширение пишет «Нет связи с бэкендом» | Бэкенд не запущен | Запустите `FlowLink Proxy.exe` или `flowlink-proxy-run.bat` |
+| `ERR_PROXY_CONNECTION_FAILED` | Браузер настроен на SOCKS5 вместо HTTP-прокси | Флаг должен быть `--proxy-server=127.0.0.1:8080` (HTTP, не SOCKS5) |
+| Браузер не использует прокси | Браузер запущен без флага `--proxy-server` | Запускайте браузер **только** через ярлык или лаунчер |
+| Порт 8080 уже занят | Другой процесс использует порт | Windows: Диспетчер задач → завершите старый процесс. Linux: `lsof -i :8080` |
+| Расширение не подключается | Порт API не совпадает | Проверьте порт в настройках расширения (⚙) — он должен совпадать с `--api-port` |
+| PowerShell блокирует `.ps1` | Политика выполнения скриптов | Используйте `scripts\build.bat` или `powershell -ExecutionPolicy Bypass -File build.ps1` |
+| Логин/пароль не отправляются | Браузер не поддерживает SOCKS5-auth | Это нормально — FlowLink Proxy берёт аутентификацию на себя через HTTP-прокси |
 
-**Расширение пишет конкретную ошибку (например, «Invalid JSON»)** → ошибка от Python gateway. Проверьте, что версия расширения соответствует версии gateway. Перезагрузите расширение на странице `chrome://extensions`.
+Для отладки запустите с флагом `--debug` — подробные логи в консоли и файле `logs/flowlink.log`. Подробнее: [DEBUG.md](DEBUG.md)
 
-**Кнопка «Сохранить» долго не реагирует** → идёт запрос к Python gateway. При сохранении на кнопке отображается вращающийся спиннер — дождитесь его завершения. Если спиннер крутится >10 секунд — проверьте, запущен ли gateway.
+---
 
-**Chrome пишет ERR_PROXY_CONNECTION_FAILED** → проверьте, что в настройках браузера указан HTTP-прокси `127.0.0.1:8080` (а не SOCKS5).
+## Документация
 
-**Не работает SOCKS5** → проверьте логи: `./scripts/flowlink.sh --debug`. Пинг в расширении покажет, доступен ли сервер.
+| Документ | Содержание |
+|----------|------------|
+| **[SETUP.md](SETUP.md)** | Установка, настройка браузеров, порты, автозапуск, обновление |
+| **[DEBUG.md](DEBUG.md)** | Флаги CLI, HTTP API, логи, устранение проблем |
+| **[PRIVACY_POLICY.md](PRIVACY_POLICY.md)** | Политика конфиденциальности |
+| **[LICENSE.txt](LICENSE.txt)** | GNU AGPL v3 |
 
-**PowerShell: «не имеет цифровой подписи»** → политика выполнения по умолчанию блокирует `.ps1`. Запускайте через обёртку:
-```bat
-scripts\build.bat
-```
-Или напрямую с флагом:
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
-```
+---
+
+## Требования
+
+- **Windows:** 10+ (установщик) или standalone-бинарник
+- **Linux / macOS:** Python 3.10+ или standalone-бинарник
+- **Браузер:** Chrome 100+, Yandex Browser, Opera, Edge (Chromium) или Firefox

@@ -32,10 +32,20 @@ USERPASS_SUCCESS = 0x00
 SOCKS5_RSV = 0x00
 SOCKS5_SUCCESS = 0x00
 
+SOCKS5_ERRORS = {
+    0x01: 'General SOCKS server failure',
+    0x02: 'Connection not allowed by ruleset',
+    0x03: 'Network unreachable',
+    0x04: 'Host unreachable',
+    0x05: 'Connection refused',
+    0x06: 'TTL expired',
+    0x07: 'Command not supported',
+    0x08: 'Address type not supported',
+}
+
 
 class Socks5Error(ProxyError):
     """Ошибка SOCKS5 соединения."""
-    pass
 
 
 class Socks5Protocol(ProxyProtocol):
@@ -73,8 +83,11 @@ class Socks5Protocol(ProxyProtocol):
                 self._do_connect(target_host, target_port),
                 timeout=timeout
             )
-        except asyncio.TimeoutError:
-            raise Socks5Error(f'Таймаут {timeout}с при подключении к SOCKS5 {self._host}:{self._port}')
+        except asyncio.TimeoutError as e:
+            raise Socks5Error(
+                f'Таймаут {timeout}с при подключении к SOCKS5 '
+                f'{self._host}:{self._port}'
+            ) from e
         return reader, writer
 
     async def ping(self, timeout: float = 5) -> bool:
@@ -154,7 +167,7 @@ class Socks5Protocol(ProxyProtocol):
             auth_resp = await reader.readexactly(2)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('SOCKS5 <<< auth: %s', auth_resp.hex(' '))
-            up_ver, up_status = struct.unpack('!BB', auth_resp)
+            _, up_status = struct.unpack('!BB', auth_resp)
             if up_status != USERPASS_SUCCESS:
                 writer.close()
                 raise Socks5Error('Ошибка аутентификации SOCKS5: неверный логин/пароль')
@@ -164,6 +177,29 @@ class Socks5Protocol(ProxyProtocol):
 
         elif method == METHOD_NO_ACCEPTABLE:
             raise Socks5Error('SOCKS5: нет приемлемого метода аутентификации')
+
+    @staticmethod
+    def _encode_address(host: str) -> tuple[int, bytes]:
+        """Кодирует адрес в формат SOCKS5 (IPv4 или домен)."""
+        try:
+            return ATYP_IPV4, socket.inet_aton(host)
+        except OSError:
+            host_bytes = host.encode()
+            return ATYP_DOMAIN, bytes([len(host_bytes)]) + host_bytes
+
+    @staticmethod
+    async def _skip_bind_address(
+        reader: asyncio.StreamReader,
+        atyp: int,
+    ):
+        """Пропускает bind address в ответе SOCKS5."""
+        if atyp == ATYP_IPV4:
+            await reader.readexactly(4 + 2)
+        elif atyp == ATYP_DOMAIN:
+            domain_len = (await reader.readexactly(1))[0]
+            await reader.readexactly(domain_len + 2)
+        else:
+            await reader.readexactly(16 + 2)
 
     async def _do_connect(
         self,
@@ -183,74 +219,47 @@ class Socks5Protocol(ProxyProtocol):
         Ответ сервера:
           [ver, rep, rsv, atyp, bind_addr, bind_port]
         """
-        reader: asyncio.StreamReader
-        writer: asyncio.StreamWriter
-
-        # Шаг 1: TCP-подключение к прокси
         try:
             reader, writer = await asyncio.open_connection(self._host, self._port)
         except (OSError, ConnectionError) as e:
-            raise Socks5Error(f'Не удалось подключиться к {self._host}:{self._port}: {e}')
+            raise Socks5Error(
+                f'Не удалось подключиться к {self._host}:{self._port}: {e}'
+            ) from e
 
         try:
-            # Шаг 2: method negotiation + authentication
             await self._handshake(reader, writer)
 
-            # Шаг 3: определяем тип адреса (IPv4 или домен)
-            try:
-                addr_bytes = socket.inet_aton(target_host)
-                atyp = ATYP_IPV4
-            except OSError:
-                atyp = ATYP_DOMAIN
-                target_host_bytes = target_host.encode()
-                addr_bytes = bytes([len(target_host_bytes)]) + target_host_bytes
+            atyp, addr_bytes = self._encode_address(target_host)
 
-            # Шаг 4: отправляем CONNECT-запрос
-            connect_msg = (
+            connect_bytes = (
                 struct.pack('!BBB', SOCKS5_VERSION, CMD_CONNECT, SOCKS5_RSV) +
                 struct.pack('!B', atyp) +
                 addr_bytes +
                 struct.pack('!H', target_port)
             )
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug('SOCKS5 >>> connect (%s:%d): %s', target_host, target_port, connect_msg.hex(' '))
-            writer.write(connect_msg)
+                logger.debug(
+                    'SOCKS5 >>> connect (%s:%d): %s',
+                    target_host, target_port, connect_bytes.hex(' ')
+                )
+            writer.write(connect_bytes)
             await writer.drain()
 
-            # Шаг 5: читаем ответ на CONNECT (4 байта заголовка)
             header = await reader.readexactly(4)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('SOCKS5 <<< connect reply header: %s', header.hex(' '))
-            ver, rep, rsv, atyp_resp = struct.unpack('!BBBB', header)
+            ver, rep, _rsv, atyp_resp = struct.unpack('!BBBB', header)
             if ver != SOCKS5_VERSION:
                 raise Socks5Error(f'Неверная версия SOCKS в ответе: {ver}')
 
-            # Шаг 6: проверяем код ответа
             if rep != SOCKS5_SUCCESS:
-                errors = {
-                    0x01: 'General SOCKS server failure',
-                    0x02: 'Connection not allowed by ruleset',
-                    0x03: 'Network unreachable',
-                    0x04: 'Host unreachable',
-                    0x05: 'Connection refused',
-                    0x06: 'TTL expired',
-                    0x07: 'Command not supported',
-                    0x08: 'Address type not supported',
-                }
-                error_msg = errors.get(rep, f'Unknown error {rep}')
+                error_msg = SOCKS5_ERRORS.get(rep, f'Unknown error {rep}')
                 raise Socks5Error(f'SOCKS5 CONNECT отказан: {error_msg}')
 
-            # Шаг 7: пропускаем bind address (нас не интересует)
-            if atyp_resp == ATYP_IPV4:
-                await reader.readexactly(4 + 2)  # IPv4 (4) + port (2)
-            elif atyp_resp == ATYP_DOMAIN:
-                domain_len = (await reader.readexactly(1))[0]
-                await reader.readexactly(domain_len + 2)  # domain + port
-            else:
-                await reader.readexactly(16 + 2)  # IPv6 (16) + port (2)
+            await self._skip_bind_address(reader, atyp_resp)
 
         except (OSError, ConnectionError, asyncio.IncompleteReadError) as e:
             writer.close()
-            raise Socks5Error(f'Ошибка SOCKS5: {e}')
+            raise Socks5Error(f'Ошибка SOCKS5: {e}') from e
 
         return reader, writer

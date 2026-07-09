@@ -8,17 +8,76 @@
 import logging
 
 from server.config import config as cfg
-from server.services.ping import ping_proxy
-from server.services.router import MaskRouter
 from server.services.debug import log_config_state
 from server.services.events import emit_event
+from server.services.ping import ping_proxy
+from server.services.router import MaskRouter
+from server.services.tunnel import (close_all_connections,
+                                    close_all_proxy_tunnels,
+                                    close_tunnels_for_proxy)
 from server.version import __version__ as server_version
 
 logger = logging.getLogger('flowlink.api')
 
 
-def _diff_proxies(old_proxies: dict, new_proxies: dict):
-    """Логирует добавленные, изменённые и удалённые прокси."""
+def _extract_proxies_dict(data: dict) -> dict:
+    """
+    Извлекает словарь прокси из данных конфигурации.
+
+    Args:
+        data: словарь с ключом 'proxies' (список прокси).
+
+    Returns:
+        Словарь {proxyId: proxy_dict} без proxyId равных None.
+    """
+    return {p['proxyId']: p for p in data.get('proxies', []) if p.get('proxyId')}
+
+
+def _extract_masks_dict(data: dict) -> dict:
+    """
+    Извлекает словарь масок из данных конфигурации.
+
+    Args:
+        data: словарь с ключом 'masks' (список масок).
+
+    Returns:
+        Словарь {maskId: mask_dict} без maskId равных None.
+    """
+    return {m['maskId']: m for m in data.get('masks', []) if m.get('maskId')}
+
+
+def _close_tunnels_on_config_change(
+    old_proxies: dict,
+    new_proxies: dict,
+) -> bool:
+    """
+    Закрывает туннели при изменении статуса прокси.
+
+    Возвращает True, если нужен полный сброс всех соединений
+    (хотя бы один прокси был включён).
+    """
+    needs_full_flush = False
+    for pid, old_p in old_proxies.items():
+        new_p = new_proxies.get(pid)
+        if new_p is None:
+            logger.info('Прокси %s удалён, закрытие туннелей', pid[:8])
+            close_tunnels_for_proxy(pid)
+        elif old_p.get('isEnabled', True) and not new_p.get('isEnabled', True):
+            logger.info('Прокси %s выключен, закрытие туннелей', pid[:8])
+            close_tunnels_for_proxy(pid)
+        elif not old_p.get('isEnabled', True) and new_p.get('isEnabled', True):
+            logger.info('Прокси %s включён, сброс соединений', pid[:8])
+            needs_full_flush = True
+    return needs_full_flush
+
+
+def _log_config_changes(
+    old_proxies: dict,
+    new_proxies: dict,
+    old_masks: dict,
+    new_masks: dict,
+) -> None:
+    """Логирует добавленные, изменённые и удалённые прокси и маски."""
     for pid, p in new_proxies.items():
         addr = f'{p["host"]}:{p["port"]}'
         if pid not in old_proxies:
@@ -30,13 +89,12 @@ def _diff_proxies(old_proxies: dict, new_proxies: dict):
     for pid, p in old_proxies.items():
         if pid not in new_proxies:
             logger.info('Удалён прокси %s', p['host'] + ':' + str(p['port']))
-
-
-def _diff_masks(old_masks: dict, new_masks: dict):
-    """Логирует добавленные и удалённые маски."""
     for mid, m in new_masks.items():
         if mid not in old_masks:
-            logger.info('Добавлена маска %s для прокси %s', m.get('regexString', '?'), m.get('proxyId', '?'))
+            logger.info(
+                'Добавлена маска %s для прокси %s',
+                m.get('regexString', '?'), m.get('proxyId', '?'),
+            )
     for mid, m in old_masks.items():
         if mid not in new_masks:
             logger.info('Удалена маска %s', m.get('regexString', '?'))
@@ -52,31 +110,25 @@ def handle_get_config() -> dict:
 async def handle_post_config(data: dict, router: MaskRouter) -> dict:
     """POST /api/config — обновляет конфигурацию и перезагружает маршруты."""
     old_data = cfg.load_config()
-    old_proxies = {}
-    for p in old_data.get('proxies', []):
-        pid = p.get('proxyId')
-        if pid:
-            old_proxies[pid] = p
-    old_masks = {}
-    for m in old_data.get('masks', []):
-        mid = m.get('maskId')
-        if mid:
-            old_masks[mid] = m
+    old_proxies = _extract_proxies_dict(old_data)
+    old_masks = _extract_masks_dict(old_data)
 
     if not isinstance(data, dict):
         raise ValueError('Тело запроса должно быть JSON-объектом')
 
-    # Если в данных есть isEnabled — применяем отдельно (хранится в памяти)
-    if 'isEnabled' in data:
-        cfg.set_enabled(data['isEnabled'])
-
     cfg.save_config(data)
+
+    new_proxies = _extract_proxies_dict(data)
+    new_masks = _extract_masks_dict(data)
+
+    # Закрываем туннели при изменении статуса прокси
+    needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies)
+    if needs_full_flush:
+        close_all_connections()
+
     router.refresh()
 
-    new_proxies = {p['proxyId']: p for p in data.get('proxies', []) if p.get('proxyId')}
-    new_masks = {m['maskId']: m for m in data.get('masks', []) if m.get('maskId')}
-    _diff_proxies(old_proxies, new_proxies)
-    _diff_masks(old_masks, new_masks)
+    _log_config_changes(old_proxies, new_proxies, old_masks, new_masks)
     log_config_state()
 
     await emit_event('config_changed', {})
@@ -101,12 +153,20 @@ def handle_get_version() -> dict:
     return {'version': server_version}
 
 
-def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
+async def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
     """POST /api/enabled — устанавливает глобальный флаг включения."""
     if not isinstance(data, dict) or 'enabled' not in data:
         raise ValueError('Требуется поле "enabled" (true/false)')
-    cfg.set_enabled(bool(data['enabled']))
+    enabled = bool(data['enabled'])
+    cfg.set_enabled(enabled)
     router.refresh()
+    if enabled:
+        logger.info('Глобальное включение: закрытие всех соединений для перемаршрутизации')
+        close_all_connections()
+    else:
+        logger.info('Глобальное выключение: закрытие всех прокси-туннелей')
+        close_all_proxy_tunnels()
+    await emit_event('config_changed', {})
     return {'success': True, 'enabled': cfg.is_enabled()}
 
 
@@ -119,7 +179,7 @@ async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
     result = await ping_proxy(proxy_id)
     proxy = next((p for p in cfg.get_all_proxies() if p.get('proxyId') == proxy_id), None)
     if proxy:
-        addr = '{}:{}'.format(proxy.get('host', '?'), proxy.get('port', '?'))
+        addr = f"{proxy.get('host', '?')}:{proxy.get('port', '?')}"
     else:
         addr = proxy_id
     if result.get('alive'):

@@ -12,7 +12,14 @@ import re
 logger = logging.getLogger('flowlink.protocol_parser')
 
 RE_CONNECT = re.compile(rb'^CONNECT\s+(?:\[([^\]]+)\]|([^\s:]+?)):(\d+)\s+HTTP/\d\.\d')
-RE_HTTP = re.compile(rb'^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+https?://([^\s/]+)(:\d+)?(/[^\s]*)\s+HTTP/\d\.\d')
+RE_HTTP = re.compile(
+    rb'^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)'
+    rb'\s+https?://([^\s/]+)(:\d+)?(/[^\s]*)\s+HTTP/\d\.\d'
+)
+# Максимальное количество заголовков (защита от slowloris)
+_MAX_HEADER_LINES = 100
+# Таймаут на чтение всех заголовков (секунды)
+_HEADER_TIMEOUT = 5.0
 
 
 def parse_connect(first_line: bytes) -> tuple[str, int] | None:
@@ -40,9 +47,19 @@ def parse_http(first_line: bytes) -> tuple[str, str, int, str, str] | None:
     return method, host, port, path, relative_line
 
 
-async def skip_headers(reader: asyncio.StreamReader):
-    """Читает и пропускает все HTTP-заголовки до пустой строки."""
-    while True:
-        line = await reader.readline()
-        if not line or line == b'\r\n':
-            break
+async def skip_headers(reader: asyncio.StreamReader) -> None:
+    """
+    Читает и пропускает все HTTP-заголовки до пустой строки.
+
+    Защита от slowloris-атаки:
+    - Таймаут на общее время чтения заголовков (_HEADER_TIMEOUT).
+    - Ограничение на количество заголовков (_MAX_HEADER_LINES).
+    """
+    try:
+        for _ in range(_MAX_HEADER_LINES):
+            line = await asyncio.wait_for(reader.readline(), timeout=_HEADER_TIMEOUT)
+            if not line or line == b'\r\n':
+                return
+        logger.warning('Превышено максимальное количество заголовков (%d)', _MAX_HEADER_LINES)
+    except asyncio.TimeoutError:
+        logger.warning('Таймаут чтения HTTP-заголовков (%.1f сек)', _HEADER_TIMEOUT)

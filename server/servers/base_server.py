@@ -33,7 +33,7 @@ class BaseServer(ABC):
     @abstractmethod
     async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Обрабатывает одно входящее подключение. Должен быть переопределён в подклассе."""
-        ...
+        raise NotImplementedError
 
     async def start(self):
         """Запускает TCP-сервер на self._host:self._port."""
@@ -43,7 +43,7 @@ class BaseServer(ABC):
             port=self._port,
         )
         logger = logging.getLogger(f'flowlink.{self._name}')
-        logger.info(f'{self._name.capitalize()} сервер запущен на {self._host}:{self._port}')
+        logger.info('%s сервер запущен на %s:%s', self._name.capitalize(), self._host, self._port)
 
     async def stop(self):
         """Корректно останавливает сервер: закрывает все подключения."""
@@ -51,4 +51,4 @@ class BaseServer(ABC):
             self._server.close()
             await self._server.wait_closed()
             logger = logging.getLogger(f'flowlink.{self._name}')
-            logger.info(f'{self._name.capitalize()} сервер остановлен')
+            logger.info('%s сервер остановлен', self._name.capitalize())

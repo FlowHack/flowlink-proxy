@@ -9,8 +9,10 @@ import logging.handlers
 import os
 import sys
 
+from server.utils import get_data_dir
 
-def setup_logging(debug: bool = False):
+
+def setup_logging(debug: bool = False) -> None:
     """Настраивает корневой логгер: консоль (INFO/DEBUG) + файл с ротацией (DEBUG)."""
     level = logging.DEBUG if debug else logging.INFO
     fmt = logging.Formatter(
@@ -29,12 +31,8 @@ def setup_logging(debug: bool = False):
 
     # Файл: DEBUG+ с ротацией
     try:
-        if getattr(sys, 'frozen', False):
-            base = os.path.dirname(os.path.abspath(sys.executable))
-            log_dir = os.path.join(base, 'logs')
-        else:
-            base = os.path.dirname(os.path.abspath(__file__))
-            log_dir = os.path.join(base, '..', 'logs')
+        base = get_data_dir()
+        log_dir = os.path.join(base, 'logs')
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, 'FlowLink Proxy.log')
         file_handler = logging.handlers.RotatingFileHandler(
@@ -45,4 +43,4 @@ def setup_logging(debug: bool = False):
         root.addHandler(file_handler)
     except OSError as e:
         logger = logging.getLogger('flowlink')
-        logger.warning(f'Не удалось создать папку логов: {e}')
+        logger.warning('Не удалось создать папку логов: %s', e)

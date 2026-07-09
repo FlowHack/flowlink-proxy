@@ -7,13 +7,30 @@ System tray icon для Windows-сборки (.exe).
 
 import logging
 import os
-import sys
 import threading
 import webbrowser
 
+from server.utils import get_data_dir, get_resource_dir
+
 logger = logging.getLogger('flowlink.tray')
 
-# Иконка лежит рядом с .exe в папке icons/icon.png
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+    Image = None
+
+try:
+    import pystray
+    from pystray import MenuItem as item
+    HAS_PYSTRAY = True
+except ImportError:
+    HAS_PYSTRAY = False
+    pystray = None
+    item = None
+
+# Иконка лежит в папке icons/icon.png
 _ICON_PATH = 'icons/icon.png'
 
 
@@ -23,32 +40,24 @@ def _load_icon_image(size: int = 64):
 
     Для .exe (frozen) — иконка распакована PyInstaller'ом в sys._MEIPASS/icons/.
     Для исходников — ищет в текущей директории.
-    """  # Оставляем не-закрывающийся docstring
-    if getattr(sys, 'frozen', False):
-        base = getattr(sys, '_MEIPASS', None) or os.path.dirname(os.path.abspath(sys.executable))
-    else:
-        base = os.getcwd()
+    """
+    if not HAS_PIL:
+        return None
+    base = get_resource_dir()
     icon_path = os.path.join(base, _ICON_PATH)
 
-    try:
-        from PIL import Image
-        if os.path.exists(icon_path):
-            img = Image.open(icon_path)
-            if img.mode != 'RGBA':
-                img = img.convert('RGBA')
-            return img.resize((size, size), Image.LANCZOS)
-        logger.warning('Иконка %s не найдена, создаю заглушку', icon_path)
-        return Image.new('RGBA', (size, size), (45, 105, 165, 255))
-    except ImportError:
-        return None
+    if os.path.exists(icon_path):
+        img = Image.open(icon_path)
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        return img.resize((size, size), Image.Resampling.LANCZOS)
+    logger.warning('Иконка %s не найдена, создаю заглушку', icon_path)
+    return Image.new('RGBA', (size, size), (45, 105, 165, 255))
 
 
-def _open_logs_dir():
+def _open_logs_dir() -> None:
     """Открывает папку с логами в проводнике."""
-    if getattr(sys, 'frozen', False):
-        base = os.path.dirname(os.path.abspath(sys.executable))
-    else:
-        base = os.getcwd()
+    base = get_data_dir()
     logs_dir = os.path.join(base, 'logs')
     os.makedirs(logs_dir, exist_ok=True)
     webbrowser.open(f'file://{os.path.normpath(logs_dir)}')
@@ -64,28 +73,21 @@ def start_tray(stop_callback) -> object | None:
     Returns:
         Экземпляр pystray.Icon или None при ошибке.
     """
-    try:
-        import pystray
-        from pystray import MenuItem as item
-    except ImportError:
+    if not HAS_PYSTRAY:
         logger.warning('pystray не установлен, иконка в трее недоступна')
         return None
 
-    try:
-        icon_image = _load_icon_image()
-        if icon_image is None:
-            logger.error('Pillow не установлен, иконка в трее недоступна')
-            return None
-    except Exception as e:
-        logger.error('Ошибка загрузки иконки: %s', e)
+    icon_image = _load_icon_image()
+    if icon_image is None:
+        logger.error('Pillow не установлен, иконка в трее недоступна')
         return None
 
-    def on_exit(icon, item):
+    def on_exit(_icon, _item):
         logger.info('Tray: выбран Выход')
-        icon.stop()
+        _icon.stop()
         stop_callback()
 
-    def on_open_logs(icon, item):
+    def on_open_logs(_icon, _item):
         logger.info('Tray: открытие папки логов')
         _open_logs_dir()
 
@@ -99,7 +101,7 @@ def start_tray(stop_callback) -> object | None:
     def _run():
         try:
             icon.run()
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.error('Tray: ошибка: %s', e)
 
     thread = threading.Thread(target=_run, daemon=True)

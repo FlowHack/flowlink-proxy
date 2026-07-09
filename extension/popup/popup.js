@@ -11,9 +11,9 @@ import { handlePingAll } from './ping.js';
 import { openHelpModal, switchHelpTab } from './help.js';
 import { showModal, closeModal } from './modal.js';
 import { openAddProxyModal, openEditProxyModal, handleSaveProxy, handleDeleteProxy, handleToggleProxy } from './crud-proxy.js';
-import { openAddMaskModal, handleSaveMask, handleDeleteMask, handleClearMasks } from './crud-mask.js';
+import { openAddMaskModal, openEditMaskModal, handleSaveMask, handleDeleteMask, handleClearMasks } from './crud-mask.js';
 import { renderTabStatus } from './tab-status.js';
-import { checkBackendVersion, checkForUpdates } from './updater.js';
+import { checkBackendVersion, checkForUpdates, backendVersion } from './updater.js';
 import { handleSettingsSave } from './settings.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
@@ -88,7 +88,7 @@ function showError(visible) {
   if (visible) {
     const retryBtn = document.getElementById('btn-retry');
     if (retryBtn) retryBtn.onclick = handleRetry;
-    document.getElementById('btn-help-setup')?.addEventListener('click', openHelpModal, { once: true });
+    document.getElementById('btn-help-setup')?.addEventListener('click', () => openHelpModal(), { once: true });
   }
 }
 
@@ -105,7 +105,35 @@ async function loadAndRender() {
     if (tabs[0]?.url) renderTabStatus(tabs[0].url, state);
   } catch (e) {
     showError(true);
-    console.error('[FlowLink] Ошибка загрузки конфига:', e);
+    console.error('[FlowLink Proxy] Ошибка загрузки конфига:', e);
+  }
+}
+
+/**
+ * Обрабатывает переключение глобального тоггла.
+ * POST на /api/enabled, обновляет storage триггерит перезагрузку UI.
+ */
+async function handleGlobalToggle(checkbox) {
+  if (!checkbox) return;
+  const enabled = checkbox.checked;
+  checkbox.disabled = true;
+  // Сохраняем в storage ДО отправки на бэкенд, чтобы service-worker при обработке
+  // SSE-события config_changed прочитал актуальное значение, а не устаревшее.
+  chrome.storage.local.set({ extEnabled: enabled });
+  try {
+    await fetch(`${API_BASE}/enabled`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    state.enabled = enabled;
+    render(state);
+  } catch (e) {
+    console.error('[FlowLink Proxy] Ошибка переключения:', e);
+    chrome.storage.local.set({ extEnabled: !enabled });
+    checkbox.checked = !enabled;
+  } finally {
+    checkbox.disabled = false;
   }
 }
 
@@ -178,19 +206,11 @@ function render(state) {
   const filtered = state.selectedProxyId
     ? state.masks.filter(m => m.proxyId === state.selectedProxyId)
     : state.masks;
-  const subtitle = document.getElementById('modal-masks-subtitle');
-  if (state.selectedProxyId) {
-    const proxy = state.proxies.find(p => p.proxyId === state.selectedProxyId);
-    subtitle.textContent = proxy ? `Маски для ${proxy.host}:${proxy.port}` : 'Маски';
-  } else {
-    subtitle.textContent = 'Все маски';
-  }
   const masksContainer = document.getElementById('mask-list');
   const maskRows = filtered.map(m => {
-    const proxy = state.proxies.find(p => p.proxyId === m.proxyId);
     return `<div class="mask-row">
+      <button class="btn btn-icon btn-edit-mask" data-mask-id="${m.maskId}" title="Редактировать маску">✎</button>
       <span class="mask-pattern">${escapeHtml(m.pattern)}</span>
-      <span class="mask-proxy-name">→ ${proxy ? `${proxy.host}:${proxy.port}` : '?'}</span>
       <button class="btn btn-icon btn-danger-mask" data-mask-id="${m.maskId}" title="Удалить маску">✕</button>
     </div>`;
   }).join('');
@@ -208,20 +228,6 @@ function renderGlobalToggle() {
   const toggle = document.getElementById('global-toggle-input');
   if (!toggle) return;
   toggle.checked = state.enabled;
-  toggle.addEventListener('change', async () => {
-    try {
-      const enabled = toggle.checked;
-      await fetch(`${API_BASE}/enabled`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
-      });
-      chrome.storage.local.set({ extEnabled: enabled });
-    } catch (e) {
-      console.error('[FlowLink] Ошибка переключения:', e);
-      toggle.checked = !toggle.checked;
-    }
-  });
 }
 
 /** Отрисовывает таблицу прокси с иконками статуса и кнопками. */
@@ -261,7 +267,7 @@ function attachGlobalListeners() {
     // Удаление прокси
     if (e.target.classList.contains('btn-delete')) {
       const proxyId = e.target.dataset.proxyId;
-      handleDeleteProxy(proxyId, loadAndRender);
+      handleDeleteProxy(proxyId, loadAndRender, e.target);
     }
     // Редактирование прокси
     if (e.target.classList.contains('btn-edit')) {
@@ -279,17 +285,27 @@ function attachGlobalListeners() {
         showModal('modal-masks');
       }
     }
+    // Редактирование маски
+    if (e.target.classList.contains('btn-edit-mask')) {
+      const maskId = e.target.dataset.maskId;
+      const mask = state.masks.find(m => m.maskId === maskId);
+      if (mask) openEditMaskModal(state, mask);
+    }
     // Удаление маски
     if (e.target.classList.contains('btn-danger-mask')) {
       const maskId = e.target.dataset.maskId;
-      handleDeleteMask(maskId, loadAndRender);
+      handleDeleteMask(maskId, loadAndRender, e.target);
     }
   });
 
   document.addEventListener('change', (e) => {
     // Тоггл отдельного прокси
     if (e.target.classList.contains('proxy-toggle')) {
-      handleToggleProxy(e.target.dataset.proxyId, loadAndRender);
+      handleToggleProxy(e.target.dataset.proxyId, loadAndRender, e.target);
+    }
+    // Глобальный тоггл (on/off)
+    if (e.target.id === 'global-toggle-input') {
+      handleGlobalToggle(e.target);
     }
   });
 
@@ -300,13 +316,19 @@ function attachGlobalListeners() {
     }
     if (e.target.id === 'mask-form') {
       e.preventDefault();
-      handleSaveMask(loadAndRender);
+      handleSaveMask(state, loadAndRender);
     }
     if (e.target.id === 'settings-form') {
       e.preventDefault();
       handleSettingsSave(loadAndRender);
     }
   });
+
+  // Баннер обновления
+  document.getElementById('btn-update-close')?.addEventListener('click', () => {
+    document.getElementById('update-banner').classList.add('hidden');
+  });
+  document.getElementById('btn-update-help')?.addEventListener('click', () => openHelpModal('windows', true));
 
   document.getElementById('btn-ping-all')?.addEventListener('click', () => handlePingAll(state, renderProxyList));
   document.getElementById('btn-add-proxy')?.addEventListener('click', () => {
@@ -330,6 +352,7 @@ function attachGlobalListeners() {
   });
   document.getElementById('tab-windows')?.addEventListener('click', () => switchHelpTab('windows'));
   document.getElementById('tab-source')?.addEventListener('click', () => switchHelpTab('source'));
+  document.getElementById('tab-ext')?.addEventListener('click', () => switchHelpTab('ext'));
 
   // Переключение видимости пароля
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);
@@ -343,8 +366,8 @@ function togglePasswordVisibility() {
   const isPassword = input.type === 'password';
   input.type = isPassword ? 'text' : 'password';
   btn.title = isPassword ? 'Скрыть пароль' : 'Показать пароль';
-  btn.querySelector('.eye-closed').style.display = isPassword ? 'none' : '';
-  btn.querySelector('.eye-open').style.display = isPassword ? '' : 'none';
+  btn.querySelector('.eye-closed').classList.toggle('hidden', !isPassword);
+  btn.querySelector('.eye-open').classList.toggle('hidden', isPassword);
 }
 
 /** Точка входа — инициализация. */
@@ -353,15 +376,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   attachGlobalListeners();
 
   // Проверяем, не изменился ли конфиг с прошлого открытия popup (SSE-уведомление)
-  const storage = await chrome.storage.local.get(['configChanged', 'needUpdate']);
+  const storage = await chrome.storage.local.get(['configChanged']);
   if (storage.configChanged) {
     await chrome.storage.local.remove('configChanged');
-  }
-
-  // Если пришёл флаг need_update (симуляция обновления) — очищаем и форсируем проверку
-  const simulateUpdate = !!storage.needUpdate;
-  if (simulateUpdate) {
-    await chrome.storage.local.remove('needUpdate');
   }
 
   // Первая загрузка — один раз, без поллинга
@@ -369,7 +386,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Если бэкенд ответил — проверяем версию и обновления
   const backendOk = await checkBackendVersion();
   if (backendOk) {
-    await checkForUpdates(simulateUpdate);
+    // 1. Проверка GitHub API (работает когда репозиторий публичный)
+    await checkForUpdates(false);
+    // 2. Дополнительная проверка флага от бэкенда (--need-update)
+    try {
+      const status = await apiGet('/status');
+      if (status.needUpdate) {
+        await checkForUpdates(true, backendVersion || '');
+      }
+    } catch {}
   }
   // Запускаем поллинг для отслеживания изменений
   startPolling();

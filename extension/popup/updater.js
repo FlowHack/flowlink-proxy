@@ -6,7 +6,7 @@
 
 import { apiGet } from '../shared/api.js';
 import { compareVersions } from '../shared/utils.js';
-import { GITHUB_API_RELEASES } from '../shared/constants.js';
+import { GITHUB_API_RELEASES, GITHUB_RELEASES_URL } from '../shared/constants.js';
 
 let backendVersion = null;
 
@@ -35,9 +35,15 @@ export async function checkBackendVersion() {
 /**
  * Проверяет GitHub API на наличие новой версии.
  * Если последний релиз новее текущей — показывает баннер с предложением обновления.
- * @param {boolean} [simulate=false] — если true, принудительно подменяет текущую версию на '0.0.0'.
+ * @param {boolean} [simulate=false] — если true, показывает баннер без обращения к GitHub.
+ * @param {string} [simulateVersion=''] — версия для отображения в режиме симуляции.
  */
-export async function checkForUpdates(simulate = false) {
+export async function checkForUpdates(simulate = false, simulateVersion = '') {
+  if (simulate) {
+    const tag = simulateVersion ? `v${simulateVersion}` : 'v0.0.0 (тест)';
+    showUpdateBanner(tag, GITHUB_RELEASES_URL);
+    return;
+  }
   try {
     const resp = await fetch(GITHUB_API_RELEASES);
     if (!resp.ok) return;
@@ -45,7 +51,7 @@ export async function checkForUpdates(simulate = false) {
     const latestTag = release.tag_name || '';
     if (!latestTag) return;
     const latestVer = latestTag.replace(/^v/, '');
-    const currentVer = simulate ? '0.0.0' : (backendVersion || '0.0.0');
+    const currentVer = backendVersion || '0.0.0';
     if (compareVersions(latestVer, currentVer) > 0) {
       showUpdateBanner(latestTag, release.html_url);
     }

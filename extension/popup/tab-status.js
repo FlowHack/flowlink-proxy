@@ -22,7 +22,7 @@ export async function renderTabStatus(url, state) {
       const proxy = state.proxies.find(p => p.proxyId === matchedMask.proxyId);
       bar.classList.remove('hidden');
       icon.style.color = 'var(--accent-green)';
-      text.textContent = `Через SOCKS5 (${proxy ? proxy.host : ''})`;
+      text.textContent = `Через SOCKS5 (${proxy ? proxy.host : 'неизвестно'})`;
       text.style.color = 'var(--accent-green)';
     } else {
       bar.classList.remove('hidden');
@@ -31,6 +31,6 @@ export async function renderTabStatus(url, state) {
       text.style.color = 'var(--accent-green)';
     }
   } catch (e) {
-    console.warn('[FlowLink] Ошибка статуса вкладки:', e);
+    console.warn('[FlowLink Proxy] Ошибка статуса вкладки:', e);
   }
 }

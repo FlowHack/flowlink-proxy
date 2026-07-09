@@ -26,9 +26,10 @@
     "storage"
   ],
   "host_permissions": [
-    "http://127.0.0.1:*/*"
+    "http://127.0.0.1:*/*",
+    "https://api.github.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; style-src 'self'; object-src 'none'; connect-src 'self' http://127.0.0.1:*"
+    "extension_pages": "script-src 'self'; style-src 'self'; object-src 'none'; connect-src 'self' http://127.0.0.1:* https://api.github.com"
   }
 }

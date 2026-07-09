@@ -28,7 +28,10 @@ class MaskRouter:
         self._rebuild()
 
     def _rebuild(self):
-        """Перестраивает список правил из текущего конфига. Вызывается при инициализации и refresh()."""
+        """
+        Перестраивает список правил из текущего конфига.
+        Вызывается при инициализации и refresh().
+        """
         cfg = config.load_config(force=True)
         enabled = config.is_enabled()
 
@@ -40,7 +43,10 @@ class MaskRouter:
         for p in proxies:
             pid = p.get('proxyId')
             if not pid:
-                logger.warning(f'Прокси без proxyId пропущен: {p.get("host", "?")}:{p.get("port", "?")}')
+                logger.warning(
+                    'Прокси без proxyId пропущен: %s:%s',
+                    p.get('host', '?'), p.get('port', '?'),
+                )
                 continue
             self._proxy_map[pid] = p
 
@@ -56,23 +62,23 @@ class MaskRouter:
             pid = mask.get('proxyId')
             regex_raw = mask.get('regexString', '')
             if not pid:
-                logger.warning(f'Маска без proxyId пропущена: {regex_raw}')
+                logger.warning('Маска без proxyId пропущена: %s', regex_raw)
                 continue
             if not regex_raw:
-                logger.warning(f'Маска {pid} без regexString пропущена')
+                logger.warning('Маска %s без regexString пропущена', pid)
                 continue
             proxy = self._proxy_map.get(pid)
             if not proxy:
-                logger.warning(f'Маска {regex_raw} ссылается на несуществующий прокси {pid}')
+                logger.warning('Маска %s ссылается на несуществующий прокси %s', regex_raw, pid)
                 continue
             if not proxy.get('isEnabled', True):
-                logger.debug(f'Маска {regex_raw} пропущена: прокси {pid} выключен')
+                logger.debug('Маска %s пропущена: прокси %s выключен', regex_raw, pid)
                 continue
 
             try:
                 regex = re.compile(regex_raw)
             except re.error as e:
-                logger.warning(f'Ошибка компиляции regex маски "{regex_raw}": {e}')
+                logger.warning('Ошибка компиляции regex маски "%s": %s', regex_raw, e)
                 continue
 
             rules.append({
@@ -82,10 +88,11 @@ class MaskRouter:
                 'port': proxy['port'],
                 'username': proxy.get('username', ''),
                 'password': proxy.get('password', ''),
+                'isEnabled': proxy.get('isEnabled', True),
             })
 
         self._rules = rules
-        logger.debug(f'Маршрутизация включена: {len(rules)} правил из {len(masks)} масок')
+        logger.debug('Маршрутизация включена: %d правил из %d масок', len(rules), len(masks))
 
     def route(self, url: str) -> Optional[dict]:
         """
@@ -100,17 +107,21 @@ class MaskRouter:
         for rule in self._rules:
             try:
                 if rule['regex'].search(url):
-                    logger.debug(f'Маршрут: {url} -> {rule["host"]}:{rule["port"]} (прокси {rule["proxyId"]})')
+                    logger.debug(
+                        'Маршрут: %s -> %s:%s (прокси %s)',
+                        url, rule['host'], rule['port'], rule['proxyId'],
+                    )
                     return {
                         'host': rule['host'],
                         'port': rule['port'],
                         'username': rule.get('username', ''),
                         'password': rule.get('password', ''),
+                        'proxyId': rule['proxyId'],
                     }
             except re.error as e:
-                logger.warning(f'Regex ошибка при проверке URL {url}: {e}')
+                logger.warning('Regex ошибка при проверке URL %s: %s', url, e)
                 continue
-        logger.debug(f'Маршрут: {url} -> напрямую (нет совпадений)')
+        logger.debug('Маршрут: %s -> напрямую (нет совпадений)', url)
         return None
 
     def refresh(self):

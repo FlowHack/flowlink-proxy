@@ -1,1 +1,3 @@
-from server.version import __version__  # noqa: F401
+"""Пакет серверной части FlowLink Proxy."""
+
+from server.version import __version__

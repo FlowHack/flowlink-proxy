@@ -8,6 +8,8 @@
 import logging
 import re
 
+from server.config import config as cfg
+
 logger = logging.getLogger('flowlink.debug')
 
 # Регулярка для маскировки паролей в JSON-строках.
@@ -42,8 +44,6 @@ def truncate(text: str, max_len: int = 2000) -> str:
 
 def log_config_state():
     """Выводит текущее состояние конфига в debug-лог (без паролей)."""
-    from server.config import config as cfg  # noqa: late import — избегаем циклических импортов
-
     data = cfg.load_config()
     proxies = data.get('proxies', [])
     masks = data.get('masks', [])
@@ -58,8 +58,6 @@ def log_config_state():
 
 def log_startup_config():
     """Выводит конфиг при старте сервера в debug-лог."""
-    from server.config import config as cfg  # noqa
-
     config_data = cfg.load_config()
     proxies = config_data.get('proxies', [])
     masks = config_data.get('masks', [])

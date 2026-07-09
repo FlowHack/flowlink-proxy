@@ -9,12 +9,12 @@
 Единственная ответственность: парсинг аргументов CLI и запуск компонентов.
 
 Использование:
-  python -m server                                        # Стандартные порты
-  python -m server --proxy-port 9090                      # Кастомный прокси порт
-  python -m server --api-port 9091                        # Кастомный API порт
-  python -m server --debug                                # Debug-логирование
-  python -m server --dev                                  # Dev-режим (auto-reload + debug)
-  python -m server --need-update                          # Симуляция обновления (debug + SSE-событие)
+  python -m server  # Стандартные порты
+  python -m server --proxy-port 9090  # Кастомный прокси порт
+  python -m server --api-port 9091  # Кастомный API порт
+  python -m server --debug  # Debug-логирование
+  python -m server --dev  # Dev-режим (auto-reload + debug)
+  python -m server --need-update  # Симуляция обновления (debug + SSE-событие)
 """
 
 import argparse
@@ -25,13 +25,13 @@ import signal
 import sys
 
 from server.logging_config import setup_logging
-from server.version import __version__
+from server.protocols.mock_socks5 import MockSocks5Server
 from server.servers.api import ApiServer
 from server.servers.proxy import ProxyServer
-from server.services.router import MaskRouter
 from server.services.debug import log_startup_config
 from server.services.events import emit_event
-from server.protocols.mock_socks5 import MockSocks5Server
+from server.services.router import MaskRouter
+from server.version import __version__
 
 try:
     from server.tray import start_tray
@@ -73,7 +73,6 @@ async def _file_watcher(root: str, poll_interval: float = 1.0) -> None:
                 snapshots[f] = mtime
                 rel = os.path.relpath(f, root)
                 logger.info('Обнаружено изменение в %s, перезапуск...', rel)
-                # Жёсткий выход — внешняя обёртка перезапустит
                 os._exit(0)
 
 
@@ -89,7 +88,10 @@ async def _run_server(args: argparse.Namespace) -> None:
         log_startup_config()
 
     proxy_server = ProxyServer(router, port=args.proxy_port)
-    api_server = ApiServer(router, port=args.api_port, debug=args.debug, need_update=args.need_update)
+    api_server = ApiServer(
+        router, port=args.api_port,
+        debug=args.debug, need_update=args.need_update,
+    )
 
     try:
         await asyncio.gather(
@@ -100,7 +102,10 @@ async def _run_server(args: argparse.Namespace) -> None:
         logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
     except OSError as e:
         if 'address already in use' in str(e).lower():
-            logger.error('Порт занят: %s. Укажите другие порты через --proxy-port / --api-port', e)
+            logger.error(
+                'Порт занят: %s. Укажите другие порты через '
+                '--proxy-port / --api-port', e,
+            )
         else:
             logger.error('Ошибка запуска сервера: %s', e)
         return
@@ -110,7 +115,6 @@ async def _run_server(args: argparse.Namespace) -> None:
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
-    # В .exe-сборке (PyInstaller, frozen) запускаем иконку в трее
     tray_icon = None
     if getattr(sys, 'frozen', False) and _HAS_TRAY and not args.dev:
         tray_icon = start_tray(lambda: loop.call_soon_threadsafe(stop_event.set))
@@ -129,14 +133,15 @@ async def _run_server(args: argparse.Namespace) -> None:
         try:
             loop.add_signal_handler(sig, _make_handler(sig))
         except NotImplementedError:
-            logger.warning('Регистрация обработчика %s не поддерживается на этой платформе', signal.Signals(sig).name)
+            logger.warning(
+                'Регистрация обработчика %s не поддерживается на этой платформе',
+                signal.Signals(sig).name,
+            )
 
-    # Если включён --need-update — отправляем SSE-событие для симуляции обновления
     if args.need_update:
         asyncio.create_task(emit_event('need_update', {'version': __version__}))
         logger.info('Симуляция обновления: отправлено SSE-событие need_update')
 
-    # Если включён dev-режим — запускаем watcher + mock SOCKS5 параллельно
     if args.dev:
         server_root = os.path.dirname(os.path.abspath(__file__))
         asyncio.create_task(_file_watcher(server_root))
@@ -159,8 +164,6 @@ async def _run_server(args: argparse.Namespace) -> None:
     except asyncio.TimeoutError:
         logger.warning('Таймаут остановки серверов — принудительный выход.')
 
-    # Принудительный выход — гарантирует завершение процесса, если остались
-    # незакрытые ресурсы, не-daemon потоки (pystray) или pending-таски asyncio.
     os._exit(0)
 
 
@@ -172,17 +175,21 @@ async def main():
     ожидает сигнала завершения и останавливает серверы.
     """
     parser = argparse.ArgumentParser(description='FlowLink Proxy Gateway')
-    parser.add_argument('--proxy-port', type=int, default=8080, help='Порт прокси-сервера (по умолч. 8080)')
-    parser.add_argument('--api-port', type=int, default=8081, help='Порт API сервера (по умолч. 8081)')
+    parser.add_argument('--proxy-port', type=int, default=8080,
+                        help='Порт прокси-сервера (по умолч. 8080)')
+    parser.add_argument('--api-port', type=int, default=8081,
+                        help='Порт API сервера (по умолч. 8081)')
     parser.add_argument('--debug', action='store_true', help='Режим отладки')
-    parser.add_argument('--dev', action='store_true', help='Режим разработки (debug + auto-reload)')
-    parser.add_argument('--need-update', action='store_true', help='Симуляция обновления (debug + SSE-событие need_update)')
+    parser.add_argument('--dev', action='store_true',
+                        help='Режим разработки (debug + auto-reload)')
+    parser.add_argument(
+        '--need-update', action='store_true',
+        help='Симуляция обновления (debug + SSE-событие need_update)',
+    )
     args = parser.parse_args()
 
-    # --dev включает debug автоматически
     if args.dev:
         args.debug = True
-    # --need-update также включает debug
     if args.need_update:
         args.debug = True
 

@@ -5,6 +5,9 @@
   padding: 0;
 }
 
+.hidden { display: none !important; }
+.flex-shrink-0 { flex-shrink: 0; }
+
 :root {
   --bg-primary: #0d0d1a;
   --bg-surface: #1a1a2e;
@@ -646,39 +649,49 @@ body {
 }
 
 /* ───── Список масок ───── */
-.mask-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.mask-item:last-child {
-  border-bottom: none;
-}
-
-.mask-text {
-  flex: 1;
-  font-size: 13px;
-  font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-primary);
-  cursor: pointer;
-  padding: 4px 0;
-  word-break: break-all;
-}
-
-.mask-text:hover {
-  color: var(--accent-red);
-}
-
-.mask-delete {
-  flex-shrink: 0;
-}
-
 .mask-list {
   max-height: 320px;
   overflow-y: auto;
+}
+
+.mask-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mask-row:last-child {
+  border-bottom: none;
+}
+
+.mask-pattern {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-edit-mask {
+  color: var(--text-secondary);
+}
+
+.btn-edit-mask:hover {
+  color: var(--text-primary);
+}
+
+.btn-danger-mask {
+  color: var(--danger);
+}
+
+.btn-danger-mask:hover {
+  color: #ff6666;
+  background: rgba(255, 68, 68, 0.15);
 }
 
 /* ───── Спиннер на кнопке ───── */

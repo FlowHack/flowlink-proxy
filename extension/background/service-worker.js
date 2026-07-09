@@ -78,9 +78,13 @@ function connectSSE() {
       chrome.storage.local.set({ configChanged: true, configChangedAt: Date.now() });
     });
 
-    eventSource.addEventListener('need_update', () => {
+    eventSource.addEventListener('need_update', (event) => {
       console.log('[FlowLink Proxy] SSE: симуляция обновления');
-      chrome.storage.local.set({ needUpdate: true, needUpdateAt: Date.now() });
+      let version = '';
+      try {
+        version = JSON.parse(event.data).version || '';
+      } catch {}
+      chrome.storage.local.set({ needUpdate: true, needUpdateVersion: version, needUpdateAt: Date.now() });
     });
 
     eventSource.onerror = (err) => {

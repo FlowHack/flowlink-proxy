@@ -9,11 +9,11 @@ import asyncio
 import json
 import logging
 
-from server.servers.base_server import BaseServer
 from server.servers import handlers
-from server.services.router import MaskRouter
+from server.servers.base_server import BaseServer
 from server.services.debug import mask_sensitive, truncate
 from server.services.events import handle_sse
+from server.services.router import MaskRouter
 
 logger = logging.getLogger('flowlink.api')
 
@@ -22,7 +22,6 @@ MAX_POST_BODY = 10 * 1024 * 1024  # 10 MB
 
 class _RequestTooLarge(Exception):
     """Тело запроса превышает MAX_POST_BODY."""
-    pass
 
 
 async def _parse_http_request(
@@ -55,12 +54,15 @@ async def _parse_http_request(
                 pass
 
     if content_length > MAX_POST_BODY:
-        logger.warning(f'API: слишком большой запрос ({content_length} байт) от {peername}')
+        logger.warning('API: слишком большой запрос (%s байт) от %s',
+                       content_length, peername)
         raise _RequestTooLarge()
 
     body = b''
     if content_length > 0:
-        body = await asyncio.wait_for(reader.readexactly(content_length), timeout=30)
+        body = await asyncio.wait_for(
+            reader.readexactly(content_length), timeout=30,
+        )
 
     return method, path, body
 
@@ -72,7 +74,10 @@ async def _build_response(
 ):
     """Собирает и отправляет HTTP JSON-ответ."""
     response_json = json.dumps(response_body, ensure_ascii=False)
-    reason = {200: 'OK', 400: 'Bad Request', 404: 'Not Found', 413: 'Request Entity Too Large'}.get(status_code, 'Error')
+    reason = {
+        200: 'OK', 400: 'Bad Request', 404: 'Not Found',
+        413: 'Request Entity Too Large',
+    }.get(status_code, 'Error')
     response_headers = (
         f'HTTP/1.1 {status_code} {reason}\r\n'
         f'Content-Type: application/json\r\n'
@@ -97,7 +102,9 @@ class ApiServer(BaseServer):
       POST /api/ping     — пинг прокси по proxyId
     """
 
-    def __init__(self, router: MaskRouter, host: str = '127.0.0.1', port: int = 8081, debug: bool = False, need_update: bool = False):
+    def __init__(self, router: MaskRouter, host: str = '127.0.0.1',
+                 port: int = 8081, debug: bool = False,
+                 need_update: bool = False):
         """
         Args:
             router: Экземпляр MaskRouter (для refresh после сохранения конфига).
@@ -111,13 +118,56 @@ class ApiServer(BaseServer):
         self._debug = debug
         self._need_update = need_update
 
-    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        """
-        Диспетчеризует входящие HTTP-запросы к API.
+    async def _route_request(
+        self, method: str, path: str, body: bytes,
+        peername: tuple, writer: asyncio.StreamWriter,
+    ) -> tuple[int, dict] | None:
+        """Маршрутизирует запрос к обработчику,
+        возвращает (код, тело) или None (SSE)."""
+        try:
+            if path == '/api/events' and method == 'GET':
+                await handle_sse(writer)
+                return None
 
-        Парсит метод и путь, вызывает соответствующий handler из handlers.py,
-        отправляет JSON-ответ.
-        """
+            status_code = 200
+            if path == '/api/config' and method == 'GET':
+                response_body = handlers.handle_get_config()
+            elif path == '/api/config' and method == 'POST':
+                data = json.loads(body)
+                response_body = await handlers.handle_post_config(
+                    data, self._router,
+                )
+            elif path == '/api/status' and method == 'GET':
+                response_body = handlers.handle_get_status(
+                    self._debug, self._need_update,
+                )
+            elif path == '/api/enabled' and method == 'POST':
+                data = json.loads(body)
+                response_body = await handlers.handle_post_enabled(
+                    data, self._router,
+                )
+            elif path == '/api/version' and method == 'GET':
+                response_body = handlers.handle_get_version()
+            elif path == '/api/ping' and method == 'POST':
+                data = json.loads(body)
+                proxy_id = data.get('proxyId')
+                response_body, status_code = await handlers.handle_ping(
+                    proxy_id, peername,
+                )
+            else:
+                status_code = 404
+                response_body = {'error': f'Not Found: {method} {path}'}
+                logger.warning('API: неизвестный запрос %s %s от %s',
+                               method, path, peername)
+            return status_code, response_body
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning('API: неверный запрос от %s: %s', peername, e)
+            return 400, {'error': 'Invalid request'}
+
+    async def _handle_client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+    ):
+        """Диспетчеризует входящие HTTP-запросы к API."""
         peername = writer.get_extra_info('peername', ('?', 0))
         try:
             method, path, body = await _parse_http_request(reader, peername)
@@ -131,54 +181,36 @@ class ApiServer(BaseServer):
                 body_str = body.decode('utf-8', errors='replace')
                 if path == '/api/config' and method == 'POST':
                     body_str = mask_sensitive(body_str)
-                logger.debug('API >>> %s %s body: %s', method, path, body_str)
+                logger.debug('API >>> %s %s body: %s',
+                             method, path, body_str)
 
-            status_code = 200
-            response_body = {'error': 'Not Found'}
-
-            try:
-                if path == '/api/config' and method == 'GET':
-                    response_body = handlers.handle_get_config()
-                elif path == '/api/config' and method == 'POST':
-                    data = json.loads(body)
-                    response_body = await handlers.handle_post_config(data, self._router)
-                elif path == '/api/status' and method == 'GET':
-                    response_body = handlers.handle_get_status(self._debug, self._need_update)
-                elif path == '/api/enabled' and method == 'POST':
-                    data = json.loads(body)
-                    response_body = handlers.handle_post_enabled(data, self._router)
-                elif path == '/api/version' and method == 'GET':
-                    response_body = handlers.handle_get_version()
-                elif path == '/api/events' and method == 'GET':
-                    await handle_sse(writer)
-                    return
-                elif path == '/api/ping' and method == 'POST':
-                    data = json.loads(body)
-                    proxy_id = data.get('proxyId')
-                    response_body, status_code = await handlers.handle_ping(proxy_id, peername)
-                else:
-                    status_code = 404
-                    response_body = {'error': f'Not Found: {method} {path}'}
-                    logger.warning('API: неизвестный запрос %s %s от %s', method, path, peername)
-            except (json.JSONDecodeError, ValueError) as e:
-                status_code = 400
-                response_body = {'error': 'Invalid request'}
-                logger.warning('API: неверный запрос от %s: %s', peername, e)
+            result = await self._route_request(method, path, body,
+                                               peername, writer)
+            if result is None:
+                return
+            status_code, response_body = result
 
             await _build_response(writer, status_code, response_body)
 
             if self._debug and logger.isEnabledFor(logging.DEBUG):
-                resp_str = truncate(json.dumps(response_body, ensure_ascii=False))
-                logger.debug('API <<< %s %s -> %d body: %s', method, path, status_code, resp_str)
+                resp_str = truncate(json.dumps(response_body,
+                                               ensure_ascii=False))
+                logger.debug('API <<< %s %s -> %d body: %s',
+                             method, path, status_code, resp_str)
 
         except _RequestTooLarge:
-            await _build_response(writer, 413, {'error': f'Request body too large (max {MAX_POST_BODY} bytes)'})
+            await _build_response(
+                writer, 413,
+                {'error': f'Request body too large '
+                          f'(max {MAX_POST_BODY} bytes)'},
+            )
         except asyncio.TimeoutError:
             logger.debug('API: таймаут ожидания запроса')
-        except Exception as e:
-            logger.error(f'API ошибка: {e}', exc_info=True)
+        except (ConnectionError, OSError,
+                asyncio.IncompleteReadError) as e:
+            logger.error('API ошибка: %s', e, exc_info=True)
         finally:
             try:
                 writer.close()
-            except Exception:
+            except (ConnectionError, OSError):
                 pass

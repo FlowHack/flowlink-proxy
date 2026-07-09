@@ -30,11 +30,11 @@ async def _pipe_data(
             dst.write(data)
             await dst.drain()
     except (ConnectionError, OSError) as e:
-        logger.debug(f'Соединение {name} разорвано: {e}')
+        logger.debug('Соединение %s разорвано: %s', name, e)
     finally:
         try:
             dst.close()
-        except Exception:
+        except OSError:
             pass
 
 

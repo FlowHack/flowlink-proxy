@@ -4,115 +4,151 @@
  * Единственная ответственность: help-контент и управление его отображением.
  */
 
-import { GITHUB_RELEASES_URL } from '../shared/constants.js';
+import { GITHUB_RELEASES_URL, EXTENSION_STORE_URL } from '../shared/constants.js';
 import { escapeHtml } from '../shared/dom.js';
 import { showModal } from './modal.js';
 
 /**
- * Тексты помощи для разных вкладок модального окна.
- * windows — инструкция для Windows (.exe)
- * source — инструкция для запуска из исходников
- * update(tag) — инструкция по обновлению
+ * Тексты помощи для разных режимов.
+ * Ключи:
+ *   windows/source/ext — установка (заголовок «Настройка FlowLink Proxy»).
+ *   updateExe/updateSource/updateExt — обновление (заголовок «Обновление»).
  */
 const HELP_TEXTS = {
   windows: `
-    <h3>1. Скачайте последний релиз</h3>
+    <h3>1. Скачайте установщик</h3>
     <ol>
       <li>Перейдите по ссылке <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
-      <li>Найдите последнюю версию и скачайте <code>FlowLink-Proxy-vX.X.X.zip</code></li>
-      <li>Распакуйте ZIP в <strong>отдельную папку</strong> (например <code>C:\\FlowLink\\</code>)</li>
+      <li>Скачайте <code>FlowLink-Proxy-vX.X.X-Setup.exe</code></li>
     </ol>
-    <h3>2. Запустите gateway</h3>
+    <h3>2. Установите</h3>
     <ol>
-      <li>Откройте папку и запустите <code>FlowLink Proxy.exe</code></li>
-      <li>В окне консоли должны появиться строки «Прокси-сервер запущен» и «API сервер запущен»</li>
-      <li>Не закрывайте это окно — оно должно быть открыто всё время работы</li>
+      <li>Запустите установщик</li>
+      <li>На странице выбора браузера укажите ваш браузер (автопоиск или вручную)</li>
+      <li>Установщик создаст:
+        <ul>
+          <li>Программу в <code>C:\\Program Files\\FlowLink Proxy\\</code></li>
+          <li>Ярлык в меню «Пуск» и на рабочем столе</li>
+          <li>Автозапуск бэкенда при входе в Windows</li>
+          <li><code>flowlink-proxy-run.bat</code> — запускает бэкенд и браузер с прокси</li>
+        </ul>
+      </li>
     </ol>
-    <h3>3. Настройте браузер</h3>
+    <h3>3. Запустите</h3>
     <ol>
-      <li>Найдите ярлык браузера → правый клик → <strong>Свойства</strong></li>
-      <li>В поле «Объект» допишите <strong>после кавычки</strong>: <code>--proxy-server=127.0.0.1:8080</code></li>
-      <li>Пример: <code>"C:\\Program Files\\Yandex\\YandexBrowser\\Application\\browser.exe" --proxy-server=127.0.0.1:8080</code></li>
-      <li>Нажмите «Применить» и запускайте браузер только через этот ярлык</li>
+      <li>Нажмите «FlowLink Proxy» в меню «Пуск» или на рабочем столе</li>
+      <li>Бэкенд и браузер запустятся автоматически</li>
     </ol>
-    <h3>4. Автозагрузка (чтобы не запускать вручную)</h3>
+    <h3>Установка расширения</h3>
     <ol>
-      <li>Нажмите <code>Win+R</code>, введите <code>shell:startup</code>, нажмите Enter</li>
-      <li>Создайте ярлык для <code>FlowLink Proxy.exe</code> и поместите его в открывшуюся папку</li>
-      <li>Теперь FlowLink будет запускаться автоматически при входе в Windows</li>
+      <li>Откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>)</li>
+      <li>Включите «Режим разработчика»</li>
+      <li>Нажмите «Загрузить распакованное расширение»</li>
+      <li>Выберите папку <code>extension\\</code> внутри установленной директории</li>
     </ol>
+    ${EXTENSION_STORE_URL
+      ? `<p>Или установите из магазина: <a href="${escapeHtml(EXTENSION_STORE_URL)}" target="_blank" rel="noopener">открыть страницу расширения</a></p>`
+      : '<p>Расширение будет доступно в Chrome Web Store после публикации.</p>'
+    }
   `,
   source: `
     <h3>1. Установите Python 3.10+</h3>
     <ol>
-      <li>Скачайте Python с <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a></li>
-      <li>При установке отметьте «Add Python to PATH»</li>
+      <li>Скачайте Python с <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">официального сайта</a></li>
+      <li>При установке обязательно отметьте «Add Python to PATH»</li>
+      <li>Проверьте: <code>python --version</code></li>
     </ol>
-    <h3>2. Клонируйте репозиторий</h3>
+    <h3>2. Получите исходный код</h3>
     <ol>
-      <li>Откройте терминал (cmd / PowerShell): <code>git clone https://github.com/flowhack/flowlink-proxy.git</code></li>
-      <li>Перейдите в папку: <code>cd flowlink-proxy</code></li>
+      <li><strong>Через Git:</strong> <code>git clone https://github.com/flowhack/flowlink-proxy.git</code></li>
+      <li><strong>Или ZIP:</strong> скачайте со <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
     </ol>
-    <h3>3. Установите и запустите</h3>
+    <h3>3. Запустите</h3>
     <ol>
-      <li>Создайте виртуальное окружение: <code>python -m venv venv</code></li>
-      <li>Активируйте: <code>venv\\Scripts\\activate</code> (Windows) или <code>source venv/bin/activate</code> (Linux/macOS)</li>
-      <li>Установите зависимости: <code>pip install -r server/requirements.txt</code></li>
-      <li>Запустите: <code>python -m server</code></li>
+      <li><code>cd flowlink-proxy</code></li>
+      <li><code>./scripts/flowlink.sh</code> — скрипт создаст venv, установит зависимости и запустит сервер</li>
     </ol>
-    <h3>4. Настройте браузер</h3>
+    <h3>Установка расширения</h3>
+    <p>Откройте <code>chrome://extensions</code> → «Режим разработчика» → «Загрузить распакованное расширение» → папка <code>extension/</code>.</p>
+  `,
+  ext: `
+    <p>Расширение уже установлено — вы пользуетесь им прямо сейчас.</p>
+    <p>Для его работы нужен запущенный бэкенд FlowLink Proxy.</p>
+    ${EXTENSION_STORE_URL
+      ? `<p>Страница расширения: <a href="${escapeHtml(EXTENSION_STORE_URL)}" target="_blank" rel="noopener">открыть в магазине</a></p>`
+      : ''
+    }
+  `,
+  updateExe: (tag) => `
+    <h3>Установщик</h3>
     <ol>
-      <li>Добавьте флаг к ярлыку браузера: <code>--proxy-server=127.0.0.1:8080</code></li>
-      <li>Инструкция — на вкладке «Windows (.exe)», шаг 3</li>
+      <li>Скачайте новый установщик со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Запустите — установщик заменит файлы автоматически</li>
+      <li>Бэкенд будет перезапущен</li>
+    </ol>
+    <h3>Standalone-бинарник</h3>
+    <ol>
+      <li>Скачайте новый архив со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Остановите старый процесс (системный трей → «Выход»)</li>
+      <li>Замените файлы и запустите новый</li>
     </ol>
   `,
-  update: (tag) => `
-    <h3>Обновление до ${tag}</h3>
-    <p>Релиз содержит обновлённый <strong>бэкенд</strong> (Python / .exe) и <strong>расширение</strong> (если используете unpacked).</p>
-    <h3>Если используете .exe</h3>
+  updateSource: (tag) => `
     <ol>
-      <li>Скачайте последний релиз со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Распакуйте ZIP, замените старый <code>FlowLink Proxy.exe</code> новым в вашей папке</li>
-      <li>Остановите старый процесс (закройте окно), запустите новый .exe</li>
+      <li><strong>Через Git:</strong> <code>git pull</code></li>
+      <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
+      <li>Остановите старый процесс, перезапустите: <code>./scripts/flowlink.sh</code></li>
     </ol>
-    <h3>Если используете исходный код</h3>
+  `,
+  updateExt: (tag) => `
     <ol>
-      <li>Откройте терминал в папке проекта: <code>git pull</code></li>
-      <li>Перезапустите: <code>python -m server</code> или <code>./scripts/flowlink.sh</code></li>
+      <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
+      <li><strong>Unpacked:</strong> откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>), нажмите «Обновить» (круглая стрелка)</li>
     </ol>
-    <h3>Обновление расширения</h3>
-    <ol>
-      <li><strong>Из Chrome Web Store:</strong> расширение обновится автоматически</li>
-      <li><strong>Unpacked (режим разработчика):</strong> откройте <code>chrome://extensions</code>, нажмите «Обновить» (круглая стрелка)</li>
-    </ol>
-    <p><em>Бэкенд и расширение должны быть одной версии. Сначала обновите бэкенд, потом расширение.</em></p>
   `,
 };
 
+/** @type {boolean} True, когда модалка открыта в режиме «Обновление». */
+let _isUpdateMode = false;
+
 /**
  * Открывает модальное окно помощи.
- * @param {string} [tab] — вкладка ('windows', 'source' или 'update').
+ * @param {string} [tab] — вкладка ('windows', 'source', 'ext').
+ *   Если не указана, открывается в режиме установки.
+ * @param {boolean} [isUpdate] — режим обновления.
  */
-export function openHelpModal(tab) {
+export function openHelpModal(tab, isUpdate) {
+  _isUpdateMode = !!isUpdate;
   const isWindows = navigator.platform.includes('Win');
   const defaultTab = isWindows ? 'windows' : 'source';
+  const title = document.querySelector('#modal-help .modal-title');
+  title.textContent = _isUpdateMode ? 'Обновление' : 'Настройка FlowLink Proxy';
   switchHelpTab(tab || defaultTab);
   showModal('modal-help');
 }
 
 /**
  * Переключает вкладку в окне помощи.
- * @param {string} tab — имя вкладки ('windows', 'source', 'update').
+ * @param {string} tab — имя вкладки ('windows', 'source', 'ext').
  */
 export function switchHelpTab(tab) {
-  const tabsContainer = document.getElementById('modal-tabs');
-  document.getElementById('tab-windows').classList.toggle('tab-active', tab === 'windows');
-  document.getElementById('tab-source').classList.toggle('tab-active', tab === 'source');
-  tabsContainer.classList.toggle('hidden', tab === 'update');
+  const tabs = ['windows', 'source', 'ext'];
+  tabs.forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    el.classList.toggle('tab-active', t === tab);
+  });
+
   const container = document.getElementById('help-content');
-  if (tab === 'update') {
-    const tag = document.getElementById('update-text').textContent.replace('Доступно обновление ', '');
-    container.innerHTML = HELP_TEXTS.update(escapeHtml(tag));
+
+  if (_isUpdateMode) {
+    const key = tab === 'windows' ? 'updateExe'
+      : tab === 'source' ? 'updateSource'
+      : 'updateExt';
+    const rawTag = document.getElementById('update-text').textContent
+      .replace('Доступно обновление ', '');
+    const tag = escapeHtml(rawTag);
+    container.innerHTML = `<h3>${tab === 'windows' ? 'Windows (.exe)' : tab === 'source' ? 'Исходный код' : 'Расширение'}</h3>`
+      + HELP_TEXTS[key](tag);
   } else {
     container.innerHTML = HELP_TEXTS[tab];
   }

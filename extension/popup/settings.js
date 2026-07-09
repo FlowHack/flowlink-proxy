@@ -29,7 +29,7 @@ export async function handleSettingsSave(loadAndRender) {
     document.getElementById('settings-row').classList.add('hidden');
     await loadAndRender();
   } catch (e) {
-    console.error('[FlowLink] Ошибка сохранения порта:', e);
+    console.error('[FlowLink Proxy] Ошибка сохранения порта:', e);
   } finally {
     setLoading(saveBtn, false);
   }

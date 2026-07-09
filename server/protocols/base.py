@@ -14,7 +14,6 @@ from abc import ABC, abstractmethod
 
 class ProxyError(Exception):
     """Базовая ошибка прокси-протокола."""
-    pass
 
 
 class ProxyProtocol(ABC):
@@ -26,12 +25,8 @@ class ProxyProtocol(ABC):
     @abstractmethod
     async def connect(
         self,
-        proxy_host: str,
-        proxy_port: int,
         target_host: str,
         target_port: int,
-        username: str = '',
-        password: str = '',
         timeout: float = 10,
     ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         """
@@ -43,15 +38,11 @@ class ProxyProtocol(ABC):
         Raises:
             ProxyError: при ошибке соединения.
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     async def ping(
         self,
-        proxy_host: str,
-        proxy_port: int,
-        username: str = '',
-        password: str = '',
         timeout: float = 5,
     ) -> bool:
         """
@@ -60,4 +51,4 @@ class ProxyProtocol(ABC):
         Returns:
             True если прокси ответил, иначе False.
         """
-        ...
+        raise NotImplementedError

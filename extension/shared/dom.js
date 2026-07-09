@@ -6,11 +6,12 @@
 
 /**
  * Экранирует HTML-спецсимволы в строке (XSS-безопасность).
- * @param {string} str — исходная строка.
+ * @param {string|number|null|undefined} str — исходная строка (или любой тип).
  * @returns {string} — строка с экранированными < > & " '.
  */
 export function escapeHtml(str) {
+  if (str == null) return '';
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = String(str);
   return div.innerHTML;
 }

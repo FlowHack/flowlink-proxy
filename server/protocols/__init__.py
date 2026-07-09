@@ -5,7 +5,7 @@
 Все протоколы реализуют интерфейс ProxyProtocol из .base.
 """
 
-from server.protocols.base import ProxyProtocol, ProxyError
+from server.protocols.base import ProxyError, ProxyProtocol
 from server.protocols.factory import get_protocol
 
 __all__ = ['ProxyProtocol', 'ProxyError', 'get_protocol']

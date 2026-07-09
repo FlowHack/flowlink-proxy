@@ -8,7 +8,7 @@ import { apiPost } from '../shared/api.js';
 import { setLoading } from '../shared/utils.js';
 
 /**
- * Пингует все прокси из state.proxies последовательно.
+ * Пингует все прокси из state.proxies параллельно через Promise.allSettled.
  * Результаты сохраняются в state.pingResults, после чего вызывается renderProxyList().
  * @param {object} state — глобальное состояние popup.
  * @param {Function} renderProxyList — функция перерисовки списка прокси.
@@ -19,12 +19,17 @@ export async function handlePingAll(state, renderProxyList) {
   btn.textContent = 'Проверка...';
   state.pingResults.clear();
 
-  for (const p of state.proxies) {
-    try {
-      const result = await apiPost('/ping', { proxyId: p.proxyId });
-      state.pingResults.set(p.proxyId, { alive: result.alive, latency: result.latency });
-    } catch {
-      state.pingResults.set(p.proxyId, { alive: false, latency: null });
+  const results = await Promise.allSettled(
+    state.proxies.map(p =>
+      apiPost('/ping', { proxyId: p.proxyId })
+        .then(result => ({ proxyId: p.proxyId, alive: result.alive, latency: result.latency }))
+        .catch(() => ({ proxyId: p.proxyId, alive: false, latency: null }))
+    )
+  );
+
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      state.pingResults.set(r.value.proxyId, { alive: r.value.alive, latency: r.value.latency });
     }
   }
 

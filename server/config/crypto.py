@@ -3,6 +3,7 @@
 
 Генерирует мастер-ключ при первом запуске (.flowlink.key),
 шифрует/расшифровывает username/password для config.json.
+Использует уникальную соль PBKDF2 для каждого ключа (.flowlink.salt).
 
 Требуется библиотека cryptography (pip install cryptography).
 """
@@ -10,8 +11,9 @@
 import base64
 import logging
 import os
-import sys
 from hashlib import pbkdf2_hmac
+
+from server.utils import get_data_dir
 
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -22,16 +24,17 @@ except ImportError:
 
 logger = logging.getLogger('flowlink.crypto')
 
+# Директория для хранения файлов ключей и соли
+_DATA_DIR = get_data_dir()
 
 # Путь к файлу мастер-ключа
-if getattr(sys, 'frozen', False):
-    KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), '.flowlink.key')
-else:
-    KEY_FILE = '.flowlink.key'
+KEY_FILE = os.path.join(_DATA_DIR, '.flowlink.key')
+# Путь к файлу соли PBKDF2
+SALT_FILE = os.path.join(_DATA_DIR, '.flowlink.salt')
 # Количество итераций PBKDF2 для выведения ключа шифрования
 PBKDF2_ITERATIONS = 600_000
-# Соль PBKDF2 (несекретная, но константная — для детерминированного выведения ключа)
-SALT = b'flowlink_proxy_salt_v1'
+# Константная соль для обратной совместимости со старыми ключами
+_LEGACY_SALT = b'flowlink_proxy_salt_v1'
 
 
 def _check_crypto():
@@ -44,7 +47,7 @@ def _check_crypto():
         )
 
 
-def _load_or_create_key() -> bytes:
+def load_or_create_key() -> bytes:
     """
     Загружает мастер-ключ из KEY_FILE или создаёт новый (32 байта).
 
@@ -55,21 +58,56 @@ def _load_or_create_key() -> bytes:
         with open(KEY_FILE, 'rb') as f:
             key = f.read()
             if len(key) == 32:
-                logger.debug(f'Мастер-ключ загружен из {KEY_FILE}')
+                logger.debug('Мастер-ключ загружен из %s', KEY_FILE)
                 return key
-        logger.warning(f'Файл ключа {KEY_FILE} имеет неверный размер ({len(key)} байт), создаю новый')
+        logger.warning(
+            'Файл ключа %s имеет неверный размер (%d байт), создаю новый',
+            KEY_FILE, len(key)
+        )
 
     key = os.urandom(32)
     with open(KEY_FILE, 'wb') as f:
         f.write(key)
+    # Генерируем уникальную соль для нового ключа
+    _save_salt(os.urandom(32))
     try:
         os.chmod(KEY_FILE, 0o600)
     except NotImplementedError:
         logger.debug('chmod не поддерживается на этой платформе (Windows)')
     except OSError as e:
-        logger.warning(f'Не удалось установить права на {KEY_FILE}: {e}')
-    logger.info(f'Создан новый мастер-ключ шифрования: {KEY_FILE}')
+        logger.warning('Не удалось установить права на %s: %s', KEY_FILE, e)
+    logger.info('Создан новый мастер-ключ шифрования: %s', KEY_FILE)
     return key
+
+
+def _load_salt() -> bytes:
+    """
+    Загружает соль PBKDF2 из файла.
+
+    Если файл соли существует — используем уникальную соль.
+    Если нет — используем константную соль (обратная совместимость со старыми ключами).
+    """
+    if os.path.exists(SALT_FILE):
+        with open(SALT_FILE, 'rb') as f:
+            salt = f.read()
+            if len(salt) == 32:
+                return salt
+        logger.warning('Файл соли повреждён, используется legacy-соль')
+    return _LEGACY_SALT
+
+
+def _save_salt(salt: bytes) -> None:
+    """
+    Сохраняет соль PBKDF2 в файл.
+
+    Устанавливает права 600 для безопасности.
+    """
+    with open(SALT_FILE, 'wb') as f:
+        f.write(salt)
+    try:
+        os.chmod(SALT_FILE, 0o600)
+    except (NotImplementedError, OSError):
+        logger.debug('Не удалось установить права на %s', SALT_FILE)
 
 
 def _derive_key(master_key: bytes) -> bytes:
@@ -78,9 +116,14 @@ def _derive_key(master_key: bytes) -> bytes:
 
     PBKDF2 замедляет перебор в случае компрометации зашифрованных данных,
     делая атаку по словарю практически нереализуемой.
+    Использует уникальную соль из файла или legacy-соль для обратной совместимости.
     """
-    derived = pbkdf2_hmac('sha256', master_key, SALT, PBKDF2_ITERATIONS, dklen=32)
-    logger.debug(f'Ключ шифрования получен через PBKDF2 ({PBKDF2_ITERATIONS} итераций)')
+    salt = _load_salt()
+    derived = pbkdf2_hmac('sha256', master_key, salt, PBKDF2_ITERATIONS, dklen=32)
+    logger.debug(
+        'Ключ шифрования получен через PBKDF2 (%d итераций)',
+        PBKDF2_ITERATIONS
+    )
     return derived
 
 
@@ -89,13 +132,18 @@ def encrypt(plaintext: str) -> str:
     Шифрует строку AES-256-GCM.
 
     Формат: base64(iv (12 байт) + ciphertext + auth_tag (16 байт)).
-    GCM обеспечивает аутентифицированное шифрование — целостность данных проверяется при расшифровке.
+    GCM обеспечивает аутентифицированное шифрование —
+    целостность данных проверяется при расшифровке.
+    При первом вызове генерирует уникальную соль PBKDF2.
     """
     if not plaintext:
         return ''
 
     _check_crypto()
-    master_key = _load_or_create_key()
+    # Если соли нет — генерируем и сохраняем (для новых установок)
+    if not os.path.exists(SALT_FILE):
+        _save_salt(os.urandom(32))
+    master_key = load_or_create_key()
     aes_key = _derive_key(master_key)
     aesgcm = AESGCM(aes_key)
 
@@ -103,7 +151,10 @@ def encrypt(plaintext: str) -> str:
     iv = os.urandom(12)
     ciphertext = aesgcm.encrypt(iv, plaintext.encode(), None)
     encrypted = base64.b64encode(iv + ciphertext).decode()
-    logger.debug(f'Данные зашифрованы AES-GCM ({len(encrypted)} байт в base64)')
+    logger.debug(
+        'Данные зашифрованы AES-GCM (%d байт в base64)',
+        len(encrypted)
+    )
     return encrypted
 
 
@@ -119,7 +170,7 @@ def decrypt(ciphertext_b64: str) -> str:
 
     _check_crypto()
     try:
-        master_key = _load_or_create_key()
+        master_key = load_or_create_key()
         aes_key = _derive_key(master_key)
         aesgcm = AESGCM(aes_key)
 
@@ -129,5 +180,5 @@ def decrypt(ciphertext_b64: str) -> str:
         plaintext = aesgcm.decrypt(iv, ciphertext, None).decode()
         return plaintext
     except Exception as e:
-        logger.error(f'Ошибка расшифровки данных: {e}')
+        logger.error('Ошибка расшифровки данных: %s', e)
         raise

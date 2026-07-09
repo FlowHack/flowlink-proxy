@@ -13,23 +13,27 @@ import logging
 
 logger = logging.getLogger('flowlink.events')
 
-_sse_queue: asyncio.Queue[dict] | None = None
+# Максимальный размер очереди (защита от утечки памяти при отключённом клиенте)
+_MAX_QUEUE_SIZE = 100
+SSE_QUEUE: asyncio.Queue[dict] = asyncio.Queue(maxsize=_MAX_QUEUE_SIZE)
 
 
 def get_queue() -> asyncio.Queue:
-    """Возвращает глобальную SSE-очередь (ленивая инициализация)."""
-    global _sse_queue
-    if _sse_queue is None:
-        _sse_queue = asyncio.Queue()
-    return _sse_queue
+    """Возвращает глобальную SSE-очередь."""
+    return SSE_QUEUE
 
 
-async def emit_event(event_type: str, data: dict):
-    """Кладёт событие в SSE-очередь (неблокирующая отправка)."""
+async def emit_event(event_type: str, data: dict) -> None:
+    """
+    Кладёт событие в SSE-очередь (неблокирующая отправка).
+
+    Если очередь переполнена — событие отбрасывается с предупреждением.
+    """
     try:
         get_queue().put_nowait({'event': event_type, 'data': data})
     except asyncio.QueueFull:
-        pass
+        logger.warning('SSE-очередь переполнена (%d событий), событие %s отброшено',
+                       _MAX_QUEUE_SIZE, event_type)
 
 
 SSE_HEADERS = (
@@ -42,9 +46,12 @@ SSE_HEADERS = (
 )
 
 
-async def handle_sse(writer: asyncio.StreamWriter):
+async def handle_sse(writer: asyncio.StreamWriter) -> None:
     """
     Держит SSE-соединение открытым, отправляя события из очереди.
+
+    При переподключении клиента старые события из очереди отбрасываются,
+    чтобы избежать «лавины» устаревших уведомлений.
 
     Формат:
       event: <type>\n
@@ -57,15 +64,26 @@ async def handle_sse(writer: asyncio.StreamWriter):
     peername = writer.get_extra_info('peername', ('?', 0))
     logger.debug('SSE: клиент %s подключился', peername)
 
+    # Очищаем очередь при переподключении (убираем устаревшие события)
+    cleared = 0
+    while not queue.empty():
+        try:
+            queue.get_nowait()
+            cleared += 1
+        except asyncio.QueueEmpty:
+            break
+    if cleared:
+        logger.debug('SSE: очищено %d устаревших событий', cleared)
+
     try:
         writer.write(SSE_HEADERS.encode())
         await writer.drain()
 
         while True:
             event = await queue.get()
-            payload = 'event: {}\ndata: {}\n\n'.format(
-                event['event'],
-                json.dumps(event['data'], ensure_ascii=False),
+            payload = (
+                f'event: {event["event"]}\n'
+                f'data: {json.dumps(event["data"], ensure_ascii=False)}\n\n'
             )
             try:
                 writer.write(payload.encode())
@@ -78,6 +96,6 @@ async def handle_sse(writer: asyncio.StreamWriter):
     finally:
         try:
             writer.close()
-        except Exception:
+        except OSError:
             pass
         logger.debug('SSE: клиент %s отключён', peername)

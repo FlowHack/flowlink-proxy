@@ -5,6 +5,7 @@
 """
 
 from server.protocols.base import ProxyProtocol
+from server.protocols.socks5 import Socks5Protocol
 
 
 def get_protocol(config: dict) -> ProxyProtocol:
@@ -20,7 +21,6 @@ def get_protocol(config: dict) -> ProxyProtocol:
     proto_type = config.get('type', 'socks5')
 
     if proto_type == 'socks5':
-        from server.protocols.socks5 import Socks5Protocol
         return Socks5Protocol(config)
 
     raise ValueError(f'Неизвестный тип прокси-протокола: {proto_type}')

@@ -49,8 +49,8 @@ function clearProxyForm() {
     pwdBtn.title = 'Показать пароль';
     const closed = pwdBtn.querySelector('.eye-closed');
     const open = pwdBtn.querySelector('.eye-open');
-    if (closed) closed.style.display = '';
-    if (open) open.style.display = 'none';
+    if (closed) closed.classList.remove('hidden');
+    if (open) open.classList.add('hidden');
   }
   hideFieldErrors();
 }
@@ -138,8 +138,10 @@ export async function handleSaveProxy(loadAndRender) {
  * Удаляет прокси по ID (также удаляет связанные маски).
  * @param {string} proxyId
  * @param {Function} loadAndRender
+ * @param {HTMLElement} btn — кнопка удаления (для спиннера).
  */
-export async function handleDeleteProxy(proxyId, loadAndRender) {
+export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
+  setLoading(btn, true);
   try {
     const config = await apiGet('/config');
     config.proxies = (config.proxies || []).filter(p => p.proxyId !== proxyId);
@@ -147,7 +149,9 @@ export async function handleDeleteProxy(proxyId, loadAndRender) {
     await apiPost('/config', config);
     await loadAndRender();
   } catch (e) {
-    console.error('[FlowLink] Ошибка удаления прокси:', e);
+    console.error('[FlowLink Proxy] Ошибка удаления прокси:', e);
+  } finally {
+    setLoading(btn, false);
   }
 }
 
@@ -155,8 +159,10 @@ export async function handleDeleteProxy(proxyId, loadAndRender) {
  * Включает/выключает прокси.
  * @param {string} proxyId
  * @param {Function} loadAndRender
+ * @param {HTMLInputElement} checkbox — чекбокс-переключатель (блокируется на время запроса).
  */
-export async function handleToggleProxy(proxyId, loadAndRender) {
+export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
+  checkbox.disabled = true;
   try {
     const config = await apiGet('/config');
     const proxy = (config.proxies || []).find(p => p.proxyId === proxyId);
@@ -166,6 +172,8 @@ export async function handleToggleProxy(proxyId, loadAndRender) {
     }
     await loadAndRender();
   } catch (e) {
-    console.error('[FlowLink] Ошибка переключения прокси:', e);
+    console.error('[FlowLink Proxy] Ошибка переключения прокси:', e);
+  } finally {
+    checkbox.disabled = false;
   }
 }

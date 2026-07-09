@@ -12,7 +12,13 @@ import logging
 import time
 
 from server.config import crypto
+from server.config import repo as config_repo
 from server.config.repo import load_raw, save_raw
+
+try:
+    from cryptography.exceptions import CryptographyException
+except ImportError:
+    CryptographyException = Exception
 
 logger = logging.getLogger('flowlink.config')
 
@@ -22,13 +28,12 @@ _CACHE_TTL: float = 1.0
 
 # Глобальный флаг включения хранится только в памяти (не в config.json)
 # По умолчанию True — расширение при старте пришлёт актуальное состояние
-_ENABLED: bool = True
+_STATE: dict = {'enabled': True}
 
 
 def _cache_key() -> str:
     """Возвращает путь к файлу конфига как ключ кэша."""
-    from server.config.repo import CONFIG_FILE
-    return CONFIG_FILE
+    return config_repo.CONFIG_FILE
 
 
 def _load_cached() -> dict:
@@ -55,14 +60,20 @@ def _decrypt_proxies(data: dict) -> dict:
         if proxy.get('username'):
             try:
                 proxy['username'] = crypto.decrypt(proxy['username'])
-            except Exception as e:
-                logger.warning('Ошибка расшифровки имени пользователя для прокси %s: %s', proxy.get('proxyId', '?'), e)
+            except (ValueError, OSError, CryptographyException) as e:
+                logger.warning(
+                    'Ошибка расшифровки имени пользователя для прокси %s: %s',
+                    proxy.get('proxyId', '?'), e
+                )
                 proxy['username'] = ''
         if proxy.get('password'):
             try:
                 proxy['password'] = crypto.decrypt(proxy['password'])
-            except Exception as e:
-                logger.warning('Ошибка расшифровки пароля для прокси %s: %s', proxy.get('proxyId', '?'), e)
+            except (ValueError, OSError, CryptographyException) as e:
+                logger.warning(
+                    'Ошибка расшифровки пароля для прокси %s: %s',
+                    proxy.get('proxyId', '?'), e
+                )
                 proxy['password'] = ''
     return data
 
@@ -75,9 +86,11 @@ def load_config(force: bool = False) -> dict:
 
 def set_enabled(val: bool):
     """Устанавливает глобальный флаг включения (только в памяти)."""
-    global _ENABLED
-    _ENABLED = bool(val)
-    logger.info('Глобальный переключатель: %s', 'включён' if _ENABLED else 'выключен')
+    _STATE['enabled'] = bool(val)
+    logger.info(
+        'Глобальный переключатель: %s',
+        'включён' if _STATE['enabled'] else 'выключен'
+    )
 
 
 def save_config(data: dict):
@@ -93,20 +106,29 @@ def save_config(data: dict):
         if proxy_copy.get('username'):
             try:
                 proxy_copy['username'] = crypto.encrypt(proxy_copy['username'])
-            except Exception as e:
-                logger.error(f'Ошибка шифрования имени пользователя для прокси {proxy_copy.get("proxyId", "?")}: {e}')
+            except (ValueError, OSError, CryptographyException) as e:
+                logger.error(
+                    'Ошибка шифрования имени пользователя для прокси %s: %s',
+                    proxy_copy.get('proxyId', '?'), e
+                )
                 proxy_copy['username'] = ''
         if proxy_copy.get('password'):
             try:
                 proxy_copy['password'] = crypto.encrypt(proxy_copy['password'])
-            except Exception as e:
-                logger.error(f'Ошибка шифрования пароля для прокси {proxy_copy.get("proxyId", "?")}: {e}')
+            except (ValueError, OSError, CryptographyException) as e:
+                logger.error(
+                    'Ошибка шифрования пароля для прокси %s: %s',
+                    proxy_copy.get('proxyId', '?'), e
+                )
                 proxy_copy['password'] = ''
         to_save['proxies'].append(proxy_copy)
 
     proxy_count = len(to_save['proxies'])
     mask_count = len(to_save['masks'])
-    logger.info(f'Конфигурация сохранена: {proxy_count} прокси, {mask_count} масок')
+    logger.info(
+        'Конфигурация сохранена: %d прокси, %d масок',
+        proxy_count, mask_count
+    )
     _invalidate_cache()
     save_raw(to_save)
 
@@ -123,4 +145,4 @@ def get_all_masks() -> list:
 
 def is_enabled() -> bool:
     """Возвращает глобальный флаг включения/выключения прокси (из памяти)."""
-    return _ENABLED
+    return _STATE['enabled']

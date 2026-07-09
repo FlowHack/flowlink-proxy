@@ -6,13 +6,16 @@ import os
 import tempfile
 import unittest
 
+from server.config import config
 from server.config import repo as config_repo
 from server.services.router import MaskRouter
 
 
 class TestRouterExceptions(unittest.TestCase):
+    """Тесты обработки исключений и краевых случаев router.py."""
 
     def setUp(self):
+        config.set_enabled(True)
         self.tmpdir = tempfile.mkdtemp()
         self.orig_config_file = config_repo.CONFIG_FILE
         config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
@@ -57,11 +60,11 @@ class TestRouterExceptions(unittest.TestCase):
 
     def test_route_global_disable(self):
         """Глобальное выключение → все маршруты игнорируются"""
+        config.set_enabled(False)
         config_repo.save_raw({
             'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
                          'username': '', 'password': '', 'isEnabled': True}],
             'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'}],
-            'isEnabled': False,
         })
         router = MaskRouter()
         result = router.route('https://www.example.com/')
@@ -163,3 +166,50 @@ class TestRouterExceptions(unittest.TestCase):
         result_new = router.route('https://www.changed.com/')
         self.assertIsNone(result_old)
         self.assertIsNotNone(result_new)
+
+    def test_route_multiple_masks_first_match_wins(self):
+        """Несколько масок — первое совпадение определяет прокси"""
+        config_repo.save_raw({
+            'proxies': [
+                {'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': True},
+                {'proxyId': 'p2', 'host': '10.0.0.2', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': True},
+            ],
+            'masks': [
+                {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'},
+                {'maskId': 'm2', 'proxyId': 'p2', 'regexString': r'\.example\.com'},
+            ],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        result = router.route('https://www.example.com/')
+        self.assertIsNotNone(result)
+        # Первый прокси, чья маска совпала
+        self.assertEqual(result['proxyId'], 'p1')
+
+    def test_route_long_url(self):
+        """Очень длинный URL (10 КБ) не вызывает ReDoS"""
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'}],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        long_path = 'a' * 10240
+        result = router.route(f'https://www.example.com/{long_path}')
+        self.assertIsNotNone(result)
+
+    def test_route_special_chars_in_url(self):
+        """URL со спецсимволами (query params, fragment)"""
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'}],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        url = 'https://www.example.com/path?a=1&b=2#section'
+        result = router.route(url)
+        self.assertIsNotNone(result)

@@ -85,7 +85,7 @@ class MockSocks5Server:
 
             # Шаг 2: CONNECT
             header = await reader.readexactly(4)
-            ver, cmd, rsv, atyp = struct.unpack('!BBBB', header)
+            ver, cmd, _rsv, atyp = struct.unpack('!BBBB', header)
             if cmd != CMD_CONNECT:
                 return
 
@@ -124,5 +124,5 @@ class MockSocks5Server:
         finally:
             try:
                 writer.close()
-            except Exception:
+            except (OSError, ConnectionError):
                 pass
