@@ -17,3 +17,23 @@ export function showModal(id) {
 export function closeModal() {
   document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden'));
 }
+
+/**
+ * Привязывает обработчик клика по overlay для закрытия модалок.
+ * Должен быть вызван один раз при инициализации.
+ */
+export function attachModalOverlayClose() {
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        // Сброс selectedProxyId при закрытии modal-masks
+        const masksModal = document.getElementById('modal-masks');
+        if (masksModal && !masksModal.classList.contains('hidden')) {
+          const state = window.__FLOWLINK_STATE;
+          if (state) state.selectedProxyId = null;
+        }
+        closeModal();
+      }
+    });
+  });
+}

@@ -40,18 +40,42 @@ function openMaskModal(state, existingMask) {
 }
 
 /**
- * Проверяет пересечение паттернов: один pattern является подстрокой другого после удаления *.
+ * Проверяет пересечение паттернов масок.
+ *
+ * Двухуровневая проверка:
+ * 1. Substring — после удаления `*` один паттерн содержит другой (быстро, ловит ~90%).
+ * 2. Сегментная — разбивает паттерны на не-wildcard сегменты по `*` и проверяет
+ *    каждый сегмент длиной >= 3 символов на вхождение в сегменты другого паттерна.
+ *    Ловит случаи вроде `*.example.com` vs `example.com/*`.
+ *
  * @param {string} pattern — новый паттерн.
  * @param {Array} existingMasks — существующие маски.
+ * @param {string|null} excludeMaskId — ID маски для исключения (при редактировании).
  * @returns {string|null} — сообщение об ошибке или null.
  */
 function checkMaskOverlap(pattern, existingMasks, excludeMaskId) {
   const normalized = pattern.replace(/\*/g, '').toLowerCase();
+  const segments = pattern.split('*').filter(Boolean);
+
   for (const m of existingMasks) {
     if (m.maskId === excludeMaskId) continue;
+
+    // Уровень 1: substring-проверка
     const existing = m.pattern.replace(/\*/g, '').toLowerCase();
     if (normalized.includes(existing) || existing.includes(normalized)) {
       return `Маска пересекается с существующей: ${m.pattern}`;
+    }
+
+    // Уровень 2: сегментная проверка (сегменты от 3+ символов)
+    const existingSegments = m.pattern.split('*').filter(Boolean);
+    for (const seg of segments) {
+      if (seg.length < 3) continue;
+      for (const es of existingSegments) {
+        if (es.length < 3) continue;
+        if (seg.includes(es) || es.includes(seg)) {
+          return `Маска пересекается с существующей: ${m.pattern}`;
+        }
+      }
     }
   }
   return null;

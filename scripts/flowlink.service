@@ -6,18 +6,20 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/flowlink-proxy/server/FlowLink\ Proxy/FlowLink\ Proxy
-WorkingDirectory=%h/flowlink-proxy
+ExecStart=%h/.local/share/flowlink-proxy/FlowLink\ Proxy
+WorkingDirectory=%h/.local/share/flowlink-proxy
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+Environment=FLOWLINK_DATA_DIR=%h/.local/share/flowlink-proxy
 
 # Безопасность
 NoNewPrivileges=true
-ProtectSystem=strict
+ProtectSystem=full
 PrivateTmp=true
 PrivateDevices=true
+ReadWritePaths=%h/.local/share/flowlink-proxy
 
 [Install]
 WantedBy=default.target

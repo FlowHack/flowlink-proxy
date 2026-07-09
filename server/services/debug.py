@@ -51,7 +51,7 @@ def log_config_state():
     for p in proxies:
         logger.debug('  прокси %s — %s:%s (вкл: %s)',
                      p.get('proxyId', '?'), p.get('host', '?'),
-                     p.get('port', '?'), p.get('enabled', True))
+                     p.get('port', '?'), p.get('isEnabled', True))
     for m in masks:
         logger.debug('  маска %s — %s', m.get('maskId', '?'), m.get('pattern', '?'))
 
@@ -65,7 +65,7 @@ def log_startup_config():
     for p in proxies:
         logger.debug('  прокси %s — %s:%s (включён: %s)',
                      p.get('proxyId', '?'), p.get('host', '?'),
-                     p.get('port', '?'), p.get('enabled', True))
+                     p.get('port', '?'), p.get('isEnabled', True))
     logger.debug('Загружено масок: %d', len(masks))
     for m in masks:
         logger.debug('  маска %s — %s → прокси %s',

@@ -76,6 +76,38 @@ async def _file_watcher(root: str, poll_interval: float = 1.0) -> None:
                 os._exit(0)
 
 
+def _start_tray_icon(loop: asyncio.AbstractEventLoop, stop_event: asyncio.Event, args: argparse.Namespace):
+    """Запускает иконку в системном трее, если поддерживается платформа."""
+    if not getattr(sys, 'frozen', False) or not _HAS_TRAY or args.dev:
+        return None
+    try:
+        icon = start_tray(lambda: loop.call_soon_threadsafe(stop_event.set))
+        if icon:
+            logger.info('Иконка в трее запущена')
+        return icon
+    except Exception as e:
+        logger.warning('Не удалось запустить иконку в трее: %s', e)
+        return None
+
+
+def _setup_signal_handlers(loop: asyncio.AbstractEventLoop, stop_event: asyncio.Event) -> None:
+    """Регистрирует обработчики сигналов SIGINT и SIGTERM."""
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, lambda s=sig: _on_signal(s, stop_event))
+        except NotImplementedError:
+            logger.warning(
+                'Регистрация обработчика %s не поддерживается на этой платформе',
+                signal.Signals(sig).name,
+            )
+
+
+def _on_signal(sig: signal.Signals, stop_event: asyncio.Event) -> None:
+    """Обработчик сигнала — устанавливает stop_event."""
+    logger.info('Получен сигнал %s, завершение работы...', signal.Signals(sig).name)
+    stop_event.set()
+
+
 async def _run_server(args: argparse.Namespace) -> None:
     """Запускает proxy + API серверы и ждёт сигнала остановки."""
     try:
@@ -115,28 +147,8 @@ async def _run_server(args: argparse.Namespace) -> None:
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
-    tray_icon = None
-    if getattr(sys, 'frozen', False) and _HAS_TRAY and not args.dev:
-        tray_icon = start_tray(lambda: loop.call_soon_threadsafe(stop_event.set))
-        if tray_icon:
-            logger.info('Иконка в трее запущена')
-
-    def _make_handler(sig):
-        """Создаёт обработчик сигнала, который устанавливает stop_event."""
-        def handler():
-            sig_name = signal.Signals(sig).name
-            logger.info('Получен сигнал %s, завершение работы...', sig_name)
-            stop_event.set()
-        return handler
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, _make_handler(sig))
-        except NotImplementedError:
-            logger.warning(
-                'Регистрация обработчика %s не поддерживается на этой платформе',
-                signal.Signals(sig).name,
-            )
+    tray_icon = _start_tray_icon(loop, stop_event, args)
+    _setup_signal_handlers(loop, stop_event)
 
     if args.need_update:
         asyncio.create_task(emit_event('need_update', {'version': __version__}))
@@ -150,6 +162,7 @@ async def _run_server(args: argparse.Namespace) -> None:
         logger.info('Mock-SOCKS5 сервер для тестирования: 127.0.0.1:%d', mock_socks5.port)
 
     await stop_event.wait()
+    del tray_icon
 
     logger.info('Останавливаю серверы...')
     try:

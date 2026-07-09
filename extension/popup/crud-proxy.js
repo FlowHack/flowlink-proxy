@@ -91,8 +91,11 @@ export async function handleSaveProxy(loadAndRender) {
   hideFieldErrors();
   let hasError = false;
   if (!host) { showFieldError('proxy-host', 'Введите хост'); hasError = true; }
-  if (port && !isValidPort(port)) { showFieldError('proxy-port', 'Порт от 1 до 65535'); hasError = true; }
-  if (hasError || !host || !port) return;
+  if (!port || !isValidPort(port)) {
+    showFieldError('proxy-port', port ? 'Порт от 1 до 65535' : 'Введите порт');
+    hasError = true;
+  }
+  if (hasError) return;
   if (!isValidIP(host)) { showFieldError('proxy-host', 'Неверный формат IP'); return; }
 
   const saveBtn = document.getElementById('btn-proxy-save');

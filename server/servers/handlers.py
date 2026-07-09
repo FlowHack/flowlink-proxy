@@ -51,7 +51,7 @@ def _close_tunnels_on_config_change(
     new_proxies: dict,
 ) -> bool:
     """
-    Закрывает туннели при изменении статуса прокси.
+    Закрывает туннели при изменении статуса или адреса прокси.
 
     Возвращает True, если нужен полный сброс всех соединений
     (хотя бы один прокси был включён).
@@ -68,6 +68,10 @@ def _close_tunnels_on_config_change(
         elif not old_p.get('isEnabled', True) and new_p.get('isEnabled', True):
             logger.info('Прокси %s включён, сброс соединений', pid[:8])
             needs_full_flush = True
+        elif (old_p.get('host') != new_p.get('host')
+              or old_p.get('port') != new_p.get('port')):
+            logger.info('Прокси %s изменил адрес, закрытие туннелей', pid[:8])
+            close_tunnels_for_proxy(pid)
     return needs_full_flush
 
 
@@ -121,9 +125,10 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict:
     new_proxies = _extract_proxies_dict(data)
     new_masks = _extract_masks_dict(data)
 
-    # Закрываем туннели при изменении статуса прокси
+    # Закрываем туннели при любом изменении конфига (прокси или маски)
+    # чтобы Chrome переподключился с актуальной маршрутизацией
     needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies)
-    if needs_full_flush:
+    if needs_full_flush or old_masks != new_masks:
         close_all_connections()
 
     router.refresh()

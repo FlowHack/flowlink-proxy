@@ -34,7 +34,7 @@ BROWSER_PATH="ПУТЬ_К_БРАУЗЕРУ"
 # ════════════════════════════════
 
 PROXY_PORT="${PROXY_PORT:-8080}"
-BACKEND_EXE="./FlowLink Proxy"
+BACKEND_EXE="./server/FlowLink Proxy/FlowLink Proxy"
 
 # --- Запуск бэкенда ---
 if [ ! -f "$BACKEND_EXE" ]; then
@@ -43,7 +43,7 @@ if [ ! -f "$BACKEND_EXE" ]; then
     exit 1
 fi
 
-if pgrep -f "FlowLink Proxy" >/dev/null 2>&1; then
+if pgrep -f "^$BACKEND_EXE" >/dev/null 2>&1; then
     info "Бэкенд уже запущен."
 else
     info "Запускаю бэкенд FlowLink Proxy..."
@@ -68,8 +68,7 @@ if [ ! -f "$BROWSER_PATH" ] && [ ! -d "$BROWSER_PATH" ]; then
     exit 1
 fi
 
-BROWSER_NAME="$(basename "$BROWSER_PATH")"
-if pgrep -f "$BROWSER_NAME" >/dev/null 2>&1; then
+if pgrep -f "^$BROWSER_PATH" >/dev/null 2>&1; then
     info "Браузер уже запущен."
 else
     info "Запускаю браузер с --proxy-server=127.0.0.1:$PROXY_PORT..."

@@ -77,7 +77,7 @@ pip install -q -r server/requirements.txt
 pip install -q pyinstaller
 
 # --- Версия из server/version.py ---
-VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from version import __version__; print(__version__)")
+VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)")
 info "Версия: $VERSION"
 
 # --- Сборка ---

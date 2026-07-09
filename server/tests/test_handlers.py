@@ -3,16 +3,21 @@
 """
 
 import asyncio
+import logging
+import logging.handlers
 import os
 import tempfile
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from server.config import config as cfg
 from server.config import repo as config_repo
-from server.servers.handlers import (_extract_masks_dict,
-                                     _extract_proxies_dict, handle_get_config,
-                                     handle_get_status, handle_get_version)
+from server.servers.handlers import (_close_tunnels_on_config_change,
+                                     _extract_masks_dict,
+                                     _extract_proxies_dict,
+                                     _log_config_changes,
+                                     handle_get_config, handle_get_status,
+                                     handle_get_version)
 from server.services.router import MaskRouter
 
 
@@ -144,3 +149,135 @@ class TestHandleGetVersion(unittest.TestCase):
         result = handle_get_version()
         self.assertIn('version', result)
         self.assertIsInstance(result['version'], str)
+
+
+class TestCloseTunnelsOnConfigChange(unittest.TestCase):
+    """Тесты _close_tunnels_on_config_change."""
+
+    def setUp(self):
+        patcher = patch('server.servers.handlers.close_tunnels_for_proxy')
+        self.mock_close = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        patcher_all = patch('server.servers.handlers.close_all_connections')
+        self.mock_close_all = patcher_all.start()
+        self.addCleanup(patcher_all.stop)
+
+    def test_no_changes(self):
+        """Без изменений — ничего не закрывается"""
+        old = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}}
+        new = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}}
+        need_flush = _close_tunnels_on_config_change(old, new)
+        self.assertFalse(need_flush)
+        self.mock_close.assert_not_called()
+
+    def test_proxy_removed(self):
+        """Удалённый прокси — туннели закрываются"""
+        old = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}}
+        new = {}
+        need_flush = _close_tunnels_on_config_change(old, new)
+        self.assertFalse(need_flush)
+        self.mock_close.assert_called_once_with('p1')
+
+    def test_proxy_disabled(self):
+        """Выключенный прокси — туннели закрываются"""
+        old = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}}
+        new = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': False}}
+        need_flush = _close_tunnels_on_config_change(old, new)
+        self.assertFalse(need_flush)
+        self.mock_close.assert_called_once_with('p1')
+
+    def test_proxy_enabled(self):
+        """Включённый прокси — нужен полный сброс"""
+        old = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': False}}
+        new = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}}
+        need_flush = _close_tunnels_on_config_change(old, new)
+        self.assertTrue(need_flush)
+        self.mock_close.assert_not_called()
+
+    def test_proxy_host_changed(self):
+        """Изменение host у включённого прокси — туннели закрываются"""
+        old = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}}
+        new = {'p1': {'proxyId': 'p1', 'host': '2.2.2.2', 'port': 1080, 'isEnabled': True}}
+        need_flush = _close_tunnels_on_config_change(old, new)
+        self.assertFalse(need_flush)
+        self.mock_close.assert_called_once_with('p1')
+
+    def test_proxy_port_changed(self):
+        """Изменение порта у включённого прокси — туннели закрываются"""
+        old = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}}
+        new = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 9090, 'isEnabled': True}}
+        need_flush = _close_tunnels_on_config_change(old, new)
+        self.assertFalse(need_flush)
+        self.mock_close.assert_called_once_with('p1')
+
+
+class TestLogConfigChanges(unittest.TestCase):
+    """Тесты _log_config_changes (проверяем, что код не падает и логирует корректно)."""
+
+    def setUp(self):
+        self.logger = logging.getLogger('flowlink.api')
+        self.orig_level = self.logger.level
+        self.logger.setLevel(logging.INFO)
+        # Перехватываем логи
+        self.handler = logging.handlers.MemoryHandler(capacity=100)
+        self.logger.addHandler(self.handler)
+
+    def tearDown(self):
+        self.logger.removeHandler(self.handler)
+        self.handler.close()
+        self.logger.setLevel(self.orig_level)
+
+    def _get_log_messages(self):
+        return [r.getMessage() for r in self.handler.buffer]
+
+    def test_no_changes(self):
+        """Без изменений — пустые логи"""
+        old_p = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        new_p = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        old_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}}
+        new_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}}
+        _log_config_changes(old_p, new_p, old_m, new_m)
+        self.assertEqual(len(self._get_log_messages()), 0)
+
+    def test_added_proxy(self):
+        """Добавленный прокси — сообщение 'Добавлен прокси'"""
+        old_p = {}
+        new_p = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        _log_config_changes(old_p, new_p, {}, {})
+        msgs = self._get_log_messages()
+        self.assertTrue(any('Добавлен прокси' in m for m in msgs))
+
+    def test_removed_proxy(self):
+        """Удалённый прокси — сообщение 'Удалён прокси'"""
+        old_p = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        new_p = {}
+        _log_config_changes(old_p, new_p, {}, {})
+        msgs = self._get_log_messages()
+        self.assertTrue(any('Удалён прокси' in m for m in msgs))
+
+    def test_changed_proxy_host(self):
+        """Изменение host — сообщение 'Изменён прокси'"""
+        old_p = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        new_p = {'p1': {'proxyId': 'p1', 'host': '2.2.2.2', 'port': 1080}}
+        _log_config_changes(old_p, new_p, {}, {})
+        msgs = self._get_log_messages()
+        self.assertTrue(any('Изменён прокси' in m for m in msgs))
+
+    def test_added_mask(self):
+        """Добавленная маска — сообщение 'Добавлена маска'"""
+        old_m = {}
+        new_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}}
+        proxy = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        _log_config_changes(proxy, proxy, old_m, new_m)
+        msgs = self._get_log_messages()
+        self.assertTrue(any('Добавлена маска' in m for m in msgs))
+
+    def test_removed_mask(self):
+        """Удалённая маска — сообщение 'Удалена маска'"""
+        old_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}}
+        new_m = {}
+        proxy = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        _log_config_changes(proxy, proxy, old_m, new_m)
+        msgs = self._get_log_messages()
+        self.assertTrue(any('Удалена маска' in m for m in msgs))

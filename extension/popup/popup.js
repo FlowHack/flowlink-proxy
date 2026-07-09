@@ -9,7 +9,7 @@ import { escapeHtml } from '../shared/dom.js';
 import { API_BASE, setApiPort } from '../shared/constants.js';
 import { handlePingAll } from './ping.js';
 import { openHelpModal, switchHelpTab } from './help.js';
-import { showModal, closeModal } from './modal.js';
+import { showModal, closeModal, attachModalOverlayClose } from './modal.js';
 import { openAddProxyModal, openEditProxyModal, handleSaveProxy, handleDeleteProxy, handleToggleProxy } from './crud-proxy.js';
 import { openAddMaskModal, openEditMaskModal, handleSaveMask, handleDeleteMask, handleClearMasks } from './crud-mask.js';
 import { renderTabStatus } from './tab-status.js';
@@ -25,6 +25,8 @@ const state = {
   connected: false,
   selectedProxyId: null,
 };
+// Экспортируем для modal.js (overlay-закрытие)
+window.__FLOWLINK_STATE = state;
 
 /** Показывает toast-уведомление на 2 секунды. */
 function showToast(msg) {
@@ -261,6 +263,7 @@ function renderProxyList() {
 
 /** Привязывает обработчики событий к элементам UI. */
 function attachGlobalListeners() {
+  attachModalOverlayClose();
   document.addEventListener('click', (e) => {
     // Открыть модалку помощи
     if (e.target.id === 'btn-help') openHelpModal();
