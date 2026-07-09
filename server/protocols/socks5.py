@@ -33,14 +33,14 @@ SOCKS5_RSV = 0x00
 SOCKS5_SUCCESS = 0x00
 
 SOCKS5_ERRORS = {
-    0x01: 'General SOCKS server failure',
-    0x02: 'Connection not allowed by ruleset',
-    0x03: 'Network unreachable',
-    0x04: 'Host unreachable',
-    0x05: 'Connection refused',
-    0x06: 'TTL expired',
-    0x07: 'Command not supported',
-    0x08: 'Address type not supported',
+    0x01: 'Общая ошибка SOCKS-сервера',
+    0x02: 'Соединение запрещено правилами',
+    0x03: 'Сеть недоступна',
+    0x04: 'Хост недоступен',
+    0x05: 'Соединение отклонено',
+    0x06: 'Истёк TTL',
+    0x07: 'Команда не поддерживается',
+    0x08: 'Тип адреса не поддерживается',
 }
 
 

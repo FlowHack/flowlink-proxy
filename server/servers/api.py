@@ -156,7 +156,7 @@ class ApiServer(BaseServer):
                 )
             else:
                 status_code = 404
-                response_body = {'error': f'Not Found: {method} {path}'}
+                response_body = {'error': f'Не найдено: {method} {path}'}
                 logger.warning('API: неизвестный запрос %s %s от %s',
                                method, path, peername)
             return status_code, response_body

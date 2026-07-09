@@ -187,7 +187,7 @@ async def main():
     Парсит аргументы CLI, запускает ProxyServer (прокси) и ApiServer (API),
     ожидает сигнала завершения и останавливает серверы.
     """
-    parser = argparse.ArgumentParser(description='FlowLink Proxy Gateway')
+    parser = argparse.ArgumentParser(description='FlowLink Proxy — шлюз для маршрутизации трафика через SOCKS5')
     parser.add_argument('--proxy-port', type=int, default=8080,
                         help='Порт прокси-сервера (по умолч. 8080)')
     parser.add_argument('--api-port', type=int, default=8081,

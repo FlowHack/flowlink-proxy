@@ -8,9 +8,9 @@ function Error { Write-Host "[FAIL] $args" -ForegroundColor Red; exit 1 }
 
 $py = Get-Command "python" -ErrorAction SilentlyContinue
 if (-not $py) {
-    Error "Python not found. Install Python 3.10+ from python.org"
+    Error "Python 3 не найден. Установите Python 3.10+ с python.org"
 }
-Info "Python found"
+Info "Python найден"
 
 $devVenv = Join-Path $ProjectRoot "venv"
 $buildVenv = Join-Path $ProjectRoot "build-tmp"
@@ -18,41 +18,41 @@ $buildVenv = Join-Path $ProjectRoot "build-tmp"
 if (Test-Path $devVenv) {
     $venvPath = $devVenv
     $cleanVenv = $false
-    Info "Using existing venv..."
+    Info "Использование существующего виртуального окружения..."
 } else {
     $venvPath = $buildVenv
     $cleanVenv = $true
-    Info "Creating temporary venv..."
+    Info "Создание временного виртуального окружения..."
     & python -m venv $venvPath
     if ($LASTEXITCODE -ne 0) {
-        Error "Failed to create venv"
+        Error "Не удалось создать виртуальное окружение"
     }
 }
 
 $pip = Join-Path $venvPath "Scripts" | Join-Path -ChildPath "pip.exe"
 $python = Join-Path $venvPath "Scripts" | Join-Path -ChildPath "python.exe"
 
-Info "Updating pip..."
+Info "Обновление pip..."
 & $python -m pip install --upgrade pip -q
 
-Info "Installing dependencies..."
+Info "Установка зависимостей..."
 & $pip install -q -r "server/requirements.txt"
 if ($LASTEXITCODE -ne 0) {
     if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }
-    Error "pip install failed"
+    Error "Не удалось установить зависимости"
 }
 
 & $pip install -q pyinstaller
 if ($LASTEXITCODE -ne 0) {
     if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }
-    Error "PyInstaller install failed"
+    Error "Не удалось установить PyInstaller"
 }
 
-Info "Cleaning previous build..."
+Info "Очистка предыдущей сборки..."
 Remove-Item -Recurse -Force "server/dist", "server/work" -ErrorAction SilentlyContinue
 
-$VERSION = & $python -c "import sys; sys.path.insert(0,'server'); from version import __version__; print(__version__)"
-Info "Building FlowLink Proxy v$VERSION for Windows..."
+$VERSION = & $python -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)"
+Info "Сборка FlowLink Proxy v$VERSION для Windows..."
 
 $iconFlag = ""
 if (Test-Path "server/icons/icon.ico") {
@@ -75,7 +75,7 @@ if (Test-Path "server/icons/icon.ico") {
 
 $buildExit = $LASTEXITCODE
 
-Info "Cleaning up temporary files..."
+Info "Очистка временных файлов..."
 Remove-Item -Recurse -Force "server/work" -ErrorAction SilentlyContinue
 Remove-Item "*.spec" -ErrorAction SilentlyContinue
 if ($cleanVenv) {
@@ -87,15 +87,15 @@ if ($buildExit -eq 0) {
 }
 
 if ($buildExit -ne 0) {
-    Error "Build failed"
+    Error "Сборка не удалась"
 }
 
 $binary = Get-Item "server/FlowLink Proxy/FlowLink Proxy.exe"
-$size = "{0:N0} KB" -f ($binary.Length / 1KB)
+$size = "{0:N0} КБ" -f ($binary.Length / 1KB)
 
-Info "Build complete!"
+Info "Сборка завершена!"
 Write-Host ""
-Write-Host "Binary: server/FlowLink Proxy/FlowLink Proxy.exe ($size)"
+Write-Host "Бинарник: server/FlowLink Proxy/FlowLink Proxy.exe ($size)"
 Write-Host ""
-Write-Host "Run:"
+Write-Host "Запуск:"
 Write-Host '  .\server\"FlowLink Proxy\FlowLink Proxy.exe"'

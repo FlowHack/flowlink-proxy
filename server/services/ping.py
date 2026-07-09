@@ -31,7 +31,7 @@ async def ping_proxy(proxy_id: str) -> dict:
             break
 
     if not proxy:
-        return {'alive': False, 'latency': None, 'error': 'Proxy not found'}
+        return {'alive': False, 'latency': None, 'error': 'Прокси не найден'}
 
     start = time.monotonic()
     proto = get_protocol(proxy)

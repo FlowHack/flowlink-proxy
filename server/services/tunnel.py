@@ -25,14 +25,24 @@ _active_tunnels: dict[str, list[asyncio.StreamWriter]] = {}
 
 
 def register_tunnel(proxy_id: str, writer: asyncio.StreamWriter):
-    """Регистрирует remote writer для отслеживания активного туннеля."""
+    """Регистрирует remote writer для отслеживания активного туннеля.
+
+    Args:
+        proxy_id: Идентификатор прокси.
+        writer: asyncio StreamWriter удалённого соединения.
+    """
     if proxy_id not in _active_tunnels:
         _active_tunnels[proxy_id] = []
     _active_tunnels[proxy_id].append(writer)
 
 
 def unregister_tunnel(proxy_id: str, writer: asyncio.StreamWriter):
-    """Удаляет writer из отслеживаемых при штатном завершении туннеля."""
+    """Удаляет writer из отслеживаемых при штатном завершении туннеля.
+
+    Args:
+        proxy_id: Идентификатор прокси.
+        writer: asyncio StreamWriter удалённого соединения для удаления.
+    """
     writers = _active_tunnels.get(proxy_id)
     if writers:
         try:
@@ -44,7 +54,11 @@ def unregister_tunnel(proxy_id: str, writer: asyncio.StreamWriter):
 
 
 def close_tunnels_for_proxy(proxy_id: str):
-    """Принудительно закрывает все активные туннели указанного прокси."""
+    """Принудительно закрывает все активные туннели указанного прокси.
+
+    Args:
+        proxy_id: Идентификатор прокси, чьи туннели нужно закрыть.
+    """
     writers = _active_tunnels.pop(proxy_id, [])
     for w in writers:
         try:
@@ -61,7 +75,11 @@ def close_all_proxy_tunnels():
 
 
 def close_all_connections():
-    """Закрывает ВСЕ соединения через прокси-сервер (прокси + direct)."""
+    """Закрывает ВСЕ соединения через прокси-сервер (прокси + direct).
+
+    Очищает оба трекера: _all_writers (все удалённые соединения)
+    и _active_tunnels (SOCKS5-туннели по proxy_id).
+    """
     for w in list(_all_writers):
         try:
             w.close()
@@ -115,9 +133,9 @@ async def validate_target(host: str, port: int):
         try:
             addr = ip_address(ip)
             if addr.is_private or addr.is_loopback or addr.is_link_local:
-                raise ValueError(f'SSRF blocked: {host} resolves to private IP {ip}')
+                raise ValueError(f'SSRF заблокирован: {host} резолвится в приватный IP {ip}')
         except ValueError as e:
-            if 'SSRF blocked' in str(e):
+            if 'SSRF' in str(e):
                 raise
             continue  # невалидный IP — пропускаем
 
