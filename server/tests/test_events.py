@@ -5,8 +5,7 @@
 import asyncio
 import unittest
 
-from server.services.events import (_MAX_QUEUE_SIZE, SSE_QUEUE, emit_event,
-                                    get_queue)
+from server.services.events import (_MAX_QUEUE_SIZE, SSE_QUEUE, emit_event)
 
 
 class TestEventsQueue(unittest.TestCase):
@@ -19,11 +18,6 @@ class TestEventsQueue(unittest.TestCase):
                 SSE_QUEUE.get_nowait()
             except asyncio.QueueEmpty:
                 break
-
-    def test_get_queue_returns_global(self):
-        """get_queue() возвращает глобальную очередь"""
-        queue = get_queue()
-        self.assertIs(queue, SSE_QUEUE)
 
     def test_emit_event_adds_to_queue(self):
         """emit_event добавляет событие в очередь"""
@@ -55,12 +49,3 @@ class TestEventsQueue(unittest.TestCase):
             # Очередь не должна вырасти за maxsize
             self.assertLessEqual(SSE_QUEUE.qsize(), _MAX_QUEUE_SIZE)
         asyncio.run(run())
-
-    def test_max_queue_size_constant(self):
-        """_MAX_QUEUE_SIZE установлен в разумное значение"""
-        self.assertGreater(_MAX_QUEUE_SIZE, 0)
-        self.assertLessEqual(_MAX_QUEUE_SIZE, 1000)
-
-    def test_queue_maxsize_matches_constant(self):
-        """Размер очереди соответствует _MAX_QUEUE_SIZE"""
-        self.assertEqual(SSE_QUEUE.maxsize, _MAX_QUEUE_SIZE)

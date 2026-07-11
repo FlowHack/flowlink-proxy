@@ -10,6 +10,16 @@ import logging
 from abc import ABC, abstractmethod
 
 
+def safe_close_writer(writer: asyncio.StreamWriter | None):
+    """Безопасно закрывает writer, игнорируя ошибки."""
+    if writer is None:
+        return
+    try:
+        writer.close()
+    except (ConnectionError, OSError):
+        pass
+
+
 class BaseServer(ABC):
     """
     Базовый TCP-сервер на asyncio.

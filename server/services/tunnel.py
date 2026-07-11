@@ -8,6 +8,7 @@
 import asyncio
 import logging
 import socket
+from contextlib import asynccontextmanager
 from ipaddress import ip_address
 
 from server.protocols import ProxyError, get_protocol
@@ -181,14 +182,37 @@ async def _handle_tunnel_error(
         await _send_error(client_writer, url, msg)
 
 
-async def tunnel_connect(
+@asynccontextmanager
+async def _tunnel_context(
     client: tuple[asyncio.StreamReader, asyncio.StreamWriter],
     target: tuple[str, int],
     url: str,
     proxy: dict | None = None,
+    prefix: str = '',
 ):
-    """Устанавливает HTTPS-туннель через SOCKS5 (если proxy) или напрямую."""
-    client_reader, client_writer = client
+    """Контекстный менеджер для lifecycle туннеля (SOCKS5 или direct).
+
+    Обеспечивает:
+    - Установку удалённого соединения (через прокси или напрямую)
+    - Регистрацию в трекерах (_all_writers, _active_tunnels)
+    - Обработку ошибок соединения (ProxyError, TimeoutError, OSError)
+    - Автоматическую очистку при завершении (finally)
+
+    Args:
+        client: Кортеж (reader, writer) клиента.
+        target: Кортеж (host, port) целевого сервера.
+        url: URL запроса (для логирования).
+        proxy: Конфиг прокси или None для direct-соединения.
+        prefix: Префикс для сообщений об ошибках.
+
+    Yields:
+        Кортеж (remote_reader, remote_writer, proxy_addr).
+
+    Raises:
+        ProxyError, asyncio.TimeoutError, OSError, ConnectionError:
+            при ошибке установки или передачи данных.
+    """
+    _client_writer = client[1]
     target_host, target_port = target
     proxy_addr = f'{proxy.get("host", "?")}:{proxy.get("port", 0)}' if proxy else 'direct'
     proxy_id = proxy.get('proxyId') if proxy else None
@@ -203,6 +227,30 @@ async def tunnel_connect(
         _all_writers.add(remote_writer)
         if proxy_id:
             register_tunnel(proxy_id, remote_writer)
+
+        yield remote_reader, remote_writer, proxy_addr
+
+    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError) as e:
+        await _handle_tunnel_error(_client_writer, url, proxy_addr, e, prefix)
+    finally:
+        if remote_writer:
+            _all_writers.discard(remote_writer)
+            if proxy_id:
+                unregister_tunnel(proxy_id, remote_writer)
+
+
+async def tunnel_connect(
+    client: tuple[asyncio.StreamReader, asyncio.StreamWriter],
+    target: tuple[str, int],
+    url: str,
+    proxy: dict | None = None,
+):
+    """Устанавливает HTTPS-туннель через SOCKS5 (если proxy) или напрямую."""
+    async with _tunnel_context(
+        client, target, url, proxy,
+    ) as (remote_reader, remote_writer, proxy_addr):
+        client_reader, client_writer = client
+        target_host, target_port = target
 
         client_writer.write(b'HTTP/1.1 200 Connection Established\r\n\r\n')
         await client_writer.drain()
@@ -216,13 +264,6 @@ async def tunnel_connect(
             'Туннель %s:%s через %s завершён',
             target_host, target_port, proxy_addr,
         )
-    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError) as e:
-        await _handle_tunnel_error(client_writer, url, proxy_addr, e)
-    finally:
-        if remote_writer:
-            _all_writers.discard(remote_writer)
-            if proxy_id:
-                unregister_tunnel(proxy_id, remote_writer)
 
 
 async def tunnel_http(
@@ -233,21 +274,10 @@ async def tunnel_http(
     proxy: dict | None = None,
 ):
     """Пересылает plain HTTP запрос через SOCKS5 (если proxy) или напрямую."""
-    client_reader, client_writer = client
-    target_host, target_port = target
-    proxy_addr = f'{proxy.get("host", "?")}:{proxy.get("port", 0)}' if proxy else 'direct'
-    proxy_id = proxy.get('proxyId') if proxy else None
-    remote_writer = None
-    try:
-        remote_reader, remote_writer = await _establish_remote(
-            target_host=target_host,
-            target_port=target_port,
-            proxy=proxy,
-        )
-
-        _all_writers.add(remote_writer)
-        if proxy_id:
-            register_tunnel(proxy_id, remote_writer)
+    async with _tunnel_context(
+        client, target, url, proxy, prefix='HTTP ',
+    ) as (remote_reader, remote_writer, proxy_addr):
+        client_reader, client_writer = client
 
         remote_writer.write(relative_line)
         logger.debug(
@@ -256,10 +286,3 @@ async def tunnel_http(
         )
         await pipe_http_request(client_reader, remote_writer)
         await pipe_http_response(remote_reader, client_writer)
-    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError) as e:
-        await _handle_tunnel_error(client_writer, url, proxy_addr, e, prefix='HTTP ')
-    finally:
-        if remote_writer:
-            _all_writers.discard(remote_writer)
-            if proxy_id:
-                unregister_tunnel(proxy_id, remote_writer)

@@ -9,7 +9,7 @@ import asyncio
 import logging
 
 from server.protocols.parser import parse_connect, parse_http, skip_headers
-from server.servers.base_server import BaseServer
+from server.servers.base_server import BaseServer, safe_close_writer
 from server.services.router import MaskRouter
 from server.services.tunnel import tunnel_connect, tunnel_http, validate_target
 
@@ -88,14 +88,11 @@ class ProxyServer(BaseServer):
                     pass
             logger.error('Ошибка обработки клиента %s: %s',
                          peername, e, exc_info=True)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error('Неожиданная ошибка в клиенте %s: %s',
                          peername, e, exc_info=True)
         finally:
-            try:
-                writer.close()
-            except (ConnectionError, OSError):
-                pass
+            safe_close_writer(writer)
 
     async def _handle_connect(
         self, reader: asyncio.StreamReader,

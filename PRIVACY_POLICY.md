@@ -61,4 +61,4 @@ FlowLink Proxy — это расширение для браузера, кото
 
 ## Контакты
 
-По вопросам конфиденциальности: [GitHub Issues](https://github.com/flowhack/flowlink-proxy/issues)
+По вопросам конфиденциальности: [GitHub Issues](https://github.com/FlowHack/flowlink-proxy/issues)

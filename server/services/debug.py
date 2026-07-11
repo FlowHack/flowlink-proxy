@@ -42,32 +42,32 @@ def truncate(text: str, max_len: int = 2000) -> str:
     return text
 
 
-def log_config_state():
-    """Выводит текущее состояние конфига в debug-лог (без паролей)."""
+def log_config_state(is_startup: bool = False):
+    """Выводит текущее состояние конфига в debug-ログ (без паролей).
+
+    Args:
+        is_startup: Если True — выводит начальное сообщение при старте сервера.
+            Если False — выводит сообщение после сохранения конфига.
+    """
     data = cfg.load_config()
     proxies = data.get('proxies', [])
     masks = data.get('masks', [])
-    logger.debug('Конфиг после сохранения: %d прокси, %d масок', len(proxies), len(masks))
-    for p in proxies:
-        logger.debug('  прокси %s — %s:%s (вкл: %s)',
-                     p.get('proxyId', '?'), p.get('host', '?'),
-                     p.get('port', '?'), p.get('isEnabled', True))
-    for m in masks:
-        logger.debug('  маска %s — %s', m.get('maskId', '?'), m.get('pattern', '?'))
 
+    if is_startup:
+        logger.debug('Загружено прокси: %d', len(proxies))
+    else:
+        logger.debug('Конфиг после сохранения: %d прокси, %d масок', len(proxies), len(masks))
 
-def log_startup_config():
-    """Выводит конфиг при старте сервера в debug-лог."""
-    config_data = cfg.load_config()
-    proxies = config_data.get('proxies', [])
-    masks = config_data.get('masks', [])
-    logger.debug('Загружено прокси: %d', len(proxies))
     for p in proxies:
         logger.debug('  прокси %s — %s:%s (включён: %s)',
                      p.get('proxyId', '?'), p.get('host', '?'),
                      p.get('port', '?'), p.get('isEnabled', True))
+
     logger.debug('Загружено масок: %d', len(masks))
     for m in masks:
-        logger.debug('  маска %s — %s → прокси %s',
-                     m.get('maskId', '?'), m.get('pattern', '?'),
-                     m.get('proxyId', '?'))
+        if is_startup:
+            logger.debug('  маска %s — %s → прокси %s',
+                         m.get('maskId', '?'), m.get('pattern', '?'),
+                         m.get('proxyId', '?'))
+        else:
+            logger.debug('  маска %s — %s', m.get('maskId', '?'), m.get('pattern', '?'))

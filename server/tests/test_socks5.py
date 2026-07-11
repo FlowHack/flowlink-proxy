@@ -40,8 +40,8 @@ class TestSocks5Exceptions(unittest.TestCase):
                 )
         asyncio.run(run())
 
-    def test_empty_username_password_no_auth(self):
-        """Пустые логин/пароль → без аутентификации"""
+    def test_connect_to_invalid_port_raises_socks5_error(self):
+        """Подключение к невалидному порту → Socks5Error"""
         async def run():
             proto = self._make_proto(host='127.0.0.1', port=9, username='', password='')
             with self.assertRaises(Socks5Error):

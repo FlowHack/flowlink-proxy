@@ -7,6 +7,23 @@
 import { API_BASE } from './constants.js';
 
 /**
+ * Извлекает сообщение об ошибке из ответа сервера.
+ * Пытается распарсить JSON-тело и вернуть поле `error`.
+ * При неудаче — возвращает стандартное сообщение с HTTP-кодом.
+ * @param {Response} res — объект ответа fetch.
+ * @param {string} method — HTTP-метод для сообщения (GET/POST).
+ * @returns {string} — текст ошибки для отображения пользователю.
+ */
+async function _handleApiError(res, method) {
+  let msg = `${method} — HTTP ${res.status}`;
+  try {
+    const err = await res.json();
+    if (err.error) msg = err.error;
+  } catch { /* тело не JSON — оставляем стандартное сообщение */ }
+  return msg;
+}
+
+/**
  * GET-запрос к API.
  * @param {string} endpoint — путь вида '/config', '/status' и т.д.
  * @returns {Promise<object>} — распарсенный JSON-ответ.
@@ -14,12 +31,7 @@ import { API_BASE } from './constants.js';
 export async function apiGet(endpoint) {
   const res = await fetch(`${API_BASE}${endpoint}`);
   if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const err = await res.json();
-      if (err.error) msg = err.error;
-    } catch {}
-    throw new Error(msg);
+    throw new Error(await _handleApiError(res, 'GET'));
   }
   try {
     return await res.json();
@@ -41,15 +53,11 @@ export async function apiPost(endpoint, body) {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const err = await res.json();
-      if (err.error) msg = err.error;
-    } catch {}
-    throw new Error(msg);
+    throw new Error(await _handleApiError(res, 'POST'));
   }
   try {
     return await res.json();
   } catch {
     throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+  }
 }

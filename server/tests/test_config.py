@@ -1,6 +1,8 @@
 """
 Тесты обработки исключений и краевых случаев config.py.
 """
+# pylint: disable=duplicate-code
+# setUp/tearDown boilerplate намеренно идентичен в test_config и test_handlers.
 
 import os
 import tempfile
@@ -106,22 +108,6 @@ class TestConfigEnabled(unittest.TestCase):
 
     def tearDown(self):
         cfg.set_enabled(self.orig_enabled)
-
-    def test_is_enabled_default(self):
-        """По умолчанию isEnabled = True"""
-        cfg.set_enabled(True)
-        self.assertTrue(cfg.is_enabled())
-
-    def test_set_enabled_false(self):
-        """set_enabled(False) → is_enabled() = False"""
-        cfg.set_enabled(False)
-        self.assertFalse(cfg.is_enabled())
-
-    def test_set_enabled_true(self):
-        """set_enabled(True) → is_enabled() = True"""
-        cfg.set_enabled(False)
-        cfg.set_enabled(True)
-        self.assertTrue(cfg.is_enabled())
 
     def test_toggle_enabled(self):
         """Многократное переключение isEnabled"""

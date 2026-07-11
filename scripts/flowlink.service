@@ -1,6 +1,6 @@
 [Unit]
-Description=FlowLink Proxy Gateway
-Documentation=https://github.com/flowhack/flowlink-proxy
+Description=FlowLink Proxy Backend
+Documentation=https://github.com/FlowHack/flowlink-proxy
 After=network.target network-online.target
 Wants=network-online.target
 

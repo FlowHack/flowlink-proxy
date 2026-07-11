@@ -94,6 +94,19 @@ function connectSSE() {
       chrome.storage.local.set({ needUpdate: true, needUpdateVersion: version, needUpdateAt: Date.now() });
     });
 
+    eventSource.addEventListener('autostart_browser_changed', (event) => {
+      console.log('[FlowLink Proxy] SSE: автозапуск браузера изменён');
+      let autostartBrowser = true;
+      try {
+        autostartBrowser = JSON.parse(event.data).autostartBrowser;
+      } catch {}
+      chrome.storage.local.set({
+        autostartBrowserChanged: true,
+        autostartBrowser,
+        autostartBrowserChangedAt: Date.now(),
+      });
+    });
+
     eventSource.onerror = (err) => {
       console.warn('[FlowLink Proxy] SSE: ошибка/разрыв', err);
       // EventSource сам переподключается

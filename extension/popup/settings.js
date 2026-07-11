@@ -10,8 +10,9 @@ import { setLoading } from '../shared/utils.js';
 /**
  * Сохраняет кастомный порт API в chrome.storage и перезагружает данные.
  * @param {Function} loadAndRender — функция перезагрузки всех данных popup.
+ * @param {Function} [showToast] — функция показа toast-уведомления.
  */
-export async function handleSettingsSave(loadAndRender) {
+export async function handleSettingsSave(loadAndRender, showToast) {
   const input = document.getElementById('settings-api-port');
   const port = Number(input.value);
   const saveBtn = document.getElementById('btn-settings-save');
@@ -30,6 +31,7 @@ export async function handleSettingsSave(loadAndRender) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка сохранения порта:', e);
+    if (showToast) showToast('Не удалось сохранить настройки. Проверьте соединение с бэкендом.');
   } finally {
     setLoading(saveBtn, false);
   }

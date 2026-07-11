@@ -36,6 +36,40 @@ def _cache_key() -> str:
     return config_repo.CONFIG_FILE
 
 
+def _crypto_field(
+    value: str,
+    operation: str,
+    proxy_id: str,
+    field_name: str,
+    *,
+    encrypt: bool = False,
+) -> str:
+    """Шифрует или расшифровывает одно поле прокси (username/password).
+
+    При ошибке логирует предупреждение/ошибку и возвращает пустую строку,
+    чтобы не прерывать обработку остальных прокси.
+
+    Args:
+        value: Значение поля для шифрования/дешифрования.
+        operation: Описание операции для сообщения об ошибке.
+        proxy_id: Идентификатор прокси (для логирования).
+        field_name: Имя поля (для логирования).
+        encrypt: True для шифрования, False для дешифрования.
+
+    Returns:
+        Зашифрованное/расшифрованное значение или пустая строка при ошибке.
+    """
+    try:
+        return crypto.encrypt(value) if encrypt else crypto.decrypt(value)
+    except (ValueError, OSError, CryptographyException, ImportError) as e:
+        level = logger.error if encrypt else logger.warning
+        level(
+            'Ошибка %s для прокси %s, поле %s: %s',
+            operation, proxy_id, field_name, e,
+        )
+        return ''
+
+
 def _load_cached() -> dict:
     """Загружает конфиг с кэшированием на _CACHE_TTL секунд."""
     key = _cache_key()
@@ -58,23 +92,15 @@ def _decrypt_proxies(data: dict) -> dict:
     """Расшифровывает username/password у всех прокси."""
     for proxy in data.get('proxies', []):
         if proxy.get('username'):
-            try:
-                proxy['username'] = crypto.decrypt(proxy['username'])
-            except (ValueError, OSError, CryptographyException) as e:
-                logger.warning(
-                    'Ошибка расшифровки имени пользователя для прокси %s: %s',
-                    proxy.get('proxyId', '?'), e
-                )
-                proxy['username'] = ''
+            proxy['username'] = _crypto_field(
+                proxy['username'], 'расшифровки имени',
+                proxy.get('proxyId', '?'), 'username',
+            )
         if proxy.get('password'):
-            try:
-                proxy['password'] = crypto.decrypt(proxy['password'])
-            except (ValueError, OSError, CryptographyException) as e:
-                logger.warning(
-                    'Ошибка расшифровки пароля для прокси %s: %s',
-                    proxy.get('proxyId', '?'), e
-                )
-                proxy['password'] = ''
+            proxy['password'] = _crypto_field(
+                proxy['password'], 'расшифровки пароля',
+                proxy.get('proxyId', '?'), 'password',
+            )
     return data
 
 
@@ -104,23 +130,17 @@ def save_config(data: dict):
     for proxy in data.get('proxies', []):
         proxy_copy = dict(proxy)
         if proxy_copy.get('username'):
-            try:
-                proxy_copy['username'] = crypto.encrypt(proxy_copy['username'])
-            except (ValueError, OSError, CryptographyException, ImportError) as e:
-                logger.error(
-                    'Ошибка шифрования имени пользователя для прокси %s: %s',
-                    proxy_copy.get('proxyId', '?'), e
-                )
-                proxy_copy['username'] = ''
+            proxy_copy['username'] = _crypto_field(
+                proxy_copy['username'], 'шифрования имени',
+                proxy_copy.get('proxyId', '?'), 'username',
+                encrypt=True,
+            )
         if proxy_copy.get('password'):
-            try:
-                proxy_copy['password'] = crypto.encrypt(proxy_copy['password'])
-            except (ValueError, OSError, CryptographyException, ImportError) as e:
-                logger.error(
-                    'Ошибка шифрования пароля для прокси %s: %s',
-                    proxy_copy.get('proxyId', '?'), e
-                )
-                proxy_copy['password'] = ''
+            proxy_copy['password'] = _crypto_field(
+                proxy_copy['password'], 'шифрования пароля',
+                proxy_copy.get('proxyId', '?'), 'password',
+                encrypt=True,
+            )
         to_save['proxies'].append(proxy_copy)
 
     proxy_count = len(to_save['proxies'])
@@ -133,7 +153,10 @@ def save_config(data: dict):
     try:
         save_raw(to_save)
     except OSError as e:
-        logger.error('Не удалось записать конфиг на диск: %s. Убедитесь, что диск не переполнен.', e)
+        logger.error(
+            'Не удалось записать конфиг на диск: %s. '
+            'Убедитесь, что диск не переполнен.', e,
+        )
         raise
 
 
@@ -150,3 +173,45 @@ def get_all_masks() -> list:
 def is_enabled() -> bool:
     """Возвращает глобальный флаг включения/выключения прокси (из памяти)."""
     return _STATE['enabled']
+
+
+def inject_proxies(data: dict) -> int:
+    """
+    Дописывает прокси и маски в config.json, не перезаписывая существующие.
+
+    Используется для инъекции фиктивных прокси в debug-режиме (флаг --count-proxy).
+    Не шифрует пароли — фиктивные прокси не требуют шифрования.
+
+    Args:
+        data: Словарь с ключами 'proxies' (список прокси) и 'masks' (список масок).
+
+    Returns:
+        Количество добавленных прокси.
+    """
+    try:
+        existing = _load_cached()
+    except (OSError, RuntimeError):
+        existing = {'proxies': [], 'masks': []}
+
+    existing_proxies = existing.get('proxies', [])
+    existing_masks = existing.get('masks', [])
+
+    new_proxies = data.get('proxies', [])
+    new_masks = data.get('masks', [])
+
+    merged = {
+        'proxies': existing_proxies + new_proxies,
+        'masks': existing_masks + new_masks,
+    }
+
+    _invalidate_cache()
+    save_raw(merged)
+
+    proxy_count = len(merged['proxies'])
+    mask_count = len(merged['masks'])
+    logger.info(
+        'Инъекция прокси: добавлено %d прокси и %d масок '
+        '(всего: %d прокси, %d масок)',
+        len(new_proxies), len(new_masks), proxy_count, mask_count,
+    )
+    return len(new_proxies)

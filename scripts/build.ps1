@@ -2,9 +2,9 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 Set-Location $ProjectRoot
 
-function Info  { Write-Host "[OK] $args" -ForegroundColor Green }
+function Info  { Write-Host "[✓] $args" -ForegroundColor Green }
 function Warn  { Write-Host "[!] $args" -ForegroundColor Yellow }
-function Error { Write-Host "[FAIL] $args" -ForegroundColor Red; exit 1 }
+function Error { Write-Host "[✗] $args" -ForegroundColor Red; exit 1 }
 
 $py = Get-Command "python" -ErrorAction SilentlyContinue
 if (-not $py) {

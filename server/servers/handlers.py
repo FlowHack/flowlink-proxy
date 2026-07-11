@@ -7,6 +7,7 @@
 
 import logging
 
+from server.config import autostart
 from server.config import config as cfg
 from server.services.debug import log_config_state
 from server.services.events import emit_event
@@ -144,7 +145,7 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict:
         await emit_event('config_changed', {})
 
         return {'success': True}
-    except (OSError, RuntimeError, ImportError) as e:
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка сохранения конфига: %s', e)
         return {'error': 'Не удалось сохранить конфигурацию'}
 
@@ -193,7 +194,7 @@ async def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
             close_all_proxy_tunnels()
         await emit_event('config_changed', {})
         return {'success': True, 'enabled': cfg.is_enabled()}
-    except (OSError, RuntimeError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error('Ошибка переключения состояния: %s', e)
         return {'error': 'Не удалось переключить состояние', 'enabled': cfg.is_enabled()}
 
@@ -220,3 +221,60 @@ async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
             logger.warning('Пинг %s: недоступен', addr)
 
     return result, 200
+
+
+def handle_get_autostart_browser() -> dict:
+    """
+    GET /api/autostart-browser — возвращает настройку автозапуска браузера.
+
+    Ответ содержит:
+      - autostartBrowser (bool): текущее значение настройки.
+      - launchScriptsFound (bool): найден ли хотя бы один скрипт запуска.
+      - launchScripts (dict): найденные скрипты по именам и путям.
+    """
+    try:
+        return autostart.get_autostart_status()
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка чтения настройки autostart_browser: %s', e)
+        return {
+            'autostartBrowser': autostart.get_autostart_browser(),
+            'launchScriptsFound': False,
+            'launchScripts': {},
+            'error': 'Не удалось проверить статус скриптов запуска',
+        }
+
+
+async def handle_post_autostart_browser(data: dict) -> dict:
+    """
+    POST /api/autostart-browser — обновляет настройку автозапуска браузера.
+
+    Тело запроса: {"autostartBrowser": true/false}
+    Эмитит SSE-событие autostart_browser_changed.
+    """
+    try:
+        if not isinstance(data, dict) or 'autostartBrowser' not in data:
+            raise ValueError('Требуется поле "autostartBrowser" (true/false)')
+        value = bool(data['autostartBrowser'])
+        autostart.set_autostart_browser(value)
+        await emit_event('autostart_browser_changed', {
+            'autostartBrowser': value,
+        })
+        return {
+            'success': True,
+            'autostartBrowser': value,
+        }
+    except OSError as e:
+        logger.error('Ошибка сохранения autostart_browser: %s', e)
+        return {
+            'error': 'Не удалось сохранить настройку. '
+                     'Проверьте права на запись в директорию данных. '
+                     'Если проблема повторяется, обратитесь в поддержку: '
+                     'flowlink.proxy@atomicmail.io',
+            'autostartBrowser': autostart.get_autostart_browser(),
+        }
+    except (ValueError, TypeError) as e:
+        logger.warning('Неверный запрос autostart_browser: %s', e)
+        return {
+            'error': str(e),
+            'autostartBrowser': autostart.get_autostart_browser(),
+        }

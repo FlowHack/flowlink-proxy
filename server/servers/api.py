@@ -10,7 +10,7 @@ import json
 import logging
 
 from server.servers import handlers
-from server.servers.base_server import BaseServer
+from server.servers.base_server import BaseServer, safe_close_writer
 from server.services.debug import mask_sensitive, truncate
 from server.services.events import handle_sse
 from server.services.router import MaskRouter
@@ -99,11 +99,14 @@ class ApiServer(BaseServer):
     HTTP API сервер для управления FlowLink Proxy.
 
     Эндпоинты:
-      GET  /api/config   — получить конфиг
-      POST /api/config   — обновить конфиг
-      GET  /api/status   — статус gateway
-      GET  /api/version  — версия сервера
-      POST /api/ping     — пинг прокси по proxyId
+      GET  /api/config              — получить конфиг
+      POST /api/config              — обновить конфиг
+      GET  /api/status              — статус gateway
+      GET  /api/version             — версия сервера
+      POST /api/ping                — пинг прокси по proxyId
+      POST /api/enabled             — глобальный тоггл
+      GET  /api/autostart-browser   — настройка автозапуска браузера
+      POST /api/autostart-browser   — обновить настройку автозапуска
     """
 
     def __init__(self, router: MaskRouter, host: str = '127.0.0.1',
@@ -158,6 +161,13 @@ class ApiServer(BaseServer):
                 response_body, status_code = await handlers.handle_ping(
                     proxy_id, peername,
                 )
+            elif path == '/api/autostart-browser' and method == 'GET':
+                response_body = handlers.handle_get_autostart_browser()
+            elif path == '/api/autostart-browser' and method == 'POST':
+                data = json.loads(body)
+                response_body = await handlers.handle_post_autostart_browser(
+                    data,
+                )
             else:
                 status_code = 404
                 response_body = {'error': f'Не найдено: {method} {path}'}
@@ -169,7 +179,12 @@ class ApiServer(BaseServer):
             return 400, {'error': 'Неверный запрос'}
         except (OSError, RuntimeError) as e:
             logger.error('API: ошибка сервера от %s: %s', peername, e, exc_info=True)
-            return 500, {'error': 'Внутренняя ошибка сервера. Если проблема повторяется, обратитесь в поддержку: flowlink.proxy@atomicmail.io'}
+            msg = (
+                'Внутренняя ошибка сервера. '
+                'Если проблема повторяется, '
+                'обратитесь в поддержку: flowlink.proxy@atomicmail.io'
+            )
+            return 500, {'error': msg}
 
     async def _handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
@@ -217,7 +232,4 @@ class ApiServer(BaseServer):
                 asyncio.IncompleteReadError) as e:
             logger.error('API ошибка: %s', e, exc_info=True)
         finally:
-            try:
-                writer.close()
-            except (ConnectionError, OSError):
-                pass
+            safe_close_writer(writer)

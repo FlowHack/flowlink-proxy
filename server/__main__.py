@@ -15,6 +15,7 @@
   python -m server --debug  # Debug-логирование
   python -m server --dev  # Dev-режим (auto-reload + debug)
   python -m server --need-update  # Симуляция обновления (debug + SSE-событие)
+  python -m server --debug --count-proxy 5  # 5 фиктивных прокси для тестирования
 """
 
 import argparse
@@ -24,13 +25,16 @@ import os
 import signal
 import sys
 
+from server.config import config as cfg
 from server.logging_config import setup_logging
 from server.protocols.mock_socks5 import MockSocks5Server
 from server.servers.api import ApiServer
 from server.servers.proxy import ProxyServer
-from server.services.debug import log_startup_config
+from server.services.debug import log_config_state
 from server.services.events import emit_event
+from server.services.fake_proxies import generate_fake_proxies
 from server.services.router import MaskRouter
+from server.utils import write_port_file
 from server.version import __version__
 
 try:
@@ -76,7 +80,11 @@ async def _file_watcher(root: str, poll_interval: float = 1.0) -> None:
                 os._exit(0)
 
 
-def _start_tray_icon(loop: asyncio.AbstractEventLoop, stop_event: asyncio.Event, args: argparse.Namespace):
+def _start_tray_icon(
+    loop: asyncio.AbstractEventLoop,
+    stop_event: asyncio.Event,
+    args: argparse.Namespace,
+):
     """Запускает иконку в системном трее, если поддерживается платформа."""
     if not getattr(sys, 'frozen', False) or not _HAS_TRAY or args.dev:
         return None
@@ -85,7 +93,7 @@ def _start_tray_icon(loop: asyncio.AbstractEventLoop, stop_event: asyncio.Event,
         if icon:
             logger.info('Иконка в трее запущена')
         return icon
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.warning('Не удалось запустить иконку в трее: %s', e)
         return None
 
@@ -117,7 +125,7 @@ async def _run_server(args: argparse.Namespace) -> None:
         return
 
     if args.debug:
-        log_startup_config()
+        log_config_state(is_startup=True)
 
     proxy_server = ProxyServer(router, port=args.proxy_port)
     api_server = ApiServer(
@@ -132,6 +140,7 @@ async def _run_server(args: argparse.Namespace) -> None:
         )
         logger.info('Прокси-сервер слушает 127.0.0.1:%d', args.proxy_port)
         logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
+        write_port_file(args.api_port, args.proxy_port)
     except OSError as e:
         if 'address already in use' in str(e).lower():
             logger.error(
@@ -196,7 +205,9 @@ async def main():
     Парсит аргументы CLI, запускает ProxyServer (прокси) и ApiServer (API),
     ожидает сигнала завершения и останавливает серверы.
     """
-    parser = argparse.ArgumentParser(description='FlowLink Proxy — шлюз для маршрутизации трафика через SOCKS5')
+    parser = argparse.ArgumentParser(
+        description='FlowLink Proxy — шлюз для маршрутизации трафика через SOCKS5',
+    )
     parser.add_argument('--proxy-port', type=int, default=8080,
                         help='Порт прокси-сервера (по умолч. 8080)')
     parser.add_argument('--api-port', type=int, default=8081,
@@ -208,12 +219,19 @@ async def main():
         '--need-update', action='store_true',
         help='Симуляция обновления (debug + SSE-событие need_update)',
     )
+    parser.add_argument(
+        '--count-proxy', type=int, default=0, metavar='N',
+        help='Количество фиктивных прокси для тестирования (требует --debug)',
+    )
     args = parser.parse_args()
 
     if args.dev:
         args.debug = True
     if args.need_update:
         args.debug = True
+
+    if args.count_proxy > 0 and not args.debug:
+        parser.error('--count-proxy требует флага --debug (или --dev)')
 
     setup_logging(args.debug)
     logger.info('FlowLink Proxy v%s запуск...', __version__)
@@ -224,6 +242,12 @@ async def main():
         logger.info('Режим разработки: включён (auto-reload)')
     if args.need_update:
         logger.info('Симуляция обновления: включена')
+    if args.count_proxy > 0:
+        logger.info('Фиктивные прокси: %d', args.count_proxy)
+
+    if args.count_proxy > 0:
+        fake_data = generate_fake_proxies(args.count_proxy)
+        cfg.inject_proxies(fake_data)
 
     await _run_server(args)
 
@@ -233,7 +257,7 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger = logging.getLogger('flowlink')
         logger.critical(
             'Критическая ошибка: %s. Если проблема повторяется, '

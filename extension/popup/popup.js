@@ -15,6 +15,8 @@ import { openAddMaskModal, openEditMaskModal, handleSaveMask, handleDeleteMask, 
 import { renderTabStatus } from './tab-status.js';
 import { checkBackendVersion, checkForUpdates, backendVersion } from './updater.js';
 import { handleSettingsSave } from './settings.js';
+import { discoverPort } from '../shared/port_discovery.js';
+import { loadAutostartStatus, renderAutostartToggle, handleAutostartToggle } from './autostart.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -37,6 +39,9 @@ export function showToast(msg) {
   setTimeout(() => el.classList.remove('visible'), 2000);
 }
 
+// Глобальный доступ для help.js (избегает циклического импорта)
+window.__flowlinkShowToast = showToast;
+
 /** Базовый интервал опроса бэкенда (мс). */
 const POLL_INTERVAL = 3000;
 /** Максимальный интервал при отказе (мс). */
@@ -58,16 +63,31 @@ async function loadStoredPort() {
 /** Блокирует/разблокирует кнопки, зависящие от соединения с бэкендом. */
 function updateConnectionUI(connected) {
   state.connected = connected;
-  for (const id of ['btn-add-proxy', 'btn-settings-toggle']) {
+  for (const id of ['btn-add-proxy', 'btn-add-mask', 'btn-settings-toggle']) {
     const btn = document.getElementById(id);
     if (!btn) continue;
     btn.classList.toggle('btn-disabled', !connected);
   }
 }
 
-/** Принудительная проверка бэкенда (для кнопки «Повторить»). */
+/**
+ * Принудительная проверка бэкенда (для кнопки «Повторить»).
+ * Если текущий порт недоступен — повторно сканирует порты 8080–8090,
+ * чтобы найти бэкенд, запущенный на другом порту.
+ */
 async function handleRetry() {
-  const ok = await quickPing();
+  let ok = await quickPing();
+
+  // Если текущий порт не отвечает — пробуем найти бэкенд на другом порту
+  if (!ok) {
+    console.log(
+      '[FlowLink Proxy] Повторная попытка: текущий порт недоступен, сканирую...',
+    );
+    await discoverPort();
+    // После смены порта — проверяем снова
+    ok = await quickPing();
+  }
+
   if (ok) {
     stopPolling();
     _pollInterval = POLL_INTERVAL;
@@ -90,7 +110,9 @@ function showError(visible) {
   if (visible) {
     const retryBtn = document.getElementById('btn-retry');
     if (retryBtn) retryBtn.onclick = handleRetry;
-    document.getElementById('btn-help-setup')?.addEventListener('click', () => openHelpModal(), { once: true });
+    document.getElementById('btn-help-setup')?.addEventListener(
+      'click', () => openHelpModal(null, false, true), { once: true },
+    );
   }
 }
 
@@ -208,6 +230,7 @@ function render(state) {
   renderProxyList();
   renderVersion();
   renderGlobalToggle();
+  renderAutostartToggle();
   // Маски: фильтр по выбранному прокси или все
   const filtered = state.selectedProxyId
     ? state.masks.filter(m => m.proxyId === state.selectedProxyId)
@@ -314,6 +337,10 @@ function attachGlobalListeners() {
     if (e.target.id === 'global-toggle-input') {
       handleGlobalToggle(e.target);
     }
+    // Тоггл автозапуска браузера
+    if (e.target.id === 'autostart-browser-input') {
+      handleAutostartToggle(e.target, showToast);
+    }
   });
 
   document.addEventListener('submit', (e) => {
@@ -327,7 +354,7 @@ function attachGlobalListeners() {
     }
     if (e.target.id === 'settings-form') {
       e.preventDefault();
-      handleSettingsSave(loadAndRender);
+      handleSettingsSave(loadAndRender, showToast);
     }
   });
 
@@ -347,6 +374,10 @@ function attachGlobalListeners() {
   document.getElementById('btn-settings-toggle')?.addEventListener('click', () => {
     if (!state.connected) { showToast('Нет соединения с бэкендом'); return; }
     document.getElementById('settings-row').classList.toggle('hidden');
+  });
+  // Кнопка помощи для отсутствующих скриптов запуска
+  document.getElementById('btn-autostart-help')?.addEventListener('click', () => {
+    openHelpModal(null, false, false, true);
   });
   // Закрытие модалок
   for (const id of ['btn-help-close', 'btn-help-close2', 'btn-proxy-cancel', 'btn-mask-cancel']) {
@@ -400,6 +431,7 @@ function togglePasswordVisibility() {
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     await loadStoredPort();
+    await discoverPort();
     attachGlobalListeners();
 
     // Проверяем, не изменился ли конфиг с прошлого открытия popup (SSE-уведомление)
@@ -410,6 +442,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Первая загрузка — один раз, без поллинга
     await loadAndRender();
+    // Загружаем статус автозапуска браузера
+    await loadAutostartStatus();
+    renderAutostartToggle();
     // Если бэкенд ответил — проверяем версию и обновления
     const backendOk = await checkBackendVersion();
     if (backendOk) {

@@ -1,6 +1,8 @@
 """
 Тесты обработчиков API-эндпоинтов handlers.py.
 """
+# pylint: disable=duplicate-code
+# setUp/tearDown boilerplate намеренно идентичен в test_config и test_handlers.
 
 import asyncio
 import logging
@@ -8,7 +10,7 @@ import logging.handlers
 import os
 import tempfile
 import unittest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
 
 from server.config import config as cfg
 from server.config import repo as config_repo
@@ -17,7 +19,8 @@ from server.servers.handlers import (_close_tunnels_on_config_change,
                                      _extract_proxies_dict,
                                      _log_config_changes,
                                      handle_get_config, handle_get_status,
-                                     handle_get_version)
+                                     handle_get_version, handle_post_config,
+                                     handle_post_enabled)
 from server.services.router import MaskRouter
 
 
@@ -113,7 +116,7 @@ class TestHandleGetConfig(unittest.TestCase):
         self.assertIn('isEnabled', result)
         self.assertIsInstance(result['isEnabled'], bool)
 
-    def test_handle_get_config_includes_isEnabled(self):
+    def test_handle_get_config_includes_is_enabled(self):
         """GET /api/config инжектит isEnabled из памяти"""
         cfg.set_enabled(False)
         result = handle_get_config()
@@ -123,22 +126,19 @@ class TestHandleGetConfig(unittest.TestCase):
 class TestHandleGetStatus(unittest.TestCase):
     """Тесты handle_get_status."""
 
-    def test_handle_get_status_running(self):
-        """GET /api/status возвращает статус running"""
+    def test_handle_get_status_debug_and_need_update(self):
+        """GET /api/status возвращает корректные флаги debug и needUpdate"""
+        result = handle_get_status(debug=True, need_update=True)
+        self.assertEqual(result['status'], 'running')
+        self.assertTrue(result['debug'])
+        self.assertTrue(result['needUpdate'])
+
+    def test_handle_get_status_defaults(self):
+        """GET /api/status по умолчанию — debug=False, needUpdate=False"""
         result = handle_get_status(debug=False)
         self.assertEqual(result['status'], 'running')
         self.assertFalse(result['debug'])
         self.assertFalse(result['needUpdate'])
-
-    def test_handle_get_status_debug(self):
-        """GET /api/status с debug=True"""
-        result = handle_get_status(debug=True)
-        self.assertTrue(result['debug'])
-
-    def test_handle_get_status_need_update(self):
-        """GET /api/status с need_update=True"""
-        result = handle_get_status(debug=False, need_update=True)
-        self.assertTrue(result['needUpdate'])
 
 
 class TestHandleGetVersion(unittest.TestCase):
@@ -281,3 +281,109 @@ class TestLogConfigChanges(unittest.TestCase):
         _log_config_changes(proxy, proxy, old_m, new_m)
         msgs = self._get_log_messages()
         self.assertTrue(any('Удалена маска' in m for m in msgs))
+
+
+class TestHandlePostConfig(unittest.TestCase):
+    """Тесты handle_post_config — критический путь сохранения конфига."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_config_file = config_repo.CONFIG_FILE
+        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
+        self.router = MaskRouter()
+        self.router.refresh()
+
+    def tearDown(self):
+        config_repo.CONFIG_FILE = self.orig_config_file
+        for f in os.listdir(self.tmpdir):
+            os.remove(os.path.join(self.tmpdir, f))
+        os.rmdir(self.tmpdir)
+
+    def test_post_config_save_success(self):
+        """POST /api/config сохраняет конфиг и возвращает success"""
+        data = {
+            'proxies': [
+                {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': True},
+            ],
+            'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}],
+        }
+        result = asyncio.run(handle_post_config(data, self.router))
+        self.assertTrue(result.get('success'))
+        # Проверяем, что данные действительно сохранились
+        loaded = cfg.load_config()
+        self.assertEqual(len(loaded['proxies']), 1)
+        self.assertEqual(len(loaded['masks']), 1)
+
+    def test_post_config_non_dict_returns_error(self):
+        """POST /api/config с не-данными возвращает ошибку"""
+        result = asyncio.run(handle_post_config('not a dict', self.router))
+        self.assertIn('error', result)
+
+    def test_post_config_empty_data(self):
+        """POST /api/config с пустыми данными сохраняет пустой конфиг"""
+        data = {'proxies': [], 'masks': []}
+        result = asyncio.run(handle_post_config(data, self.router))
+        self.assertTrue(result.get('success'))
+        loaded = cfg.load_config()
+        self.assertEqual(len(loaded['proxies']), 0)
+
+    def test_post_config_closes_tunnels_on_removal(self):
+        """POST /api/config с удалённым прокси закрывает туннели"""
+        # Сохраняем прокси
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}],
+            'masks': [],
+        })
+        cfg._invalidate_cache()  # pylint: disable=protected-access
+        # Сохраняем конфиг без этого прокси
+        data = {'proxies': [], 'masks': []}
+        with patch('server.servers.handlers.close_tunnels_for_proxy') as mock_close:
+            result = asyncio.run(handle_post_config(data, self.router))
+            self.assertTrue(result.get('success'))
+            mock_close.assert_called_once_with('p1')
+
+
+class TestHandlePostEnabled(unittest.TestCase):
+    """Тесты handle_post_enabled — глобальный тоггл."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_config_file = config_repo.CONFIG_FILE
+        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
+        self.router = MaskRouter()
+        self.router.refresh()
+        self.orig_enabled = cfg.is_enabled()
+
+    def tearDown(self):
+        cfg.set_enabled(self.orig_enabled)
+        config_repo.CONFIG_FILE = self.orig_config_file
+        for f in os.listdir(self.tmpdir):
+            os.remove(os.path.join(self.tmpdir, f))
+        os.rmdir(self.tmpdir)
+
+    def test_enable_returns_success(self):
+        """POST /api/enabled {enabled: true} → success"""
+        cfg.set_enabled(False)
+        result = asyncio.run(handle_post_enabled({'enabled': True}, self.router))
+        self.assertTrue(result.get('success'))
+        self.assertTrue(result.get('enabled'))
+        self.assertTrue(cfg.is_enabled())
+
+    def test_disable_returns_success(self):
+        """POST /api/enabled {enabled: false} → success"""
+        cfg.set_enabled(True)
+        result = asyncio.run(handle_post_enabled({'enabled': False}, self.router))
+        self.assertTrue(result.get('success'))
+        self.assertFalse(result.get('enabled'))
+        self.assertFalse(cfg.is_enabled())
+
+    def test_missing_enabled_field_returns_error(self):
+        """POST /api/enabled без поля enabled → ошибка"""
+        result = asyncio.run(handle_post_enabled({}, self.router))
+        self.assertIn('error', result)
+
+    def test_non_dict_returns_error(self):
+        """POST /api/enabled с не-данными → ошибка"""
+        result = asyncio.run(handle_post_enabled('invalid', self.router))
+        self.assertIn('error', result)

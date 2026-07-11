@@ -35,6 +35,9 @@ logs/
 config.json
 config.local.json
 .flowlink.key
+.flowlink.salt
+.flowlink-port
+.flowlink-settings
 
 # --- PyInstaller / сборка standalone ---
 server/dist/

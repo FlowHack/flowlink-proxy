@@ -4,25 +4,120 @@
 Единственная ответственность: вспомогательные функции общего назначения.
 """
 
+import json
+import logging
 import os
+import shutil
 import sys
+
+logger = logging.getLogger('flowlink.utils')
+
+# Имя файла для хранения фактического порта API-сервера.
+# Используется для отладки, логов и внешних инструментов.
+_PORT_FILENAME = '.flowlink-port'
+
+# Диапазон допустимых портов TCP
+_PORT_MIN = 1
+_PORT_MAX = 65535
 
 
 def get_data_dir() -> str:
     """
     Возвращает базовую директорию для хранения данных приложения.
 
+    Все данные (config.json, ключи, логи, настройки) хранятся в одной
+    стандартной директории данных пользователя — независимо от того,
+    запущен ли сервер из исходников, standalone-бинарника или systemd.
+
     Приоритет (от высшего к низшему):
     1. Переменная окружения FLOWLINK_DATA_DIR (для systemd-сервиса и кастомных путей)
-    2. В режиме PyInstaller (.frozen) — рядом с исполняемым файлом.
-    3. Иначе — текущая рабочая директория.
+    2. Стандартная директория данных ОС:
+       - Linux/macOS: ~/.flowlink-proxy
+       - Windows: %APPDATA%\\FlowLink Proxy
+
+    Гарантия: возвращаемая директория существует (создаётся при первом вызове).
     """
     env_dir = os.environ.get('FLOWLINK_DATA_DIR')
     if env_dir:
-        return os.path.abspath(env_dir)
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(os.path.abspath(sys.executable))
-    return os.getcwd()
+        data_dir = os.path.abspath(env_dir)
+    elif sys.platform == 'win32':
+        appdata = os.environ.get('APPDATA')
+        if appdata:
+            data_dir = os.path.join(appdata, 'FlowLink Proxy')
+        else:
+            data_dir = os.path.join(os.path.expanduser('~'), '.flowlink-proxy')
+    else:
+        data_dir = os.path.join(os.path.expanduser('~'), '.flowlink-proxy')
+
+    # Создаём директорию, если она ещё не существует (exist_ok)
+    try:
+        os.makedirs(data_dir, exist_ok=True)
+    except OSError as e:
+        logger.error('Не удалось создать директорию данных %s: %s', data_dir, e)
+        raise
+
+    return data_dir
+
+
+# Файлы данных, которые удаляются при очистке
+_DATA_FILES = [
+    'config.json',
+    '.flowlink.key',
+    '.flowlink.salt',
+    '.flowlink-settings',
+    '.flowlink-port',
+]
+
+
+def clear_all_data() -> int:
+    """
+    Удаляет все файлы данных приложения из data-директории.
+
+    Удаляет:
+    - config.json (конфигурация прокси и масок)
+    - .flowlink.key (мастер-ключ AES-GCM)
+    - .flowlink.salt (соль PBKDF2)
+    - .flowlink-settings (настройки автозапуска)
+    - .flowlink-port (порты API/прокси)
+    - logs/ (директория с логами, целиком)
+
+    Не удаляет саму data-директорию — она пересоздаётся автоматически.
+
+    Returns:
+        Количество удалённых файлов/директорий.
+    """
+    data_dir = get_data_dir()
+    removed = 0
+
+    # Удаляем файлы данных
+    for filename in _DATA_FILES:
+        filepath = os.path.join(data_dir, filename)
+        if os.path.isfile(filepath):
+            try:
+                os.remove(filepath)
+                removed += 1
+                logger.info('Удалён файл данных: %s', filepath)
+            except OSError as e:
+                logger.error('Не удалось удалить %s: %s', filepath, e)
+
+    # Удаляем директорию логов целиком
+    logs_dir = os.path.join(data_dir, 'logs')
+    if os.path.isdir(logs_dir):
+        try:
+            shutil.rmtree(logs_dir)
+            removed += 1
+            logger.info('Удалена директория логов: %s', logs_dir)
+        except OSError as e:
+            logger.error('Не удалось удалить %s: %s', logs_dir, e)
+
+    # Пересоздаём пустую директорию логов (logging может писать в неё)
+    try:
+        os.makedirs(logs_dir, exist_ok=True)
+    except OSError as e:
+        logger.error('Не удалось пересоздать %s: %s', logs_dir, e)
+
+    logger.info('Очистка данных завершена: удалено %d элементов', removed)
+    return removed
 
 
 def get_resource_dir() -> str:
@@ -33,5 +128,67 @@ def get_resource_dir() -> str:
     Иначе — текущая рабочая директория.
     """
     if getattr(sys, 'frozen', False):
-        return getattr(sys, '_MEIPASS', None) or os.path.dirname(os.path.abspath(sys.executable))
+        return getattr(sys, '_MEIPASS', None) or os.path.dirname(
+            os.path.abspath(sys.executable),
+        )
     return os.getcwd()
+
+
+def _validate_port(port: object, name: str) -> int:
+    """
+    Валидирует номер порта и возвращает его как int.
+
+    Raises:
+        TypeError: если port не является int.
+        ValueError: если port вне диапазона 1–65535.
+    """
+    if not isinstance(port, int):
+        raise TypeError(f'{name}: ожидался int, получен {type(port).__name__}')
+    if port < _PORT_MIN or port > _PORT_MAX:
+        raise ValueError(
+            f'{name}: порт должен быть в диапазоне {_PORT_MIN}–{_PORT_MAX}, '
+            f'получен {port}',
+        )
+    return port
+
+
+def write_port_file(api_port: int, proxy_port: int) -> None:
+    """
+    Записывает фактические порты сервера в JSON-файл в data-директории.
+
+    Файл содержит порты API и прокси-серверов — полезно для отладки,
+    логов и внешних инструментов (скрипты, мониторинг).
+
+    Формат файла (.flowlink-port):
+        {"api_port": 8081, "proxy_port": 8080}
+
+    Безопасность:
+    - Валидация диапазона портов (1–65535) перед записью.
+    - Файл записывается в data-директорию (не в ресурсную).
+    - Не содержит секретов — только номера портов.
+
+    Args:
+        api_port: Фактический порт API-сервера (для расширения).
+        proxy_port: Фактический порт прокси-сервера (для Chrome).
+
+    Raises:
+        TypeError: если порты не являются int.
+        ValueError: если порты вне диапазона 1–65535.
+    """
+    # Валидация — ловим ошибки ДО записи в файл
+    _validate_port(api_port, 'api_port')
+    _validate_port(proxy_port, 'proxy_port')
+
+    data_dir = get_data_dir()
+    port_file = os.path.join(data_dir, _PORT_FILENAME)
+    payload = {'api_port': api_port, 'proxy_port': proxy_port}
+    try:
+        with open(port_file, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, indent=2)
+        logger.debug(
+            'Порты записаны в %s: API=%d, прокси=%d',
+            port_file, api_port, proxy_port,
+        )
+    except OSError as e:
+        # Не критично — файл для отладки, его отсутствие не влияет на работу
+        logger.warning('Не удалось записать файл портов %s: %s', port_file, e)
