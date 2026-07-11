@@ -16,9 +16,7 @@ Thumbs.db
 # --- Python кэш и сборка ---
 __pycache__/
 *.py[cod]
-*.pyo
 *.egg-info/
-*.egg-info
 .venv/
 venv/
 .mypy_cache/
@@ -26,6 +24,10 @@ venv/
 .ruff_cache/
 .python-version
 .tox/
+build/
+dist/
+*.egg
+.eggs/
 
 # --- Логи ---
 logs/
@@ -40,12 +42,14 @@ config.local.json
 .flowlink-settings
 
 # --- PyInstaller / сборка standalone ---
-server/dist/
 server/work/
 server/FlowLink Proxy/
-server/*.spec
 build-tmp/
 *.spec
+
+# --- Покрытие тестов ---
+.coverage
+htmlcov/
 
 # --- Сгенерированные иконки (только .ico — производные от .png) ---
 extension/icons/*.ico
