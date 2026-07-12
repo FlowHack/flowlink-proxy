@@ -732,16 +732,22 @@ body {
 /* ───── Настройки ───── */
 .settings-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   gap: 8px;
-  padding: 4px 16px 8px;
+  padding: 8px 16px;
   font-size: 12px;
   color: var(--text-muted);
 }
 
 .settings-row.hidden {
   display: none;
+}
+
+.settings-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .settings-row label {
@@ -869,18 +875,13 @@ body {
   background: var(--text-muted);
 }
 
-/* ───── Автозапуск браузера ───── */
-.autostart-row {
+/* ───── Автозапуск браузера (внутри settings-row) ───── */
+.autostart-row-settings {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 16px 8px;
   font-size: 12px;
   color: var(--text-secondary);
-}
-
-.autostart-row.hidden {
-  display: none;
 }
 
 .autostart-label {
@@ -889,35 +890,36 @@ body {
   white-space: nowrap;
 }
 
-/* ───── Баннер: скрипты запуска не найдены ───── */
-.autostart-banner {
+/* ───── Баннер: скрипты запуска не найдены (внутри settings-row) ───── */
+.autostart-banner-settings {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 6px 8px;
   background: rgba(230, 126, 34, 0.15);
-  border-bottom: 1px solid var(--accent-orange);
+  border: 1px solid var(--accent-orange);
+  border-radius: var(--radius-sm);
   font-size: 11px;
   color: var(--accent-orange);
 }
 
-.autostart-banner.hidden {
+.autostart-banner-settings.hidden {
   display: none;
 }
 
-.autostart-banner-text {
+.autostart-banner-settings .autostart-banner-text {
   flex: 1;
   line-height: 1.4;
 }
 
-.autostart-banner .btn-small {
+.autostart-banner-settings .btn-small {
   background: var(--accent-orange);
   color: #fff;
   border: none;
   flex-shrink: 0;
 }
 
-.autostart-banner .btn-small:hover {
+.autostart-banner-settings .btn-small:hover {
   opacity: 0.85;
 }
 

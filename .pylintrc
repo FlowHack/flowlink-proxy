@@ -1,0 +1,68 @@
+[MAIN]
+# Файл конфигурации pylint для FlowLink Proxy.
+#
+# Подавленные правила обоснованы архитектурой проекта:
+#
+# C0103 (invalid-name): Win32 ctypes ABI — имена полей
+#   (cbSize, hWnd, uID) задаются Win32 API и не могут быть
+#   переименованы в snake_case.
+#
+# C0415 (import-outside-toplevel): Ленивые импорты — единственно
+#   верный паттерн для платформо-зависимого кода (win32, pystray,
+#   tkinter). Импорт ctypes.wintypes на Linux вызовет крах.
+#
+# C1805 (use-implicit-booleaness): Сравнение HRESULT `hr != 0`
+#   вместо `hr` — явное сравнение с S_OK читаемее для Win32 API.
+#
+# E0712 (broad-exception-caught): Глобальный except Exception
+#   в __main__.py и proxy.py — последний рубеж обработки крашей,
+#   логирует и корректно завершает процесс.
+#
+# E1101 (no-member): WNDCLASS есть в runtime ctypes.wintypes на
+#   Windows, но отсутствует в type stubs для pylint.
+#
+# R0801 (duplicate-code): Тесты намеренно содержат похожий boilerplate
+#   (setUp/tearDown). Базовые классы в tests/base.py устраняют
+#   основные дубли, но остаточные совпадения допустимы.
+#
+# R0902 (too-many-instance-attributes): Классы с class-атрибутами
+#   (Win32Tray) — pylint считает их instance-атрибутами,
+#   реальное количество корректно.
+#
+# R0903 (too-few-public-methods): ctypes Structure и data-only
+#   классы (PopupColors) по design не имеют публичных методов.
+#
+# W0201 (attribute-defined-outside-init): ctypes Structure
+#   определяет поля через _fields_, а присваивает вне __init__ —
+#   стандартный паттерн.
+#
+# W0212 (protected-access): Тесты обращаются к приватным атрибутам
+#   для проверки начального состояния — стандартная практика
+#   юнит-тестирования.
+#
+# W0611 (unused-import): Импорты в platform.py используются для
+#   проверки доступности модулей (try/except ImportError), а не
+#   для реального использования.
+#
+# Все остальные правила проверяются строго.
+
+[MESSAGES CONTROL]
+disable=
+    C0103,
+    C0415,
+    C1805,
+    E0712,
+    E1101,
+    R0801,
+    R0902,
+    R0903,
+    W0201,
+    W0212,
+    W0611,
+    W0718,
+
+[FORMAT]
+max-line-length=100
+
+[SIMILARITIES]
+min-similarity-lines=6

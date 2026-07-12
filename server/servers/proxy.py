@@ -88,7 +88,7 @@ class ProxyServer(BaseServer):
                     pass
             logger.error('Ошибка обработки клиента %s: %s',
                          peername, e, exc_info=True)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:
             logger.error('Неожиданная ошибка в клиенте %s: %s',
                          peername, e, exc_info=True)
         finally:

@@ -1,14 +1,11 @@
 """
 Тесты обработчиков API-эндпоинтов handlers.py.
 """
-# pylint: disable=duplicate-code
-# setUp/tearDown boilerplate намеренно идентичен в test_config и test_handlers.
 
 import asyncio
 import logging
 import logging.handlers
 import os
-import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -22,6 +19,7 @@ from server.servers.handlers import (_close_tunnels_on_config_change,
                                      handle_get_version, handle_post_config,
                                      handle_post_enabled)
 from server.services.router import MaskRouter
+from server.tests.base import TempConfigMixin, TempConfigEnabledMixin
 
 
 class TestExtractHelpers(unittest.TestCase):
@@ -89,24 +87,16 @@ class TestExtractHelpers(unittest.TestCase):
         self.assertEqual(len(result), 1)
 
 
-class TestHandleGetConfig(unittest.TestCase):
+class TestHandleGetConfig(TempConfigMixin, unittest.TestCase):
     """Тесты handle_get_config."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.orig_config_file = config_repo.CONFIG_FILE
-        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
+        super().setUp()
         config_repo.save_raw({
             'proxies': [{'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
                          'username': '', 'password': '', 'isEnabled': True}],
             'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}],
         })
-
-    def tearDown(self):
-        config_repo.CONFIG_FILE = self.orig_config_file
-        for f in os.listdir(self.tmpdir):
-            os.remove(os.path.join(self.tmpdir, f))
-        os.rmdir(self.tmpdir)
 
     def test_handle_get_config_returns_data(self):
         """GET /api/config возвращает данные с isEnabled"""
@@ -283,21 +273,13 @@ class TestLogConfigChanges(unittest.TestCase):
         self.assertTrue(any('Удалена маска' in m for m in msgs))
 
 
-class TestHandlePostConfig(unittest.TestCase):
+class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
     """Тесты handle_post_config — критический путь сохранения конфига."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.orig_config_file = config_repo.CONFIG_FILE
-        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
+        super().setUp()
         self.router = MaskRouter()
         self.router.refresh()
-
-    def tearDown(self):
-        config_repo.CONFIG_FILE = self.orig_config_file
-        for f in os.listdir(self.tmpdir):
-            os.remove(os.path.join(self.tmpdir, f))
-        os.rmdir(self.tmpdir)
 
     def test_post_config_save_success(self):
         """POST /api/config сохраняет конфиг и возвращает success"""
@@ -335,7 +317,7 @@ class TestHandlePostConfig(unittest.TestCase):
             'proxies': [{'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}],
             'masks': [],
         })
-        cfg._invalidate_cache()  # pylint: disable=protected-access
+        cfg._invalidate_cache()
         # Сохраняем конфиг без этого прокси
         data = {'proxies': [], 'masks': []}
         with patch('server.servers.handlers.close_tunnels_for_proxy') as mock_close:
@@ -344,23 +326,13 @@ class TestHandlePostConfig(unittest.TestCase):
             mock_close.assert_called_once_with('p1')
 
 
-class TestHandlePostEnabled(unittest.TestCase):
+class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
     """Тесты handle_post_enabled — глобальный тоггл."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.orig_config_file = config_repo.CONFIG_FILE
-        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
+        super().setUp()
         self.router = MaskRouter()
         self.router.refresh()
-        self.orig_enabled = cfg.is_enabled()
-
-    def tearDown(self):
-        cfg.set_enabled(self.orig_enabled)
-        config_repo.CONFIG_FILE = self.orig_config_file
-        for f in os.listdir(self.tmpdir):
-            os.remove(os.path.join(self.tmpdir, f))
-        os.rmdir(self.tmpdir)
 
     def test_enable_returns_success(self):
         """POST /api/enabled {enabled: true} → success"""

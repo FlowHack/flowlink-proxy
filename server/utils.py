@@ -120,6 +120,70 @@ def clear_all_data() -> int:
     return removed
 
 
+def clear_logs_only() -> int:
+    """
+    Удаляет только директорию логов из data-директории.
+
+    Не удаляет конфиги, ключи или настройки — только logs/.
+
+    Returns:
+        Количество удалённых элементов (0 или 1).
+    """
+    data_dir = get_data_dir()
+    logs_dir = os.path.join(data_dir, 'logs')
+    removed = 0
+
+    if os.path.isdir(logs_dir):
+        try:
+            shutil.rmtree(logs_dir)
+            removed += 1
+            logger.info('Удалена директория логов: %s', logs_dir)
+        except OSError as e:
+            logger.error('Не удалось удалить %s: %s', logs_dir, e)
+
+    # Пересоздаём пустую директорию логов
+    try:
+        os.makedirs(logs_dir, exist_ok=True)
+    except OSError as e:
+        logger.error('Не удалось пересоздать %s: %s', logs_dir, e)
+
+    logger.info('Очистка логов завершена: удалено %d элементов', removed)
+    return removed
+
+
+def clear_data_only() -> int:
+    """
+    Удаляет файлы данных (конфиги, ключи, настройки) без логов.
+
+    Удаляет:
+    - config.json
+    - .flowlink.key
+    - .flowlink.salt
+    - .flowlink-settings
+    - .flowlink-port
+
+    Не удаляет logs/.
+
+    Returns:
+        Количество удалённых файлов.
+    """
+    data_dir = get_data_dir()
+    removed = 0
+
+    for filename in _DATA_FILES:
+        filepath = os.path.join(data_dir, filename)
+        if os.path.isfile(filepath):
+            try:
+                os.remove(filepath)
+                removed += 1
+                logger.info('Удалён файл данных: %s', filepath)
+            except OSError as e:
+                logger.error('Не удалось удалить %s: %s', filepath, e)
+
+    logger.info('Очистка данных завершена: удалено %d файлов', removed)
+    return removed
+
+
 def get_resource_dir() -> str:
     """
     Возвращает директорию ресурсов (иконки, и т.д.).

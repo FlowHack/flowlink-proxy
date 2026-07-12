@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 Set-Location $ProjectRoot
 
@@ -11,6 +11,13 @@ if (-not $py) {
     Error "Python 3 не найден. Установите Python 3.10+ с python.org"
 }
 Info "Python найден"
+
+# Проверка tkinter (нужен для кастомного трей-меню)
+$tkCheck = & python -c "import tkinter" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Warn "tkinter не установлен — кастомное трей-меню не будет работать."
+    Warn "Переустановите Python с python.org с галочкой 'tcl/tk and IDLE'."
+}
 
 $devVenv = Join-Path $ProjectRoot "venv"
 $buildVenv = Join-Path $ProjectRoot "build-tmp"

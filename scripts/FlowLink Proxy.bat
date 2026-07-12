@@ -1,36 +1,35 @@
 @echo off
-chcp 65001 >nul
 title FlowLink Proxy
 
-:: ═══════════════════════════════════════════════════════════════════
-:: FlowLink Proxy — Windows-лаунчер
+:: ========================================================
+:: FlowLink Proxy -- Windows-launcher
 ::
-:: Этот скрипт запускает бэкенд FlowLink Proxy и браузер с прокси.
-:: Разместите этот bat-файл в одной папке с FlowLink Proxy.exe.
+:: This script starts FlowLink Proxy backend and browser with proxy.
+:: Place this bat file in the same folder as FlowLink Proxy.exe.
 ::
-:: ═══ НАСТРОЙКА ПЕРЕМЕННЫХ ════════════════════════════════════════
-:: Откройте этот файл в текстовом редакторе (ПКМ → «Изменить»)
-:: и отредактируйте переменные ниже под вашу систему.
-:: ═══════════════════════════════════════════════════════════════════
+:: === SETTINGS ===
+:: Open this file in a text editor (right-click -> Edit)
+:: and edit the variables below for your system.
+:: ========================================================
 
-:: --- Путь к браузеру (ОБЯЗАТЕЛЬНО) ---
-:: Замените ПУТЬ_К_БРАУЗЕРУ на реальный путь к exe-файлу вашего браузера.
-:: Примеры:
-::   C:\Program Files\Yandex\YandexBrowser\Application\browser.exe
-::   C:\Program Files\Google\Chrome\Application\chrome.exe
-::   C:\Program Files\Microsoft\Edge\Application\msedge.exe
-::   C:\Program Files\Mozilla Firefox\firefox.exe
-set BROWSER_PATH=ПУТЬ_К_БРАУЗЕРУ
+:: --- Browser path (REQUIRED) ---
+:: Replace CHANGE_ME with the real path to your browser exe.
+:: IMPORTANT: quotes are NOT needed in the set line (even if path has spaces).
+:: Examples:
+::   set BROWSER_PATH=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe
+::   set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
+::   set BROWSER_PATH=C:\Program Files\Microsoft\Edge\Application\msedge.exe
+::   set BROWSER_PATH=C:\Program Files\Mozilla Firefox\firefox.exe
+set BROWSER_PATH=CHANGE_ME
 
-:: --- Порт прокси (по умолчанию 8080) ---
-:: Меняйте, только если порт 8080 занят другим процессом.
-:: При смене порта обновите также флаг --proxy-server в ярлыке браузера.
+:: --- Proxy port (default 8080) ---
+:: Change only if port 8080 is occupied by another process.
+:: When changing port, also update --proxy-server flag in browser shortcut.
 set PROXY_PORT=8080
 
-:: ═══ КОНЕЦ НАСТРОЙКИ ═════════════════════════════════════════════
+:: === END OF SETTINGS ===
 
-:: --- Определение директории данных и чтение настройки autostart_browser ---
-:: Директория данных: %APPDATA%\FlowLink Proxy (Windows) или %USERPROFILE%\.flowlink-proxy
+:: --- Data directory detection and autostart_browser setting ---
 set "DATA_DIR=%USERPROFILE%\.flowlink-proxy"
 if defined APPDATA set "DATA_DIR=%APPDATA%\FlowLink Proxy"
 
@@ -42,8 +41,8 @@ if exist "%SETTINGS_FILE%" (
     )
 )
 
-:: --- Определение пути к бэкенду ---
-:: Проверяем: сначала рядом с bat (standalone), потом в server/FlowLink Proxy (dev)
+:: --- Backend path detection ---
+:: Check: first next to bat (standalone), then in server\FlowLink Proxy (dev)
 set BACKEND_EXE=
 if exist "%~dp0FlowLink Proxy.exe" (
     set "BACKEND_EXE=%~dp0FlowLink Proxy.exe"
@@ -53,67 +52,66 @@ if exist "%~dp0FlowLink Proxy.exe" (
 
 if not defined BACKEND_EXE (
     echo.
-    echo [!] FlowLink Proxy.exe не найден.
-    echo     Убедитесь, что bat-файл лежит в одной папке с FlowLink Proxy.exe
-    echo     или в корне проекта FlowLink Proxy.
+    echo [!] FlowLink Proxy.exe not found.
+    echo     Make sure the bat file is in the same folder as FlowLink Proxy.exe
+    echo     or in the root of the FlowLink Proxy project.
     echo.
-    echo     Если вы собрали бинарник самостоятельно, проверьте папку server\FlowLink Proxy\.
+    echo     If you built the binary yourself, check the server\FlowLink Proxy\ folder.
     echo.
     pause
     exit /b 1
 )
 
-:: --- Запуск бэкенда ---
+:: --- Start backend ---
 tasklist /FI "IMAGENAME eq FlowLink Proxy.exe" /NH 2>nul | find /i "FlowLink Proxy" >nul
 if errorlevel 1 (
-    echo [+] Запускаю бэкенд FlowLink Proxy...
+    echo [+] Starting FlowLink Proxy backend...
     start "" "%BACKEND_EXE%" --proxy-port %PROXY_PORT%
 ) else (
-    echo [=] Бэкенд уже запущен.
+    echo [=] Backend is already running.
 )
 
-:: --- Запуск браузера (только если autostart_browser=true) ---
-if /i "%AUTOSTART_BROWSER%"=="false" (
-    echo [=] Автозапуск браузера отключён (настройка autostart_browser=false).
-    echo     Для включения: расширение → Настройки → Автозапуск браузера.
+:: --- Start browser (only if autostart_browser=true) ---
+if /i not "%AUTOSTART_BROWSER%"=="false" goto :start_browser
+echo [=] Browser autostart is disabled (autostart_browser=false).
+echo     To enable: extension, Settings, Browser autostart.
+goto :eof
+
+:start_browser
+if not "%BROWSER_PATH%"=="CHANGE_ME" goto :check_browser
+echo.
+echo [!] Browser path is not set.
+echo     Open this bat file in a text editor and replace
+echo     "CHANGE_ME" with the path to your browser.
+echo.
+echo     Examples:
+echo       set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
+echo       set BROWSER_PATH=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe
+echo       set BROWSER_PATH=C:\Program Files\Microsoft\Edge\Application\msedge.exe
+echo.
+pause
+exit /b 1
+
+:check_browser
+if exist "%BROWSER_PATH%" goto :extract_name
+echo.
+echo [!] Browser not found: %BROWSER_PATH%
+echo     Check the BROWSER_PATH variable at the top of this file.
+echo.
+pause
+exit /b 1
+
+:extract_name
+set BROWSER_EXE=
+for %%i in ("%BROWSER_PATH%") do set BROWSER_EXE=%%~nxi
+
+tasklist /FI "IMAGENAME eq %BROWSER_EXE%" /NH 2>nul | find /i "%BROWSER_EXE%" >nul
+if errorlevel 1 (
+    echo [+] Starting browser with --proxy-server=127.0.0.1:%PROXY_PORT%...
+    start "" "%BROWSER_PATH%" --proxy-server=127.0.0.1:%PROXY_PORT%
 ) else (
-    :: --- Проверка пути к браузеру ---
-    if "%BROWSER_PATH%"=="ПУТЬ_К_БРАУЗЕРУ" (
-        echo.
-        echo [!] Путь к браузеру не указан.
-        echo     Откройте этот bat-файл в текстовом редакторе и замените
-        echo     "ПУТЬ_К_БРАУЗЕРУ" на путь к вашему браузеру.
-        echo.
-        echo     Примеры:
-        echo       set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
-        echo       set BROWSER_PATH=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe
-        echo       set BROWSER_PATH=C:\Program Files\Microsoft\Edge\Application\msedge.exe
-        echo.
-        pause
-        exit /b 1
-    )
-
-    if not exist "%BROWSER_PATH%" (
-        echo.
-        echo [!] Браузер не найден: %BROWSER_PATH%
-        echo     Проверьте путь в переменной BROWSER_PATH в начале этого файла.
-        echo.
-        pause
-        exit /b 1
-    )
-
-    :: --- Извлечение имени exe из полного пути ---
-    set BROWSER_EXE=
-    for %%i in ("%BROWSER_PATH%") do set BROWSER_EXE=%%~nxi
-
-    tasklist /FI "IMAGENAME eq %BROWSER_EXE%" /NH 2>nul | find /i "%BROWSER_EXE%" >nul
-    if errorlevel 1 (
-        echo [+] Запускаю браузер с --proxy-server=127.0.0.1:%PROXY_PORT%...
-        start "" "%BROWSER_PATH%" --proxy-server=127.0.0.1:%PROXY_PORT%
-    ) else (
-        echo [=] Браузер уже запущен.
-    )
+    echo [=] Browser is already running.
 )
 
 echo.
-echo [+] Всё готово к работе!
+echo [+] Everything is ready!

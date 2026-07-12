@@ -26,6 +26,7 @@ python -m server [флаги]                        # исходный код
 | `--dev` | выкл. | Режим разработки (подробные логи + автообновление + тестовый SOCKS5) |
 | `--need-update` | выкл. | Симуляция обновления (подробные логи + баннер «Доступно обновление») |
 | `--count-proxy` | `0` | Количество тестовых прокси (требует `--debug`, `--dev` или `--need-update`) |
+| `--no-tkinter` | выкл. | Отключить tkinter popup, использовать pystray с нативным меню |
 
 ### Примеры
 
@@ -102,6 +103,23 @@ python -m server --dev --count-proxy 10
 python -m server --need-update --count-proxy 3
 ```
 
+### `--no-tkinter`
+
+Принудительно отключает кастомное tkinter popup-меню и использует **pystray с нативным контекстным меню**. Пункты меню отображаются со стандартным стилем ОС, автозапуск браузера показывается с символами ✓ (включён) / ✗ (выключен).
+
+Используется для:
+- **Отладки fallback-пути** — проверить как работает меню без tkinter
+- **Тестирования на разных платформах** — убедиться что pystray fallback работает корректно
+- **Систем без tkinter** — если Python установлен без поддержки tkinter
+
+```bash
+# Принудительно отключить tkinter popup
+python -m server --no-tkinter
+
+# С отладкой + отключённый tkinter
+python -m server --debug --no-tkinter
+```
+
 ---
 
 ### Совмещение флагов
@@ -117,6 +135,7 @@ python -m server --need-update --count-proxy 3
 | `--dev --count-proxy N` | Тестовые прокси + автообновление + тестовый SOCKS5. Удобно для отладки расширения |
 | `--need-update --count-proxy N` | Тестовые прокси + баннер обновления. Удобно для проверки UI обновлений |
 | `--dev --need-update --count-proxy N` | Всё вместе: тестовые прокси + автообновление + тестовый SOCKS5 + баннер обновления |
+| `--no-tkinter` | Отключает tkinter popup, использует pystray с нативным меню (✓/✗ для автозапуска) |
 | `--proxy-port 9090 --api-port 9091` | Кастомные порты (работает с любыми другими флагами) |
 
 Примеры:
@@ -130,6 +149,9 @@ python -m server --dev --need-update --count-proxy 5
 
 # Кастомные порты + тестовые прокси
 python -m server --proxy-port 9090 --api-port 9091 --debug --count-proxy 3
+
+# Тестирование pystray fallback (без tkinter)
+python -m server --debug --no-tkinter
 ```
 
 ---

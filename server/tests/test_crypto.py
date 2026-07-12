@@ -1,8 +1,6 @@
 """
 Тесты обработки исключений и краевых случаев crypto.py.
 """
-# pylint: disable=protected-access
-# Тесты намеренно проверяют приватные API модуля (соли, ключи).
 
 import os
 import tempfile

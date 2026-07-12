@@ -43,6 +43,14 @@ try:
 except ImportError:
     _HAS_TRAY = False
 
+# Импорты для колбэков трей
+from server.config import autostart as _autostart
+from server.utils import (
+    clear_logs_only,
+    clear_all_data,
+    get_data_dir,
+)
+
 logger = logging.getLogger('flowlink')
 
 
@@ -85,15 +93,59 @@ def _start_tray_icon(
     stop_event: asyncio.Event,
     args: argparse.Namespace,
 ):
-    """Запускает иконку в системном трее, если поддерживается платформа."""
+    """
+    Запускает иконку в системном трее с кастомным popup-меню.
+
+    Передаёт все необходимые колбэки для пунктов меню:
+    - Открытие/очистка логов и данных
+    - Переключение автозапуска браузера
+    - Выход из приложения
+    """
     if not getattr(sys, 'frozen', False) or not _HAS_TRAY or args.dev:
         return None
+
+    logs_dir = os.path.join(get_data_dir(), 'logs')
+
+    def _on_stop():
+        try:
+            loop.call_soon_threadsafe(stop_event.set)
+        except RuntimeError:
+            # Loop уже закрыт — сервер и так завершается
+            pass
+
+    def _autostart_getter():
+        return _autostart.get_autostart_browser()
+
+    def _autostart_setter(value):
+        _autostart.set_autostart_browser(value)
+
+    def _log_dir_getter():
+        return logs_dir
+
+    def _data_dir_getter():
+        return get_data_dir()
+
+    def _clear_logs():
+        clear_logs_only()
+
+    def _clear_data():
+        clear_all_data()
+
     try:
-        icon = start_tray(lambda: loop.call_soon_threadsafe(stop_event.set))
+        callbacks = {
+            'stop': _on_stop,
+            'autostart_getter': _autostart_getter,
+            'autostart_setter': _autostart_setter,
+            'log_dir_getter': _log_dir_getter,
+            'data_dir_getter': _data_dir_getter,
+            'clear_logs': _clear_logs,
+            'clear_data': _clear_data,
+        }
+        icon = start_tray(callbacks, no_tkinter=args.no_tkinter)
         if icon:
             logger.info('Иконка в трее запущена')
         return icon
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except (ImportError, OSError, RuntimeError) as e:
         logger.warning('Не удалось запустить иконку в трее: %s', e)
         return None
 
@@ -223,6 +275,10 @@ async def main():
         '--count-proxy', type=int, default=0, metavar='N',
         help='Количество фиктивных прокси для тестирования (требует --debug)',
     )
+    parser.add_argument(
+        '--no-tkinter', action='store_true',
+        help='Принудительно отключить tkinter popup (fallback на pystray)',
+    )
     args = parser.parse_args()
 
     if args.dev:
@@ -244,6 +300,8 @@ async def main():
         logger.info('Симуляция обновления: включена')
     if args.count_proxy > 0:
         logger.info('Фиктивные прокси: %d', args.count_proxy)
+    if args.no_tkinter:
+        logger.info('Tkinter отключён (--no-tkinter), fallback на pystray')
 
     if args.count_proxy > 0:
         fake_data = generate_fake_proxies(args.count_proxy)
@@ -257,7 +315,7 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:
         logger = logging.getLogger('flowlink')
         logger.critical(
             'Критическая ошибка: %s. Если проблема повторяется, '

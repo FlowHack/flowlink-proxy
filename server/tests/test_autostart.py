@@ -1,8 +1,6 @@
 """
 Тесты модуля autostart.py — управление автозапуском браузера.
 """
-# pylint: disable=import-outside-toplevel
-# Импорты внутри методов тестов intentional: перезагрузка модуля после мока SETTINGS_FILE.
 
 import asyncio
 import os

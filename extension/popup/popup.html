@@ -51,26 +51,24 @@
     </div>
     <form id="settings-form">
       <div id="settings-row" class="settings-row hidden">
-        <label for="settings-api-port">Порт API:</label>
-        <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
-        <button id="btn-settings-save" type="submit" class="btn-settings-save">Сохранить</button>
+        <div class="settings-row-item">
+          <label for="settings-api-port">Порт API:</label>
+          <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
+          <button id="btn-settings-save" type="submit" class="btn-settings-save">Сохранить</button>
+        </div>
+        <div id="autostart-browser-wrap" class="settings-row-item autostart-row-settings hidden">
+          <span class="autostart-label">Автозапуск браузера</span>
+          <label class="switch" title="Вкл/Выкл автозапуск браузера">
+            <input type="checkbox" id="autostart-browser-input">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="autostart-scripts-banner" class="autostart-banner-settings hidden">
+          <span class="autostart-banner-text">Скрипты запуска не найдены. Автозапуск недоступен.</span>
+          <button id="btn-autostart-help" class="btn-small">Помощь</button>
+        </div>
       </div>
     </form>
-
-    <!-- Баннер: скрипты запуска не найдены -->
-    <div id="autostart-scripts-banner" class="autostart-banner hidden">
-      <span class="autostart-banner-text">Скрипты запуска не найдены рядом с бэкендом. Автозапуск браузера недоступен.</span>
-      <button id="btn-autostart-help" class="btn-small">Помощь</button>
-    </div>
-
-    <!-- Тоггл: автозапуск браузера -->
-    <div id="autostart-browser-wrap" class="autostart-row hidden">
-      <span class="autostart-label">Автозапуск браузера</span>
-      <label class="switch" title="Вкл/Выкл автозапуск браузера">
-        <input type="checkbox" id="autostart-browser-input">
-        <span class="slider"></span>
-      </label>
-    </div>
   </div>
 
   <!-- Модальное окно: помощь с настройкой -->

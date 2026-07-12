@@ -96,6 +96,21 @@ PYTHON="python3"
 PY_VERSION=$($PYTHON -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 info "Python $PY_VERSION найден"
 
+# --- Проверка tkinter (нужен для кастомного трей-меню) ---
+if ! $PYTHON -c "import tkinter" 2>/dev/null; then
+    warn "tkinter не установлен — кастомное трей-меню будет недоступно."
+    echo "  Пытась установить автоматически..."
+    if command -v apt &>/dev/null; then
+        sudo apt install -y python3-tk 2>/dev/null && info "tkinter установлен." || warn "Не удалось установить. Установите вручную: sudo apt install python3-tk"
+    elif command -v brew &>/dev/null; then
+        brew install python-tk 2>/dev/null && info "tkinter установлен." || warn "Не удалось установить. Установите вручную: brew install python-tk"
+    else
+        echo "  Установите tkinter вручную:"
+        echo "    Ubuntu/Debian: sudo apt install python3-tk"
+        echo "    macOS (Homebrew): brew install python-tk"
+    fi
+fi
+
 # --- Создание виртуального окружения ---
 if [ ! -d "venv" ]; then
     info "Создание виртуального окружения..."

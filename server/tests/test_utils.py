@@ -14,6 +14,8 @@ from unittest.mock import patch
 from server.utils import (
     _validate_port,
     clear_all_data,
+    clear_data_only,
+    clear_logs_only,
     get_data_dir,
     write_port_file,
 )
@@ -198,6 +200,126 @@ class TestClearAllData(unittest.TestCase):
             os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
         ):
             clear_all_data()
+
+        self.assertTrue(os.path.isfile(unknown))
+
+
+class TestClearLogsOnly(unittest.TestCase):
+    """Тесты clear_logs_only."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_removes_only_logs(self):
+        """Удаляет только директорию logs/."""
+        logs_dir = os.path.join(self.tmpdir, 'logs')
+        os.makedirs(logs_dir)
+        log_path = os.path.join(logs_dir, 'test.log')
+        with open(log_path, 'w', encoding='utf-8') as f:
+            f.write('log data')
+
+        config_path = os.path.join(self.tmpdir, 'config.json')
+        with open(config_path, 'w', encoding='utf-8') as f:
+            f.write('{}')
+
+        with patch.dict(
+            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
+        ):
+            removed = clear_logs_only()
+
+        self.assertEqual(removed, 1)
+        # Логи удалены, конфиг остался
+        self.assertFalse(os.path.exists(log_path))
+        self.assertTrue(os.path.isfile(config_path))
+
+    def test_recreates_empty_logs_dir(self):
+        """Пересоздаёт пустую директорию logs/."""
+        with patch.dict(
+            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
+        ):
+            clear_logs_only()
+
+        logs_dir = os.path.join(self.tmpdir, 'logs')
+        self.assertTrue(os.path.isdir(logs_dir))
+
+    def test_returns_zero_when_no_logs(self):
+        """Возвращает 0 если директории logs/ нет."""
+        with patch.dict(
+            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
+        ):
+            removed = clear_logs_only()
+
+        self.assertEqual(removed, 0)
+
+
+class TestClearDataOnly(unittest.TestCase):
+    """Тесты clear_data_only."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_removes_data_files(self):
+        """Удаляет файлы данных."""
+        files = [
+            'config.json', '.flowlink.key', '.flowlink.salt',
+            '.flowlink-settings', '.flowlink-port',
+        ]
+        for filename in files:
+            filepath = os.path.join(self.tmpdir, filename)
+            with open(filepath, 'w', encoding='utf-8') as fh:
+                fh.write('test')
+
+        with patch.dict(
+            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
+        ):
+            removed = clear_data_only()
+
+        self.assertEqual(removed, 5)
+        for filename in files:
+            self.assertFalse(
+                os.path.exists(os.path.join(self.tmpdir, filename)),
+            )
+
+    def test_preserves_logs(self):
+        """Не удаляет директорию logs/."""
+        logs_dir = os.path.join(self.tmpdir, 'logs')
+        os.makedirs(logs_dir)
+        log_path = os.path.join(logs_dir, 'test.log')
+        with open(log_path, 'w', encoding='utf-8') as f:
+            f.write('log data')
+
+        with patch.dict(
+            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
+        ):
+            clear_data_only()
+
+        self.assertTrue(os.path.isfile(log_path))
+
+    def test_returns_zero_when_empty(self):
+        """Возвращает 0 если файлов данных нет."""
+        with patch.dict(
+            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
+        ):
+            removed = clear_data_only()
+
+        self.assertEqual(removed, 0)
+
+    def test_preserves_unknown_files(self):
+        """Не удаляет файлы, не входящие в список данных."""
+        unknown = os.path.join(self.tmpdir, 'my-custom.txt')
+        with open(unknown, 'w', encoding='utf-8') as f:
+            f.write('keep me')
+
+        with patch.dict(
+            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
+        ):
+            clear_data_only()
 
         self.assertTrue(os.path.isfile(unknown))
 

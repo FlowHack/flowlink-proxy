@@ -139,7 +139,14 @@ flowlink-proxy/
 │   ├── __main__.py            # Точка входа (CLI + tray icon)
 │   ├── version.py             # Версия проекта
 │   ├── logging_config.py      # Настройка логгера (файл + консоль)
-│   ├── tray.py                # System tray icon (только Windows)
+│   ├── tray/                  # System tray icon (tkinter / pystray / ctypes)
+│   │   ├── __init__.py        # Координатор: start_tray()
+│   │   ├── platform.py        # Определение ОС и возможностей
+│   │   ├── popup.py           # Tkinter边境less меню (тёмная тема)
+│   │   ├── menu.py            # Общая логика построения меню
+│   │   ├── win32.py           # Win32 Tray (ctypes)
+│   │   ├── linux.py           # Linux Tray (pystray + tkinter)
+│   │   └── macos.py           # macOS Tray (pystray + tkinter)
 │   ├── config/
 │   │   ├── config.py          # Бизнес-логика конфига (proxies, masks, enabled)
 │   │   ├── repo.py            # Чтение/запись config.json
@@ -259,10 +266,14 @@ flowlink-proxy/
 | Порт 8080 уже занят | Другой процесс использует порт | Windows: Диспетчер задач → завершите старый процесс. Linux: `lsof -i :8080` |
 | Расширение не подключается | Порт API не совпадает | Проверьте порт в настройках расширения (⚙) — он должен совпадать с `--api-port` |
 | PowerShell блокирует `.ps1` | Политика выполнения скриптов | Используйте `scripts\build.bat` или `powershell -ExecutionPolicy Bypass -File build.ps1` |
+| Windows пишет «неизвестный издатель» при запуске `.bat` | Mark of the Web — Windows помечает скачанные из интернета файлы | Правый клик по `.bat` → **Свойства** → галочка **«Разблокировать»** → ОК. Не возникает при установке через инсталлер — он создаёт `.bat` локально. |
 | Логин/пароль не отправляются | Браузер не поддерживает SOCKS5-auth | Это нормально — FlowLink Proxy берёт аутентификацию на себя через HTTP-прокси |
 | FlowLink Proxy.bat не находит exe | bat-файл лежит не в одной папке с exe | Поместите bat-файл в ту же папку, что и FlowLink Proxy.exe |
 | FlowLink Proxy.sh не находит бинарник | Скрипт запущен не из папки с бинарником | Поместите скрипт в ту же папку, что и FlowLink Proxy |
-| Браузер не найден (Path не указан) | Переменная BROWSER_PATH не отредактирована | Откройте скрипт в текстовом редакторе, замените ПУТЬ_К_БРАУЗЕРУ |
+| Браузер не найден (Path не указан) | Переменная BROWSER_PATH не отредактирована | Откройте скрипт в текстовом редакторе, замените `CHANGE_ME` на путь к браузеру |
+| `.bat` ломается: «не распознано», русские буквы — мусор | `.bat` содержит кириллицу, а редактор сохранил в UTF-8 | `.bat` должен быть чистым ASCII (без кириллицы). Скачайте заново из релизов. Кириллица для сообщений — в Python-бэкенде, не в `.bat` |
+| Ошибка при BROWSER_PATH с пробелами | Путь к браузеру содержит пробелы (например `Program Files`) | Кавычки в строке `set` НЕ нужны. Используйте: `set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe` (без кавычек). Скрипт сам добавит кавычки при использовании переменной |
+| «tkinter не установлен» при запуске | Python установлен без поддержки tkinter | Windows/macOS (python.org): переустановите с галочкой «tcl/tk and IDLE». Linux: `sudo apt install python3-tk`. Homebrew: `brew install python-tk` |
 
 Для отладки запустите с флагом `--debug` — подробные логи в консоли и файле `logs/flowlink.log`. Подробнее: [DEBUG.md](DEBUG.md)
 
@@ -283,6 +294,7 @@ flowlink-proxy/
 
 - **Windows:** 10+ (установщик) или standalone-бинарник
 - **Linux / macOS:** Python 3.10+ или standalone-бинарник
+- **tkinter:** нужен для кастомного трей-меню (проверяется автоматически, см. [SETUP.md](SETUP.md#зависимость-tkinter))
 - **Браузер:** Chrome 100+, Yandex Browser, Opera, Edge (Chromium) или Firefox
 
 ---

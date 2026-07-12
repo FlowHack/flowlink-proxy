@@ -51,7 +51,7 @@
    - `FlowLink Proxy.bat` — лаунчер
 5. **Откройте `FlowLink Proxy.bat` в текстовом редакторе** (ПКМ → «Изменить»)
 6. Найдите блок `═══ НАСТРОЙКА ПЕРЕМЕННЫХ ═══` в начале файла. Там два параметра:
-   - **`BROWSER_PATH`** — путь к exe-файлу вашего браузера. Замените `ПУТЬ_К_БРАУЗЕРУ`:
+   - **`BROWSER_PATH`** — путь к exe-файлу вашего браузера. Замените `CHANGE_ME`:
      ```
      set BROWSER_PATH=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe
      set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
@@ -147,6 +147,19 @@ source venv/bin/activate          # Linux / macOS
 pip install -r server/requirements.txt
 python -m server
 ```
+
+#### Зависимость: tkinter
+
+Для кастомного трей-меню с тёмной темой требуется **tkinter**. Скрипт запуска и сборки проверяют его наличие автоматически и предлагают установить.
+
+| Платформа | tkinter по умолчанию | Как установить |
+|-----------|---------------------|----------------|
+| **Windows** (python.org) | ✅ Включён | Не нужно |
+| **macOS** (python.org) | ✅ Включён | Не нужно |
+| **macOS** (Homebrew) | ❌ Отсутствует | `brew install python-tk` |
+| **Linux** | ❌ Отсутствует | `sudo apt install python3-tk` (Debian/Ubuntu) |
+
+> Если tkinter не установлен, бэкенд работает нормально, но вместо кастомного трей-меню используется стандартное меню pystray (без чекбокса автозапуска браузера).
 
 ---
 
@@ -329,7 +342,7 @@ python -m server
 
 | Скрипт | Переменная | По умолч. | Описание |
 |--------|------------|-----------|----------|
-| `FlowLink Proxy.bat` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к exe-файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `FlowLink Proxy.bat` | `BROWSER_PATH` | `CHANGE_ME` | Путь к exe-файлу браузера (ОБЯЗАТЕЛЬНО) |
 | `FlowLink Proxy.bat` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
 | `FlowLink Proxy.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
 | `FlowLink Proxy.sh` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
@@ -392,9 +405,13 @@ scripts\build.bat
 
 | Проблема | Причина | Решение |
 |----------|---------|---------|
+| Windows пишет «неизвестный издатель» при запуске `.bat` | Mark of the Web — Windows помечает скачанные из интернета файлы | Правый клик по `.bat` → **Свойства** → галочка **«Разблокировать»** → ОК. Или: `powershell -Command "Unblock-File -Path 'scripts\build.bat'"`. Не возникает при установке через инсталлер — он создаёт `.bat` локально. |
 | `FlowLink Proxy.bat` не находит exe | bat-файл лежит не в одной папке с exe | Поместите bat в ту же папку, что и FlowLink Proxy.exe |
 | `FlowLink Proxy.sh: Permission denied` | Скрипт не имеет прав на выполнение | `chmod +x "FlowLink Proxy.sh"` |
 | `FlowLink Proxy Source.sh: Python 3 не найден` | Python не установлен или не в PATH | Установите Python 3.10+ с python.org |
 | PowerShell блокирует `build.ps1` | Политика выполнения скриптов | Используйте `scripts\build.bat` или `powershell -ExecutionPolicy Bypass -File build.ps1` |
 | Браузер не использует прокси | Браузер запущен без флага `--proxy-server` | Используйте лаунчер или настройте ярлык |
-| Нет русских символов в консоли | Кодировка консоли не UTF-8 | `FlowLink Proxy.bat` уже содержит `chcp 65001` — перезапустите |
+| Нет русских символов в консоли | `.bat` содержит кириллицу в неправильной кодировке | `.bat` должен быть чистым ASCII. Русские сообщения выводятся Python-бэкендом, а не `.bat`-файлом |
+| `.bat` ломается: «не распознано», русские буквы — мусор | `.bat` содержит кириллицу, а редактор сохранил в UTF-8 | `.bat` должен быть чистым ASCII (без кириллицы). Скачайте заново из релизов. Кириллица для сообщений — в Python-бэкенде, не в `.bat` |
+| Ошибка при BROWSER_PATH с пробелами | Путь к браузеру содержит пробелы (например `Program Files`) | Кавычки в строке `set` НЕ нужны. Используйте: `set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe` (без кавычек). Скрипт сам добавит кавычки при использовании переменной |
+| «tkinter не установлен» при запуске | Python установлен без поддержки tkinter | Windows/macOS (python.org): переустановите с галочкой «tcl/tk and IDLE». Linux: `sudo apt install python3-tk`. Homebrew: `brew install python-tk` |

@@ -1,34 +1,18 @@
 """
 Тесты обработки исключений и краевых случаев config.py.
 """
-# pylint: disable=duplicate-code
-# setUp/tearDown boilerplate намеренно идентичен в test_config и test_handlers.
 
-import os
-import tempfile
 import unittest
 from unittest.mock import patch
 
 from server.config import config as cfg
 from server.config import crypto as crypto_mod
 from server.config import repo as config_repo
+from server.tests.base import TempConfigEnabledMixin
 
 
-class TestConfigExceptions(unittest.TestCase):
+class TestConfigExceptions(TempConfigEnabledMixin, unittest.TestCase):
     """Тесты обработки исключений и краевых случаев config.py."""
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.orig_config_file = config_repo.CONFIG_FILE
-        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
-        self.orig_enabled = cfg.is_enabled()
-
-    def tearDown(self):
-        cfg.set_enabled(self.orig_enabled)
-        config_repo.CONFIG_FILE = self.orig_config_file
-        for f in os.listdir(self.tmpdir):
-            os.remove(os.path.join(self.tmpdir, f))
-        os.rmdir(self.tmpdir)
 
     def test_load_empty_config_creates_default(self):
         """При отсутствии config.json создаётся конфиг по умолчанию"""

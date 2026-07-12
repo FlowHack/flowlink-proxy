@@ -2,23 +2,20 @@
 Тесты обработки исключений и краевых случаев router.py.
 """
 
-import os
-import tempfile
 import unittest
 
 from server.config import config
 from server.config import repo as config_repo
 from server.services.router import MaskRouter
+from server.tests.base import TempConfigMixin
 
 
-class TestRouterExceptions(unittest.TestCase):
+class TestRouterExceptions(TempConfigMixin, unittest.TestCase):
     """Тесты обработки исключений и краевых случаев router.py."""
 
     def setUp(self):
+        super().setUp()
         config.set_enabled(True)
-        self.tmpdir = tempfile.mkdtemp()
-        self.orig_config_file = config_repo.CONFIG_FILE
-        config_repo.CONFIG_FILE = os.path.join(self.tmpdir, 'config.json')
         config_repo.save_raw({
             'proxies': [
                 {'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
@@ -32,12 +29,6 @@ class TestRouterExceptions(unittest.TestCase):
             ],
             'isEnabled': True,
         })
-
-    def tearDown(self):
-        config_repo.CONFIG_FILE = self.orig_config_file
-        for f in os.listdir(self.tmpdir):
-            os.remove(os.path.join(self.tmpdir, f))
-        os.rmdir(self.tmpdir)
 
     def test_route_matching_url(self):
         """URL совпадает с маской → возвращается прокси"""
