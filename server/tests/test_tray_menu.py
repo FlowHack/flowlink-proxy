@@ -98,17 +98,20 @@ class TestBuildMenuItems(unittest.TestCase):
         # Предпоследний элемент — разделитель
         self.assertEqual(items[-2]['type'], 'separator')
 
-    def test_has_autostart_check(self):
-        """Меню содержит чекбокс автозапуска."""
+    def test_has_autostart_checks(self):
+        """Меню содержит чекбоксы автозапуска и системного автозапуска."""
         items = build_menu_items(
             self._base_callbacks(), MagicMock(),
         )
         check_items = [
             item for item in items if item.get('type') == 'check'
         ]
-        self.assertEqual(len(check_items), 1)
+        self.assertEqual(len(check_items), 2)
         self.assertEqual(
             check_items[0]['text'], 'Автозапуск браузера',
+        )
+        self.assertEqual(
+            check_items[1]['text'], 'Запуск с системой',
         )
 
     def test_autostart_checked(self):

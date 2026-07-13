@@ -25,7 +25,8 @@ def is_macos():
 def has_pystray():
     """Проверяет, доступен ли pystray."""
     try:
-        import pystray
+        # Runtime-проверка: нужен для выбора бэкенда трей
+        import pystray  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
         return False
@@ -34,7 +35,8 @@ def has_pystray():
 def has_pil():
     """Проверяет, доступен ли Pillow (нужен для иконки)."""
     try:
-        from PIL import Image
+        # Runtime-проверка: нужен для иконки трея
+        from PIL import Image  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
         return False
@@ -43,7 +45,8 @@ def has_pil():
 def has_tkinter():
     """Проверяет, доступен ли tkinter (нужен для popup-меню)."""
     try:
-        import tkinter
+        # Runtime-проверка: нужен для popup-меню
+        import tkinter  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
         return False

@@ -101,25 +101,31 @@ class TestCryptoExceptions(unittest.TestCase):
         test_salt = os.urandom(32)
         with open(crypto_mod.SALT_FILE, 'wb') as f:
             f.write(test_salt)
-        loaded_salt = crypto_mod._load_salt()
+        # _load_salt — internal: проверка fallback-логики при коррупции файла
+        loaded_salt = crypto_mod._load_salt()  # pylint: disable=protected-access
         self.assertEqual(loaded_salt, test_salt)
 
     def test_legacy_salt_used_when_no_file(self):
         """При отсутствии файла соли используется legacy-соль"""
-        loaded_salt = crypto_mod._load_salt()
-        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)
+        # _load_salt — internal: проверка fallback-логики при отсутствии файла
+        loaded_salt = crypto_mod._load_salt()  # pylint: disable=protected-access
+        # _LEGACY_SALT — internal: проверка значения константы
+        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)  # pylint: disable=protected-access
 
     def test_corrupt_salt_file_uses_legacy(self):
         """Повреждённый файл соли → fallback на legacy-соль"""
         with open(crypto_mod.SALT_FILE, 'wb') as f:
             f.write(b'short')
-        loaded_salt = crypto_mod._load_salt()
-        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)
+        # _load_salt — internal: проверка fallback-логики при коррупции файла
+        loaded_salt = crypto_mod._load_salt()  # pylint: disable=protected-access
+        # _LEGACY_SALT — internal: проверка значения константы
+        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)  # pylint: disable=protected-access
 
     def test_save_salt_creates_file(self):
         """_save_salt создаёт файл соли"""
         test_salt = os.urandom(32)
-        crypto_mod._save_salt(test_salt)
+        # _save_salt — internal: проверка записи соли в файл
+        crypto_mod._save_salt(test_salt)  # pylint: disable=protected-access
         self.assertTrue(os.path.exists(crypto_mod.SALT_FILE))
         with open(crypto_mod.SALT_FILE, 'rb') as f:
             self.assertEqual(f.read(), test_salt)

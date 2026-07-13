@@ -58,8 +58,9 @@ class PystrayTray:
     def _run(self):
         """Запускает pystray + tkinter в отдельном потоке."""
         try:
-            import pystray
-            from PIL import Image
+            # Ленивый импорт: pystray/Pillow — опциональные зависимости
+            import pystray  # pylint: disable=import-outside-toplevel
+            from PIL import Image  # pylint: disable=import-outside-toplevel
         except ImportError as e:
             self._logger.error(
                 'Tray %s: импорт pystray/Pillow не удался: %s',

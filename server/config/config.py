@@ -81,7 +81,7 @@ def _load_cached() -> dict:
     return _CACHE[key]
 
 
-def _invalidate_cache():
+def invalidate_cache():
     """Сбрасывает кэш после сохранения."""
     key = _cache_key()
     _CACHE.pop(key, None)
@@ -149,7 +149,7 @@ def save_config(data: dict):
         'Конфигурация сохранена: %d прокси, %d масок',
         proxy_count, mask_count
     )
-    _invalidate_cache()
+    invalidate_cache()
     try:
         save_raw(to_save)
     except OSError as e:
@@ -204,7 +204,7 @@ def inject_proxies(data: dict) -> int:
         'masks': existing_masks + new_masks,
     }
 
-    _invalidate_cache()
+    invalidate_cache()
     save_raw(merged)
 
     proxy_count = len(merged['proxies'])

@@ -253,7 +253,7 @@ class Socks5Protocol(ProxyProtocol):
                 raise Socks5Error(f'Неверная версия SOCKS в ответе: {ver}')
 
             if rep != SOCKS5_SUCCESS:
-                error_msg = SOCKS5_ERRORS.get(rep, f'Unknown error {rep}')
+                error_msg = SOCKS5_ERRORS.get(rep, f'Неизвестная ошибка {rep}')
                 raise Socks5Error(f'SOCKS5 CONNECT отказан: {error_msg}')
 
             await self._skip_bind_address(reader, atyp_resp)

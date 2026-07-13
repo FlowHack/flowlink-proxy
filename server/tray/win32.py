@@ -6,6 +6,24 @@ Win32 бэкенд системного трей через ctypes.
 
 Используется ТОЛЬКО на Windows. На других платформах не импортируется.
 """
+# Файл целиком состоит из обёрток над Win32 API через ctypes.
+# Все подавления обоснованы спецификой Win32 API и НЕ дублируются
+# в других файлах проекта:
+#   invalid-name — имена полей Win32 структур (cbSize, hWnd и т.д.)
+#   no-member    — WNDCLASS есть в runtime ctypes.wintypes, но
+#                  отсутствует в type stubs для pylint
+#   use-implicit-booleaness — сравнение HRESULT hr != 0 вместо
+#                 (hr) — явное сравнение с S_OK читаемее для Win32 API
+#   attribute-defined-outside-init — ctypes.Structure определяет
+#                  поля через _fields_, а присваивает вне __init__
+#   too-few-public-methods — ctypes data-классы (0 публичных методов)
+#   import-outside-toplevel — ленивый импорт get_resource_dir
+#                  для отложенной инициализации пути к иконке
+# pylint: disable=invalid-name,no-member
+# pylint: disable=use-implicit-booleaness-not-comparison-to-zero
+# pylint: disable=attribute-defined-outside-init
+# pylint: disable=too-few-public-methods,too-many-instance-attributes
+# pylint: disable=import-outside-toplevel
 
 import ctypes
 import ctypes.wintypes as wt

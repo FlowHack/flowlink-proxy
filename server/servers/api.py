@@ -107,6 +107,13 @@ class ApiServer(BaseServer):
       POST /api/enabled             — глобальный тоггл
       GET  /api/autostart-browser   — настройка автозапуска браузера
       POST /api/autostart-browser   — обновить настройку автозапуска
+      GET  /api/system-autostart    — статус автозапуска с системой
+      POST /api/system-autostart    — вкл/выкл автозапуск с системой
+      GET  /api/browser-path        — текущий путь к браузеру
+      POST /api/browser-path        — сохранить путь к браузеру (с валидацией)
+      POST /api/validate-browser    — валидировать путь без сохранения
+      GET  /api/detected-browsers   — список обнаруженных браузеров
+      GET  /api/browser-config      — полная конфигурация браузера
     """
 
     def __init__(self, router: MaskRouter, host: str = '127.0.0.1',
@@ -125,7 +132,7 @@ class ApiServer(BaseServer):
         self._debug = debug
         self._need_update = need_update
 
-    async def _route_request(
+    async def _route_request(  # pylint: disable=too-many-statements,too-many-branches
         self, method: str, path: str, body: bytes,
         peername: tuple, writer: asyncio.StreamWriter,
     ) -> tuple[int, dict] | None:
@@ -168,6 +175,25 @@ class ApiServer(BaseServer):
                 response_body = await handlers.handle_post_autostart_browser(
                     data,
                 )
+            elif path == '/api/system-autostart' and method == 'GET':
+                response_body = handlers.handle_get_system_autostart()
+            elif path == '/api/system-autostart' and method == 'POST':
+                data = json.loads(body)
+                response_body = await handlers.handle_post_system_autostart(
+                    data,
+                )
+            elif path == '/api/browser-path' and method == 'GET':
+                response_body = handlers.handle_get_browser_path()
+            elif path == '/api/browser-path' and method == 'POST':
+                data = json.loads(body)
+                response_body, status_code = await handlers.handle_post_browser_path(data)
+            elif path == '/api/validate-browser' and method == 'POST':
+                data = json.loads(body)
+                response_body, status_code = handlers.handle_post_validate_browser(data)
+            elif path == '/api/detected-browsers' and method == 'GET':
+                response_body = handlers.handle_get_detected_browsers()
+            elif path == '/api/browser-config' and method == 'GET':
+                response_body = handlers.handle_get_browser_config()
             else:
                 status_code = 404
                 response_body = {'error': f'Не найдено: {method} {path}'}
@@ -223,8 +249,8 @@ class ApiServer(BaseServer):
         except _RequestTooLarge:
             await _build_response(
                 writer, 413,
-                {'error': f'Request body too large '
-                          f'(max {MAX_POST_BODY} bytes)'},
+                {'error': f'Тело запроса слишком большое '
+                          f'(максимум {MAX_POST_BODY} байт)'},
             )
         except asyncio.TimeoutError:
             logger.debug('API: таймаут ожидания запроса')

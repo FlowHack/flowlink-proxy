@@ -2,7 +2,7 @@
 Fallback-бэкенд трей через pystray с нативным меню.
 
 Используется когда tkinter недоступен или передан флаг --no-tkinter.
-В отличие от popup.py (tkinter边境less окно), здесь используется
+В отличие от popup.py (tkinter безрамочное окно), здесь используется
 стандартное контекстное меню pystray с символами ✓/✗ для чекбоксов.
 """
 
@@ -122,8 +122,9 @@ def start_pystray_fallback(callbacks):
         pystray.Icon или None при ошибке.
     """
     try:
-        import pystray
-        from PIL import Image
+        # Ленивый импорт: pystray/Pillow — опциональные зависимости
+        import pystray  # pylint: disable=import-outside-toplevel
+        from PIL import Image  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error('Fallback: pystray/Pillow не установлены: %s', e)
         return None

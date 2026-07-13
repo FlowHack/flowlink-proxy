@@ -5,7 +5,6 @@
 import asyncio
 import logging
 import logging.handlers
-import os
 import unittest
 from unittest.mock import patch
 
@@ -317,7 +316,8 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
             'proxies': [{'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}],
             'masks': [],
         })
-        cfg._invalidate_cache()
+        # Принудительный сброс кэша — необходимо для изоляции тестов
+        cfg.invalidate_cache()
         # Сохраняем конфиг без этого прокси
         data = {'proxies': [], 'masks': []}
         with patch('server.servers.handlers.close_tunnels_for_proxy') as mock_close:

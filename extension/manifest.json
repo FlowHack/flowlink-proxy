@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FlowLink Proxy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Прискалов Дмитрий Юрьевич (FlowHack)",
   "description": "Управление прокси SOCKS5 с масками адресов",
   "icons": {

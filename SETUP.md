@@ -5,9 +5,14 @@
 1. [Установка бэкенда](#установка-бэкенда)
    - [Windows (установщик)](#windows-установщик)
    - [Windows (standalone)](#windows-standalone)
+   - [Linux (.deb)](#linux-deb)
+   - [Linux (.rpm)](#linux-rpm)
    - [Linux / macOS (standalone)](#linux--macos-standalone)
+   - [macOS (.pkg)](#macos-pkg)
+   - [macOS (standalone)](#macos-standalone)
    - [Исходный код (Python)](#исходный-код-python)
-2. [Установка расширения](#установка-расширения)
+2. [Сборка бинарников](#сборка-бинарников)
+3. [Установка расширения](#установка-расширения)
 3. [Настройка браузера](#настройка-браузера)
 4. [Настройка портов](#настройка-портов)
 5. [Автозапуск](#автозапуск)
@@ -68,13 +73,13 @@
 ### Linux (standalone)
 
 1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
-2. Скачайте архив для Linux: `.tar.gz` или `.zip`
+2. Скачайте архив для Linux: `.tar.gz`
 3. Распакуйте архив в удобную папку
 4. В папке будут файлы:
-   - `FlowLink Proxy` — бэкенд
-   - `FlowLink Proxy.sh` — лаунчер
-   - `README.md`, `SETUP.md`, `DEBUG.md` — документация
-5. **Откройте `FlowLink Proxy.sh` в текстовом редакторе**. В начале файла найдите блок `═══ НАСТРОЙКА ПЕРЕМЕННЫХ ═══`. Два параметра:
+   - `flowlink-proxy` — бэкенд
+   - `FlowLink Proxy-linux.sh` — лаунчер
+   - `EULA.rtf`, `LICENSE.txt`, `README.md`, `SETUP.md`, `DEBUG.md` — документация
+5. **Откройте `FlowLink Proxy-linux.sh` в текстовом редакторе**. В начале файла найдите блок `═══ НАСТРОЙКА ПЕРЕМЕННЫХ ═══`. Два параметра:
    - **`BROWSER_PATH`** — путь к исполняемому файлу браузера. Замените `ПУТЬ_К_БРАУЗЕРУ`:
      ```bash
      BROWSER_PATH="/usr/bin/google-chrome-stable"
@@ -86,39 +91,142 @@
 7. Откройте терминал в папке и выполните:
 
 ```bash
-chmod +x "FlowLink Proxy.sh"
-./FlowLink Proxy.sh
+chmod +x "FlowLink Proxy-linux.sh"
+./FlowLink Proxy-linux.sh
 ```
 
-> **Автоопределение бинарника:** скрипт сначала ищет `FlowLink Proxy` рядом с собой (standalone), затем в `server/FlowLink Proxy/` (dev-сборка).
+> **Автоопределение бинарника:** скрипт сначала ищет `flowlink-proxy` рядом с собой (standalone), затем в `server/FlowLink Proxy/` (dev-сборка).
 
-### macOS
+### Linux (.deb)
 
-На данный момент **готовый standalone-бинарник для macOS не поставляется** в релизах. Однако вы можете легко собрать его сами с помощью скрипта `build.sh`:
+Установка через `dpkg` — самый удобный способ для Debian/Ubuntu.
+
+1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+2. Скачайте `.deb`-пакет: `FlowLink-Proxy-vX.X.X-amd64.deb`
+3. Установите:
 
 ```bash
-cd flowlink-proxy
-./scripts/build.sh
+sudo dpkg -i FlowLink-Proxy-*.deb
 ```
 
-Скрипт `build.sh` автоматически:
-1. Создаёт/использует виртуальное окружение
-2. Устанавливает зависимости (cryptography, pystray, Pillow)
-3. Собирает standalone-бинарник через PyInstaller
+4. Если есть проблемы с зависимостями:
 
-Результат: `server/FlowLink Proxy/FlowLink Proxy`
+```bash
+sudo apt-get install -f
+```
 
-После сборки:
-1. Распакуйте полученный бинарник в удобную папку
-2. Отредактируйте `FlowLink Proxy.sh` — укажите `BROWSER_PATH`
-3. Запустите: `./FlowLink Proxy.sh`
+**Что создаёт пакет:**
+- Бинарник: `/usr/local/bin/flowlink-proxy`
+- Документация: `/usr/local/share/flowlink-proxy/` (EULA.rtf, LICENSE.txt)
+- Лаунчер: `/usr/local/bin/flowlink-launcher`
+- Шаблоны автозапуска: `/usr/local/share/flowlink-proxy/autostart/`
+
+**Запуск:**
+```bash
+flowlink-proxy              # Запуск бэкенда
+flowlink-launcher           # Запуск бэкенда + браузера
+```
+
+**Удаление:**
+```bash
+sudo dpkg -r flowlink-proxy
+```
+
+### Linux (.rpm)
+
+Установка через `rpm` — для Fedora/RHEL/CentOS.
+
+1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+2. Скачайте `.rpm`-пакет: `FlowLink-Proxy-vX.X.X-x86_64.rpm`
+3. Установите:
+
+```bash
+sudo rpm -i FlowLink-Proxy-*.rpm
+```
+
+Или обновите (если уже установлен):
+
+```bash
+sudo rpm -U FlowLink-Proxy-*.rpm
+```
+
+**Структура пакета аналогична .deb.**
+
+**Удаление:**
+```bash
+sudo rpm -e flowlink-proxy
+```
+
+### Linux (установщик install.sh)
+
+Универсальный скрипт для всех Linux-дистрибутивов.
+
+1. Скачайте архив `.tar.gz` из [релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+2. Распакуйте архив
+3. Запустите установщик:
+
+```bash
+chmod +x install.sh
+sudo ./install.sh
+```
+
+Скрипт автоматически:
+- Определяет платформу (Linux) и архитектуру (x64/arm64)
+- Устанавливает бинарник в `/usr/local/bin/`
+- Копирует документацию в `/usr/local/share/flowlink-proxy/`
+- Устанавливает лаунчер и шаблоны автозапуска
+
+### macOS (.pkg)
+
+Автоматическая установка через стандартный установщик macOS.
+
+1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+2. Скачайте `.pkg`-пакет для вашей архитектуры:
+   - `FlowLink-Proxy-vX.X.X-x64.pkg` — Intel
+   - `FlowLink-Proxy-vX.X.X-arm64.pkg` — Apple Silicon (M1/M2/M3)
+3. Дважды кликните по скачанному файлу
+4. Следуйте инструкциям установщика
+
+**Что создаёт пакет:**
+- Бинарник: `/usr/local/bin/flowlink-proxy`
+- Документация: `/usr/local/share/flowlink-proxy/`
+- LaunchAgent: `~/Library/LaunchAgents/com.flowlink.proxy.plist`
+
+**Удаление:**
+```bash
+sudo rm /usr/local/bin/flowlink-proxy
+sudo rm -rf /usr/local/share/flowlink-proxy
+rm ~/Library/LaunchAgents/com.flowlink.proxy.plist
+```
+
+### macOS (standalone)
+
+1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+2. Скачайте архив для macOS: `.tar.gz` (Intel `.x64` или Apple Silicon `.arm64`)
+3. Распакуйте архив в удобную папку
+4. В папке будут файлы:
+   - `flowlink-proxy` — бэкенд
+   - `FlowLink Proxy-macos.sh` — лаунчер
+   - `EULA.rtf`, `LICENSE.txt`, `README.md`, `SETUP.md`, `DEBUG.md` — документация
+5. **Откройте `FlowLink Proxy-macos.sh` в текстовом редакторе**. Укажите `BROWSER_PATH`:
+   ```bash
+   BROWSER_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+   BROWSER_PATH="/Applications/Yandex Browser.app/Contents/MacOS/Yandex Browser"
+   ```
+6. Сохраните файл
+7. Откройте терминал в папке и выполните:
+
+```bash
+chmod +x "FlowLink Proxy-macos.sh"
+./FlowLink Proxy-macos.sh
+```
 
 **Или используйте исходный код напрямую:**
 
 ```bash
 git clone https://github.com/FlowHack/flowlink-proxy.git
 cd flowlink-proxy
-./scripts/FlowLink Proxy Source.sh
+./scripts/setup/setup-and-run-macos.sh
 ```
 
 ### Исходный код (Python)
@@ -128,10 +236,12 @@ cd flowlink-proxy
 ```bash
 git clone https://github.com/FlowHack/flowlink-proxy.git
 cd flowlink-proxy
-./scripts/FlowLink Proxy Source.sh
+./scripts/setup/setup-and-run-linux.sh    # Linux
+./scripts/setup/setup-and-run-macos.sh    # macOS
 ```
 
-Скрипт `FlowLink Proxy Source.sh` автоматически:
+Скрипт автоматически:
+- Проверяет наличие Python и tkinter
 - Создаёт виртуальное окружение (`venv/`)
 - Устанавливает зависимости
 - Запускает бэкенд и браузер
@@ -160,6 +270,71 @@ python -m server
 | **Linux** | ❌ Отсутствует | `sudo apt install python3-tk` (Debian/Ubuntu) |
 
 > Если tkinter не установлен, бэкенд работает нормально, но вместо кастомного трей-меню используется стандартное меню pystray (без чекбокса автозапуска браузера).
+
+---
+
+## Сборка бинарников
+
+Для сборки standalone-бинарников необходим Python 3.10+ и PyInstaller.
+
+### Linux / macOS
+
+```bash
+./scripts/build/build.sh
+```
+
+Результат: `releases/flowlink-proxy`
+
+### Windows
+
+```batch
+scripts\build\build.bat
+```
+
+Результат: `releases\flowlink-proxy.exe`
+
+### Упаковка архивов релиза
+
+```bash
+./scripts/build/create-release.sh
+```
+
+Создаёт в `releases/` архивы `.tar.gz` с бинарником, лаунчером и документацией.
+
+### Сборка .deb-пакета (Linux)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-deb.sh
+```
+
+Результат: `releases/FlowLink-Proxy-vX.X.X-amd64.deb`
+
+### Сборка .rpm-пакета (Linux)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-rpm.sh
+```
+
+Результат: `~/rpmbuild/RPMS/x86_64/FlowLink-Proxy-vX.X.X-x86_64.rpm`
+
+### Сборка .pkg-пакета (macOS)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-pkg.sh
+```
+
+Результат: `releases/FlowLink-Proxy-vX.X.X-{x64|arm64}.pkg`
+
+### Сборка установщика Windows
+
+1. Установите [Inno Setup 6](https://jrsoftware.org/isdl.php)
+2. Соберите бинарник: `scripts\build\build.bat`
+3. Откройте `scripts/installer/flowlink-installer.iss` в Inno Setup → Build → Compile
+
+Результат: `scripts/installer/Output/FlowLink-Proxy-vX.X.X-Setup.exe`
 
 ---
 
@@ -342,62 +517,33 @@ python -m server
 
 | Скрипт | Переменная | По умолч. | Описание |
 |--------|------------|-----------|----------|
-| `FlowLink Proxy.bat` | `BROWSER_PATH` | `CHANGE_ME` | Путь к exe-файлу браузера (ОБЯЗАТЕЛЬНО) |
-| `FlowLink Proxy.bat` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
-| `FlowLink Proxy.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
-| `FlowLink Proxy.sh` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
-| `FlowLink Proxy Source.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
-| `FlowLink Proxy Source.sh` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
-| `flowlink.service` | `ExecStart` | — | Путь к бинарнику (настраивается вручную) |
-| `flowlink.service` | `FLOWLINK_DATA_DIR` | `%h/.local/share/flowlink-proxy` | Папка данных |
-| `flowlink.desktop` | `Exec` | `%h/flowlink-proxy/scripts/FlowLink Proxy Source.sh` | Путь к скрипту запуска |
-| `flowlink.desktop` | `Icon` | `%h/flowlink-proxy/server/icons/icon.png` | Путь к иконке |
+| `launcher/FlowLink Proxy-linux.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `launcher/FlowLink Proxy-linux.sh` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
+| `launcher/FlowLink Proxy-macos.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `launcher/FlowLink Proxy-macos.sh` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
+| `setup/setup-and-run-linux.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `setup/setup-and-run-macos.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `autostart/flowlink.service` | `ExecStart` | — | Путь к бинарнику (настраивается вручную) |
+| `autostart/flowlink.service` | `FLOWLINK_DATA_DIR` | `%h/.local/share/flowlink-proxy` | Папка данных |
+| `autostart/flowlink.desktop` | `Exec` | `%h/flowlink-proxy/scripts/setup/setup-and-run-linux.sh` | Путь к скрипту запуска |
+| `autostart/flowlink.desktop` | `Icon` | `%h/flowlink-proxy/server/icons/icon.png` | Путь к иконке |
 
 ### Скрипты запуска
 
 | Скрипт | Платформа | Назначение |
 |--------|-----------|------------|
-| `FlowLink Proxy.bat` | Windows | Лаунчер: запускает бэкенд + браузер (нужно указать путь к браузеру в начале файла) |
-| `FlowLink Proxy.sh` | Linux / macOS | Лаунчер: запускает бэкенд + браузер (нужно указать путь к браузеру в начале файла) |
-| `FlowLink Proxy Source.sh` | Linux / macOS | Dev-лаунчер: venv + зависимости + запуск + браузер (нужно указать путь к браузеру в начале файла) |
-
-### Скрипты сборки
-
-| Скрипт | Платформа | Назначение |
-|--------|-----------|------------|
-| `build.sh` | Linux / macOS | Сборка standalone-бинарника (PyInstaller) |
-| `build.bat` | Windows | Обёртка для `build.ps1` (обходит ExecutionPolicy) |
-| `build.ps1` | Windows | Сборка standalone-бинарника (PyInstaller) |
-
-Результат сборки: `server/FlowLink Proxy/FlowLink Proxy`
+| `launcher/FlowLink Proxy-linux.sh` | Linux | Лаунчер: запускает бинарник (нужно указать путь к браузеру в начале файла) |
+| `launcher/FlowLink Proxy-macos.sh` | macOS | Лаунчер: запускает бинарник (нужно указать путь к браузеру в начале файла) |
+| `setup/setup-and-run-linux.sh` | Linux | Dev-лаунчер: venv + зависимости + запуск + браузер |
+| `setup/setup-and-run-macos.sh` | macOS | Dev-лаунчер: venv + зависимости + запуск + браузер |
 
 ### Файлы автозапуска
 
 | Файл | Платформа | Назначение |
 |------|-----------|------------|
-| `flowlink.service` | Linux (systemd) | Автозапуск бэкенда как сервис |
-| `flowlink.desktop` | Linux (GNOME/KDE) | Ярлык в меню приложений |
-
-### Сборка standalone-бинарника
-
-```bash
-# Linux / macOS
-./scripts/build.sh
-
-# Windows
-scripts\build.bat
-```
-
-Результат: `server/FlowLink Proxy/FlowLink Proxy.exe` (Windows) или `server/FlowLink Proxy/FlowLink Proxy` (Linux/macOS)
-
-### Сборка установщика Windows
-
-1. Установите [Inno Setup](https://jrsoftware.org/isdl.php)
-2. Соберите бинарник: `scripts\build.bat`
-3. Откройте `scripts/flowlink-installer.iss` в Inno Setup → Build → Compile
-4. Результат: `installer/FlowLink-Proxy-vX.X.X-Setup.exe`
-
-Подробнее: [FLOWLINK_INSTALLER.md](myAgents/FLOWLINK_INSTALLER.md)
+| `autostart/flowlink.service` | Linux (systemd) | Автозапуск бэкенда как сервис |
+| `autostart/flowlink.desktop` | Linux (GNOME/KDE) | Ярлык в меню приложений |
+| `autostart/com.flowlink.proxy.plist` | macOS (launchd) | Автозапуск бэкенда |
 
 ---
 
@@ -405,13 +551,14 @@ scripts\build.bat
 
 | Проблема | Причина | Решение |
 |----------|---------|---------|
-| Windows пишет «неизвестный издатель» при запуске `.bat` | Mark of the Web — Windows помечает скачанные из интернета файлы | Правый клик по `.bat` → **Свойства** → галочка **«Разблокировать»** → ОК. Или: `powershell -Command "Unblock-File -Path 'scripts\build.bat'"`. Не возникает при установке через инсталлер — он создаёт `.bat` локально. |
-| `FlowLink Proxy.bat` не находит exe | bat-файл лежит не в одной папке с exe | Поместите bat в ту же папку, что и FlowLink Proxy.exe |
-| `FlowLink Proxy.sh: Permission denied` | Скрипт не имеет прав на выполнение | `chmod +x "FlowLink Proxy.sh"` |
-| `FlowLink Proxy Source.sh: Python 3 не найден` | Python не установлен или не в PATH | Установите Python 3.10+ с python.org |
-| PowerShell блокирует `build.ps1` | Политика выполнения скриптов | Используйте `scripts\build.bat` или `powershell -ExecutionPolicy Bypass -File build.ps1` |
-| Браузер не использует прокси | Браузер запущен без флага `--proxy-server` | Используйте лаунчер или настройте ярлык |
-| Нет русских символов в консоли | `.bat` содержит кириллицу в неправильной кодировке | `.bat` должен быть чистым ASCII. Русские сообщения выводятся Python-бэкендом, а не `.bat`-файлом |
-| `.bat` ломается: «не распознано», русские буквы — мусор | `.bat` содержит кириллицу, а редактор сохранил в UTF-8 | `.bat` должен быть чистым ASCII (без кириллицы). Скачайте заново из релизов. Кириллица для сообщений — в Python-бэкенде, не в `.bat` |
-| Ошибка при BROWSER_PATH с пробелами | Путь к браузеру содержит пробелы (например `Program Files`) | Кавычки в строке `set` НЕ нужны. Используйте: `set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe` (без кавычек). Скрипт сам добавит кавычки при использовании переменной |
-| «tkinter не установлен» при запуске | Python установлен без поддержки tkinter | Windows/macOS (python.org): переустановите с галочкой «tcl/tk and IDLE». Linux: `sudo apt install python3-tk`. Homebrew: `brew install python-tk` |
+| Расширение пишет «Нет связи с бэкендом» | Бэкенд не запущен | Запустите `flowlink-proxy` (standalone) или `./scripts/setup/setup-and-run-linux.sh` (исходники) |
+| `ERR_PROXY_CONNECTION_FAILED` | Браузер настроен на SOCKS5 вместо HTTP-прокси | Флаг должен быть `--proxy-server=127.0.0.1:8080` (HTTP, не SOCKS5) |
+| Браузер не использует прокси | Браузер запущен без флага `--proxy-server` | Запускайте браузер **только** через лаунчер или ярлык |
+| Порт 8080 уже занят | Другой процесс использует порт | Linux: `lsof -i :8080` → завершите старый процесс. Windows: Диспетчер задач |
+| Расширение не подключается | Порт API не совпадает | Проверьте порт в настройках расширения (⚙) — должен совпадать с `--api-port` |
+| `FlowLink Proxy-linux.sh: Permission denied` | Скрипт не имеет прав на выполнение | `chmod +x "FlowLink Proxy-linux.sh"` |
+| Python 3 не найден | Python не установлен или не в PATH | Установите Python 3.10+ с python.org |
+| «tkinter не установлен» при запуске | Python установлен без поддержки tkinter | Linux: `sudo apt install python3-tk`. macOS: `brew install python-tk`. Windows: переустановите с галочкой «tcl/tk and IDLE» |
+| Браузер не найден (Path не указан) | Переменная BROWSER_PATH не отредактирована | Откройте лаунчер в текстовом редакторе, замените `ПУТЬ_К_БРАУЗЕРУ` на путь к браузеру |
+
+Для отладки запустите с флагом `--debug` — подробные логи в консоли и файле `logs/flowlink.log`. Подробнее: [DEBUG.md](DEBUG.md)

@@ -22,7 +22,7 @@ from queue import Queue, Empty
 logger = logging.getLogger('flowlink.tray.popup')
 
 
-class PopupColors:
+class PopupColors:  # pylint: disable=too-few-public-methods
     """Цвета popup-меню (совпадают с popup.css расширения)."""
     BG = '#0d0d1a'
     SURFACE = '#1a1a2e'

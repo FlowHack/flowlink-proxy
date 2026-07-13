@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Определение версии из тега
+        id: version
+        run: |
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          VERSION=$(echo "$TAG" | sed 's/^v//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Загрузка всех артефактов
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Сборка артефактов
+        run: |
+          mkdir -p release-files
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" \) \
+            -exec cp {} release-files/ \;
+
+      - name: Создание Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          tag_name: ${{ github.event.workflow_run.head_branch }}
+          name: FlowLink Proxy v${{ steps.version.outputs.version }}
+          files: release-files/*
+          body: |
+            ## FlowLink Proxy v${{ steps.version.outputs.version }}
+
+            ### Артефакты
+
+            | Платформа | Формат | Описание |
+            |-----------|--------|----------|
+            | Windows x64 | `.exe` | Inno Setup установщик |
+            | Linux x64 | `.tar.gz` | Standalone + лаунчер + документация |
+            | Linux x64 | `.deb` | Автоматическая установка (dpkg) |
+            | Linux x64 | `.rpm` | Автоматическая установка (rpm) |
+            | macOS x64 | `.tar.gz` | Standalone + лаунчер + документация |
+            | macOS x64 | `.pkg` | Автоматическая установка |
+            | macOS arm64 | `.tar.gz` | Standalone + лаунчер + документация |
+            | macOS arm64 | `.pkg` | Автоматическая установка |
+
+            ### Установка
+
+            Подробные инструкции: [SETUP.md](https://github.com/FlowHack/flowlink-proxy/blob/develop/SETUP.md)
+
+            ### Лицензия
+
+            GNU AGPL v3 — [LICENSE.txt](https://github.com/FlowHack/flowlink-proxy/blob/develop/LICENSE.txt)
+            [EULA.rtf](https://github.com/FlowHack/flowlink-proxy/blob/develop/EULA.rtf)

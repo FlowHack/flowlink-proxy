@@ -33,12 +33,12 @@ def mask_sensitive(body_str: str) -> str:
 
 def truncate(text: str, max_len: int = 2000) -> str:
     """
-    Обрезает строку до max_len символов, добавляя '... (truncated)'.
+    Обрезает строку до max_len символов, добавляя '... (обрезано)'.
 
     Используется для предотвращения раздувания логов большими JSON-ответами.
     """
     if len(text) > max_len:
-        return text[:max_len] + '... (truncated)'
+        return text[:max_len] + '... (обрезано)'
     return text
 
 

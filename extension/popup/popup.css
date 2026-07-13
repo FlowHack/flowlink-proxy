@@ -890,17 +890,17 @@ body {
   white-space: nowrap;
 }
 
-/* ───── Баннер: скрипты запуска не найдены (внутри settings-row) ───── */
+/* ───── Баннер: браузер не выбран (внутри settings-row) ───── */
 .autostart-banner-settings {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  background: rgba(230, 126, 34, 0.15);
-  border: 1px solid var(--accent-orange);
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid var(--accent-red, #e74c3c);
   border-radius: var(--radius-sm);
   font-size: 11px;
-  color: var(--accent-orange);
+  color: var(--accent-red, #e74c3c);
 }
 
 .autostart-banner-settings.hidden {
@@ -913,7 +913,7 @@ body {
 }
 
 .autostart-banner-settings .btn-small {
-  background: var(--accent-orange);
+  background: var(--accent-red, #e74c3c);
   color: #fff;
   border: none;
   flex-shrink: 0;
@@ -921,6 +921,60 @@ body {
 
 .autostart-banner-settings .btn-small:hover {
   opacity: 0.85;
+}
+
+/* ───── Выбор браузера и путь (внутри settings-row) ───── */
+.browser-config-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.browser-config-settings .autostart-label {
+  flex-shrink: 0;
+}
+
+.browser-select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.browser-path-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.browser-path-settings .autostart-label {
+  flex-shrink: 0;
+}
+
+.browser-path-settings .input-settings {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+}
+
+/* ───── Ошибка валидации пути к браузеру ───── */
+.browser-path-error {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--accent-red, #e74c3c);
+  line-height: 1.4;
+}
+
+.browser-path-error.hidden {
+  display: none;
+}
+
+.browser-path-error.browser-path-warning {
+  color: var(--accent-orange, #e67e22);
 }
 
 /* ───── Стили контента помощи (заменяют инлайн-стили для CSP) ───── */

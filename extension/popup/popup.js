@@ -16,7 +16,7 @@ import { renderTabStatus } from './tab-status.js';
 import { checkBackendVersion, checkForUpdates, backendVersion } from './updater.js';
 import { handleSettingsSave } from './settings.js';
 import { discoverPort } from '../shared/port_discovery.js';
-import { loadAutostartStatus, renderAutostartToggle, handleAutostartToggle } from './autostart.js';
+import { loadAutostartStatus, renderAutostartToggle, handleAutostartToggle, handleSystemAutostartToggle, handleBrowserSelect, handleBrowserPathInput } from './autostart.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -27,8 +27,8 @@ const state = {
   connected: false,
   selectedProxyId: null,
 };
-// Экспортируем для modal.js (overlay-закрытие)
-window.__FLOWLINK_STATE = state;
+// Экспортируем только сброс selectedProxyId для modal.js (без exposure паролей)
+window.__flowlinkResetSelectedProxy = () => { state.selectedProxyId = null; };
 
 /** Показывает toast-уведомление на 2 секунды. */
 export function showToast(msg) {
@@ -341,6 +341,29 @@ function attachGlobalListeners() {
     if (e.target.id === 'autostart-browser-input') {
       handleAutostartToggle(e.target, showToast);
     }
+    // Тоггл системного автозапуска
+    if (e.target.id === 'system-autostart-input') {
+      handleSystemAutostartToggle(e.target, showToast);
+    }
+  });
+
+  // Выбор браузера из выпадающего списка
+  document.getElementById('browser-select')?.addEventListener('change', (e) => {
+    handleBrowserSelect(e.target, showToast);
+  });
+
+  // Сохранение пути к браузеру (кнопка)
+  document.getElementById('btn-browser-path-save')?.addEventListener('click', () => {
+    const input = document.getElementById('browser-path-input');
+    handleBrowserPathInput(input, showToast);
+  });
+
+  // Сохранение пути к браузеру (Enter в поле ввода)
+  document.getElementById('browser-path-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleBrowserPathInput(e.target, showToast);
+    }
   });
 
   document.addEventListener('submit', (e) => {
@@ -375,8 +398,8 @@ function attachGlobalListeners() {
     if (!state.connected) { showToast('Нет соединения с бэкендом'); return; }
     document.getElementById('settings-row').classList.toggle('hidden');
   });
-  // Кнопка помощи для отсутствующих скриптов запуска
-  document.getElementById('btn-autostart-help')?.addEventListener('click', () => {
+  // Кнопка помощи для отсутствующего браузера
+  document.getElementById('btn-browser-help')?.addEventListener('click', () => {
     openHelpModal(null, false, false, true);
   });
   // Закрытие модалок

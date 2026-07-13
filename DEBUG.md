@@ -27,6 +27,7 @@ python -m server [флаги]                        # исходный код
 | `--need-update` | выкл. | Симуляция обновления (подробные логи + баннер «Доступно обновление») |
 | `--count-proxy` | `0` | Количество тестовых прокси (требует `--debug`, `--dev` или `--need-update`) |
 | `--no-tkinter` | выкл. | Отключить tkinter popup, использовать pystray с нативным меню |
+| `--browser-path` | нет | Путь к браузеру (перезаписывает настройку из `.flowlink-settings`) |
 
 ### Примеры
 
@@ -209,6 +210,14 @@ python -m server --debug --no-tkinter
 | `GET` | `/api/version` | Версия сервера: `{"version": "X.X.X"}` |
 | `POST` | `/api/ping` | Пинг прокси. Тело: `{"proxyId": "..."}` |
 | `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`) |
+| `GET` | `/api/autostart-browser` | Автозапуск браузера: `{"autostartBrowser": true/false}` |
+| `GET` | `/api/system-autostart` | Статус автозапуска с системой |
+| `POST` | `/api/system-autostart` | Включить/выключить автозапуск с системой. Тело: `{"enabled": true/false}` |
+| `GET` | `/api/browser-path` | Текущий путь к браузеру: `{"browserPath": "..."}` |
+| `POST` | `/api/browser-path` | Сохранить путь к браузеру. Тело: `{"browserPath": "..."}` (возвращает 422 при невалидном пути) |
+| `POST` | `/api/validate-browser` | Валидация пути к браузеру без сохранения. Тело: `{"browserPath": "..."}` |
+| `GET` | `/api/detected-browsers` | Список найденных браузеров (автопоиск) |
+| `GET` | `/api/browser-config` | Конфигурация браузера (path + autostart + detected) |
 
 ### Примеры запросов
 
@@ -314,33 +323,59 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 ```bash
 # Linux / macOS
-./scripts/build.sh
+./scripts/build/build.sh
 
 # Windows
-scripts\build.bat
+scripts\build\build.bat
 ```
 
-Результат: `server/FlowLink Proxy/FlowLink Proxy`
+Результат: `releases/flowlink-proxy` (Linux/macOS) или `releases\flowlink-proxy.exe` (Windows)
 
 ### Упаковка архива релиза (Linux / macOS)
 
 ```bash
-./scripts/build.sh
-./scripts/create-release.sh
+./scripts/build/build.sh
+./scripts/build/create-release.sh
 ```
 
 Скрипт `create-release.sh` создаёт в папке `releases/`:
 - `FlowLink-Proxy-vX.X.X-linux-x64.tar.gz`
-- `FlowLink-Proxy-vX.X.X-linux-x64.zip`
-- (на macOS: `...-macos-x64.tar.gz` + `.zip`)
+- (на macOS: `...-macos-x64.tar.gz` или `...-macos-arm64.tar.gz`)
 
-Внутри архива: бинарник, лаунчер, README.md, SETUP.md, DEBUG.md, LICENSE.txt.
+Внутри архива: бинарник, лаунчер, EULA.rtf, LICENSE.txt, README.md, SETUP.md, DEBUG.md.
+
+### Сборка .deb-пакета (Linux)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-deb.sh
+```
+
+Результат: `releases/FlowLink-Proxy-vX.X.X-amd64.deb`
+
+### Сборка .rpm-пакета (Linux)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-rpm.sh
+```
+
+Результат: `~/rpmbuild/RPMS/x86_64/FlowLink-Proxy-vX.X.X-x86_64.rpm`
+
+### Сборка .pkg-пакета (macOS)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-pkg.sh
+```
+
+Результат: `releases/FlowLink-Proxy-vX.X.X-{x64|arm64}.pkg`
 
 ### Сборка установщика Windows
 
 1. Установите [Inno Setup](https://jrsoftware.org/isdl.php) (последнюю стабильную **6**, не бета 7)
-2. Соберите бинарник: `scripts\build.bat`
-3. Откройте `scripts/flowlink-installer.iss` в Inno Setup → Build → Compile
-4. Результат: `releases/FlowLink-Proxy-vX.X.X-Setup.exe`
+2. Соберите бинарник: `scripts\build\build.bat`
+3. Откройте `scripts/installer/flowlink-installer.iss` в Inno Setup → Build → Compile
+4. Результат: `scripts/installer/Output/FlowLink-Proxy-vX.X.X-Setup.exe`
 
 > **Архитектура:** Inno Setup соберёт установщик под x64. В .iss уже указано `ArchitecturesInstallIn64BitMode=x64compatible` — автоматически выбирает правильную Program Files папку (32 или 64 бит).

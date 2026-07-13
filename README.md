@@ -27,21 +27,25 @@ SOCKS5 с паролем       Прямое соединение
 
 ## Быстрый старт
 
-### 1. Установите бэкенд
+### 1. Скачайте и запустите бэкенд
 
-| Способ | Что делать |
-|--------|-----------|
-| **Установщик Windows** | Скачайте `.exe`-установщик из [релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest) → запустите → выберите браузер. Всё остальное автоматически. |
-| **Standalone-бинарник** | Скачайте архив из [релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest) → распакуйте в любую папку → см. ниже. |
-| **Исходный код** | `git clone` → `./scripts/FlowLink Proxy Source.sh` (см. [SETUP.md](SETUP.md#исходный-код-python)). |
+Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest) и скачайте архив для вашей ОС:
 
-> **Обратите внимание:** standalone-бинарники доступны для **Windows (.exe)** и **Linux**. Для **macOS** бинарник пока не поставляется, но вы можете легко собрать его сами — см. [SETUP.md](SETUP.md#macOS-самостоятельная-сборка).
+| Платформа | Файл | Установка |
+|-----------|------|-----------|
+| **Windows x64** | `FlowLink-Proxy-v*-Setup.exe` | Запустите установщик → следуйте инструкциям |
+| **Linux x64** | `FlowLink-Proxy-v*-linux-x64.tar.gz` | Распакуйте → `chmod +x flowlink-proxy` → запустите |
+| **Linux x64** | `FlowLink-Proxy-v*-amd64.deb` | `sudo dpkg -i FlowLink-Proxy-*.deb` |
+| **Linux x64** | `FlowLink-Proxy-v*-x86_64.rpm` | `sudo rpm -i FlowLink-Proxy-*.rpm` |
+| **macOS Intel** | `FlowLink-Proxy-v*-macos-x64.tar.gz` | Распакуйте → запустите |
+| **macOS Apple Silicon** | `FlowLink-Proxy-v*-macos-arm64.tar.gz` | Распакуйте → запустите |
+| **macOS** | `FlowLink-Proxy-v*-macos-*.pkg` | Дважды кликните по `.pkg` |
+
+> Подробные инструкции по каждому способу: **[SETUP.md](SETUP.md)**
 
 ### 2. Установите расширение
 
-> **Из магазина:** ссылка будет добавлена после публикации.
-
-**Из исходника:** откройте страницу расширений → включите «Режим разработчика» → «Загрузить распакованное расширение» → выберите папку `extension/`.
+Откройте страницу расширений в браузере → включите «Режим разработчика» → «Загрузить распакованное расширение» → выберите папку `extension/`.
 
 | Браузер | Страница расширений |
 |---------|---------------------|
@@ -49,29 +53,16 @@ SOCKS5 с паролем       Прямое соединение
 | Yandex Browser | `browser://extensions` |
 | Opera | `opera://extensions` |
 | Edge | `edge://extensions` |
-| Firefox | `about:debugging#/runtime/this-firefox` → «Загрузить временный дополнитель» |
 
-### 3. Настройте браузер
+> Расширение настраивает браузер автоматически (флаг `--proxy-server`).
 
-Добавьте флаг `--proxy-server=127.0.0.1:8080` к запуску браузера. Подробности: **[SETUP.md](SETUP.md#настройка-браузера)**
+### 3. Готово
 
-> **Если вы используете установщик или лаунчер (`FlowLink Proxy.bat` / `.sh`) — браузер настраивается автоматически.**
+Нажмите иконку FlowLink Proxy в панели расширений → добавьте прокси и маски.
 
 ---
 
-## Использование
-
-### Запуск
-
-**Установщик (Windows):** кликните по ярлыку FlowLink Proxy в меню «Пуск» или на рабочем столе — бэкенд и браузер запустятся автоматически.
-
-**Standalone / исходный код:** запустите лаунчер:
-- Windows: `FlowLink Proxy.bat`
-- Linux / macOS: `./FlowLink Proxy.sh` (standalone) или `./scripts/FlowLink Proxy Source.sh` (исходный код)
-
-> При первом запуске лаунчера нужно указать путь к браузеру в текстовом редакторе. Подробности: **[SETUP.md](SETUP.md#windows-standalone)**
-
-### Интерфейс расширения
+## Интерфейс расширения
 
 Нажмите иконку FlowLink Proxy в панели расширений.
 
@@ -131,6 +122,18 @@ SOCKS5 с паролем       Прямое соединение
 
 ---
 
+## Устранение проблем
+
+| Симптом | Решение |
+|---------|---------|
+| «Нет связи с бэкендом» | Бэкенд не запущен. Запустите бинарник или `python -m server` |
+| `ERR_PROXY_CONNECTION_FAILED` | Браузер на SOCKS5 вместо HTTP. Флаг: `--proxy-server=127.0.0.1:8080` |
+| Порт 8080 занят | Завершите старый процесс: Linux `lsof -i :8080`, Windows — Диспетчер задач |
+
+Подробная таблица проблем: **[SETUP.md](SETUP.md#устранение-проблем-при-установке)**. Отладка: **[DEBUG.md](DEBUG.md)**
+
+---
+
 ## Структура проекта
 
 ```
@@ -142,7 +145,7 @@ flowlink-proxy/
 │   ├── tray/                  # System tray icon (tkinter / pystray / ctypes)
 │   │   ├── __init__.py        # Координатор: start_tray()
 │   │   ├── platform.py        # Определение ОС и возможностей
-│   │   ├── popup.py           # Tkinter边境less меню (тёмная тема)
+│   │   ├── popup.py           # Tkinter безрамочное меню (тёмная тема)
 │   │   ├── menu.py            # Общая логика построения меню
 │   │   ├── win32.py           # Win32 Tray (ctypes)
 │   │   ├── linux.py           # Linux Tray (pystray + tkinter)
@@ -150,7 +153,10 @@ flowlink-proxy/
 │   ├── config/
 │   │   ├── config.py          # Бизнес-логика конфига (proxies, masks, enabled)
 │   │   ├── repo.py            # Чтение/запись config.json
-│   │   └── crypto.py          # AES-GCM шифрование паролей (PBKDF2)
+│   │   ├── crypto.py          # AES-GCM шифрование паролей (PBKDF2)
+│   │   ├── autostart.py       # Настройки автозапуска браузера
+│   │   ├── browser_config.py  # Конфигурация браузера (автопоиск, валидация, запуск)
+│   │   └── system_autostart.py # Автозапуск с системой (Win/Linux/macOS)
 │   ├── protocols/
 │   │   ├── base.py            # ABC ProxyProtocol
 │   │   ├── socks5.py          # SOCKS5-клиент (чистый asyncio + struct)
@@ -169,7 +175,7 @@ flowlink-proxy/
 │   │   ├── proxy.py           # HTTP CONNECT прокси (порт 8080)
 │   │   ├── api.py             # HTTP API (порт 8081)
 │   │   └── handlers.py        # Обработчики API-эндпоинтов
-│   ├── utils.py               # Утилиты (get_data_dir, clear_all_data, get_resource_dir)
+│   ├── utils.py               # Утилиты (get_data_dir, clear_all_data, write_port_file)
 │   ├── icons/                 # Иконки бэкенда (icon.ico, icon.png)
 │   ├── requirements.txt       # Зависимости Python
 │   └── tests/                 # Юнит-тесты
@@ -194,27 +200,48 @@ flowlink-proxy/
 │   │   ├── crud-mask.js       # CRUD-операции с масками
 │   │   ├── ping.js            # Пинг прокси
 │   │   ├── settings.js        # Настройки порта API
+│   │   ├── autostart.js       # Настройки автозапуска браузера
 │   │   ├── tab-status.js      # Статус текущей вкладки
 │   │   ├── modal.js           # Модальные окна
 │   │   ├── help.js            # Окно помощи
 │   │   └── updater.js         # Проверка обновлений
 │   ├── shared/
-│   │   ├── api.js             # HTTP GET/POST хелперы
+│   │   ├── api.js             # HTTP GET/POST хелперы (apiGet, apiPost, apiPostRaw)
 │   │   ├── constants.js       # API_BASE, GitHub URLs
 │   │   ├── dom.js             # escapeHtml, утилиты DOM
-│   │   └── utils.js           # Валидация IP/port, wildcard→regex
+│   │   ├── utils.js           # Валидация IP/port, wildcard→regex
+│   │   └── port_discovery.js  # Автообнаружение порта API
 │   └── icons/                 # Иконки расширения
 │
-├── scripts/                   # Скрипты сборки и запуска
-│   ├── FlowLink Proxy.bat     # Windows-лаунчер: запускает бэкенд + браузер
-│   │                          # (пользователь указывает путь к браузеру в начале файла)
-│   ├── FlowLink Proxy.sh      # Linux/macOS-лаунчер: аналогично
-│   ├── FlowLink Proxy Source.sh  # Dev-лаунчер: venv + зависимости + запуск + браузер
-│   ├── build.bat              # Windows: обёртка для build.ps1
-│   ├── build.ps1              # Windows: сборка standalone (PyInstaller)
-│   ├── build.sh               # Linux/macOS: сборка standalone (PyInstaller)
-│   ├── flowlink.service       # Linux: systemd-сервис для автозапуска
-│   └── flowlink.desktop       # Linux: десктоп-файл для меню приложений
+├── scripts/
+│   ├── installer/
+│   │   └── flowlink-installer.iss  # Inno Setup установщик Windows
+│   ├── icons/
+│   │   ├── icon.ico            # Иконка для установщика и ярлыков
+│   │   ├── icon.png            # Иконка для Linux/macOS
+│   │   └── icon.icns           # Иконка для macOS
+│   ├── launcher/
+│   │   ├── FlowLink Proxy-linux.sh  # Linux-лаунчер (только бинарник)
+│   │   └── FlowLink Proxy-macos.sh  # macOS-лаунчер (только бинарник)
+│   ├── setup/
+│   │   ├── setup-and-run.bat         # Windows: проверка Python+tkinter + запуск
+│   │   ├── setup-and-run-linux.sh    # Linux: проверка Python+tkinter + запуск
+│   │   └── setup-and-run-macos.sh    # macOS: проверка Python+tkinter + запуск
+│   ├── build/
+│   │   ├── build.bat              # Windows: обёртка для build.ps1
+│   │   ├── build.ps1              # Windows: сборка standalone (PyInstaller)
+│   │   ├── build.sh               # Linux/macOS: сборка standalone (PyInstaller)
+│   │   ├── build-deb.sh           # Linux: сборка .deb-пакета
+│   │   ├── build-rpm.sh           # Linux: сборка .rpm-пакета
+│   │   ├── flowlink.spec          # RPM-спецификация
+│   │   ├── build-pkg.sh           # macOS: сборка .pkg-пакета
+│   │   └── create-release.sh      # Упаковка архивов релиза
+│   ├── install/
+│   │   └── install.sh             # Универсальный standalone-установщик
+│   └── autostart/
+│       ├── flowlink.service       # Linux: systemd-сервис
+│       ├── flowlink.desktop       # Linux: десктоп-файл
+│       └── com.flowlink.proxy.plist # macOS: LaunchAgent
 │
 ├── myAgents/                  # Конфиги агента (для разработки)
 ├── AI_DEV_LOG.md              # Журнал разработки
@@ -227,64 +254,12 @@ flowlink-proxy/
 
 ---
 
-## Описание скриптов в папке scripts/
-
-### Лаунчеры (запуск приложения)
-
-| Скрипт | Платформа | Что делает | Что настраивать |
-|--------|-----------|------------|-----------------|
-| `FlowLink Proxy.bat` | Windows | Запускает бэкенд + браузер с прокси | `BROWSER_PATH` — путь к браузеру, `PROXY_PORT` — порт прокси |
-| `FlowLink Proxy.sh` | Linux / macOS | Запускает бэкенд + браузер с прокси | `BROWSER_PATH` — путь к браузеру, `PROXY_PORT` — порт прокси |
-| `FlowLink Proxy Source.sh` | Linux / macOS | Запускает из исходников (venv + зависимости + backend + браузер) | `BROWSER_PATH` — путь к браузеру, `PROXY_PORT` — порт прокси |
-
-> Все переменные для настройки расположены **в начале каждого файла** — просто откройте в текстовом редакторе.
-
-### Скрипты сборки
-
-| Скрипт | Платформа | Что делает |
-|--------|-----------|------------|
-| `build.bat` | Windows | Обёртка для `build.ps1` (обходит политику выполнения PowerShell) |
-| `build.ps1` | Windows | Собирает standalone-бинарник через PyInstaller |
-| `build.sh` | Linux / macOS | Собирает standalone-бинарник через PyInstaller |
-
-### Файлы автозапуска
-
-| Файл | Платформа | Что делает | Что настраивать |
-|------|-----------|------------|-----------------|
-| `flowlink.service` | Linux (systemd) | Автозапуск бэкенда как сервис | Путь к бинарнику в `ExecStart`, порты |
-| `flowlink.desktop` | Linux (GNOME/KDE) | Ярлык в меню приложений | `Exec` — путь к скрипту, `Icon` — путь к иконке |
-
----
-
-## Устранение проблем
-
-| Симптом | Причина | Решение |
-|---------|---------|---------|
-| Расширение пишет «Нет связи с бэкендом» | Бэкенд не запущен | Запустите `FlowLink Proxy.exe` или `FlowLink Proxy.bat` |
-| `ERR_PROXY_CONNECTION_FAILED` | Браузер настроен на SOCKS5 вместо HTTP-прокси | Флаг должен быть `--proxy-server=127.0.0.1:8080` (HTTP, не SOCKS5) |
-| Браузер не использует прокси | Браузер запущен без флага `--proxy-server` | Запускайте браузер **только** через ярлык или лаунчер |
-| Порт 8080 уже занят | Другой процесс использует порт | Windows: Диспетчер задач → завершите старый процесс. Linux: `lsof -i :8080` |
-| Расширение не подключается | Порт API не совпадает | Проверьте порт в настройках расширения (⚙) — он должен совпадать с `--api-port` |
-| PowerShell блокирует `.ps1` | Политика выполнения скриптов | Используйте `scripts\build.bat` или `powershell -ExecutionPolicy Bypass -File build.ps1` |
-| Windows пишет «неизвестный издатель» при запуске `.bat` | Mark of the Web — Windows помечает скачанные из интернета файлы | Правый клик по `.bat` → **Свойства** → галочка **«Разблокировать»** → ОК. Не возникает при установке через инсталлер — он создаёт `.bat` локально. |
-| Логин/пароль не отправляются | Браузер не поддерживает SOCKS5-auth | Это нормально — FlowLink Proxy берёт аутентификацию на себя через HTTP-прокси |
-| FlowLink Proxy.bat не находит exe | bat-файл лежит не в одной папке с exe | Поместите bat-файл в ту же папку, что и FlowLink Proxy.exe |
-| FlowLink Proxy.sh не находит бинарник | Скрипт запущен не из папки с бинарником | Поместите скрипт в ту же папку, что и FlowLink Proxy |
-| Браузер не найден (Path не указан) | Переменная BROWSER_PATH не отредактирована | Откройте скрипт в текстовом редакторе, замените `CHANGE_ME` на путь к браузеру |
-| `.bat` ломается: «не распознано», русские буквы — мусор | `.bat` содержит кириллицу, а редактор сохранил в UTF-8 | `.bat` должен быть чистым ASCII (без кириллицы). Скачайте заново из релизов. Кириллица для сообщений — в Python-бэкенде, не в `.bat` |
-| Ошибка при BROWSER_PATH с пробелами | Путь к браузеру содержит пробелы (например `Program Files`) | Кавычки в строке `set` НЕ нужны. Используйте: `set BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe` (без кавычек). Скрипт сам добавит кавычки при использовании переменной |
-| «tkinter не установлен» при запуске | Python установлен без поддержки tkinter | Windows/macOS (python.org): переустановите с галочкой «tcl/tk and IDLE». Linux: `sudo apt install python3-tk`. Homebrew: `brew install python-tk` |
-
-Для отладки запустите с флагом `--debug` — подробные логи в консоли и файле `logs/flowlink.log`. Подробнее: [DEBUG.md](DEBUG.md)
-
----
-
 ## Документация
 
 | Документ | Содержание |
 |----------|------------|
-| **[SETUP.md](SETUP.md)** | Установка, настройка браузеров, порты, автозапуск, обновление |
-| **[DEBUG.md](DEBUG.md)** | Флаги CLI, HTTP API, логи, устранение проблем |
+| **[SETUP.md](SETUP.md)** | Установка из релизов, из исходников, настройка браузеров, порты, автозапуск, сборка бинарников |
+| **[DEBUG.md](DEBUG.md)** | CLI-флаги, HTTP API, логи, отладка |
 | **[PRIVACY_POLICY.md](PRIVACY_POLICY.md)** | Политика конфиденциальности |
 | **[LICENSE.txt](LICENSE.txt)** | GNU AGPL v3 |
 
@@ -292,10 +267,18 @@ flowlink-proxy/
 
 ## Требования
 
-- **Windows:** 10+ (установщик) или standalone-бинарник
-- **Linux / macOS:** Python 3.10+ или standalone-бинарник
-- **tkinter:** нужен для кастомного трей-меню (проверяется автоматически, см. [SETUP.md](SETUP.md#зависимость-tkinter))
-- **Браузер:** Chrome 100+, Yandex Browser, Opera, Edge (Chromium) или Firefox
+- **Windows:** 10+ (standalone-бинарник или установщик)
+- **Linux:** x64 (standalone-бинарник, `.deb` или `.rpm`)
+- **macOS:** Intel или Apple Silicon (standalone-бинарник или `.pkg`)
+- **Исходный код:** Python 3.10+ и tkinter (см. [SETUP.md](SETUP.md#исходный-код-python))
+- **Браузер:** Chrome, Yandex Browser, Opera, Edge (Chromium)
+
+---
+
+## Лицензия
+
+FlowLink Proxy распространяется под лицензией **GNU AGPL v3**.
+При использовании вы соглашаетесь с условиями [EULA.rtf](EULA.rtf) и [LICENSE.txt](LICENSE.txt).
 
 ---
 

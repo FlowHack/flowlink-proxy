@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=FlowLink Proxy
-Comment=Автоматическая маршрутизация трафика через SOCKS5
-Exec=$HOME/flowlink-proxy/scripts/FlowLink Proxy Source.sh
-Icon=$HOME/flowlink-proxy/server/icons/icon.png
-Terminal=true
-Type=Application
-Categories=Network;
-StartupNotify=false

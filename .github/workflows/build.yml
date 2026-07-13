@@ -1,0 +1,171 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Установка системных зависимостей
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk rpm-build
+
+      - name: Установка Python-зависимостей
+        run: |
+          pip install --upgrade pip
+          pip install -r server/requirements.txt pyinstaller
+
+      - name: Сборка standalone-бинарника
+        run: ./scripts/build/build.sh
+
+      - name: Упаковка архива релиза
+        run: ./scripts/build/create-release.sh
+
+      - name: Сборка .deb-пакета
+        run: ./scripts/build/build-deb.sh
+
+      - name: Сборка .rpm-пакета
+        run: ./scripts/build/build-rpm.sh
+
+      - name: Загрузка артефактов
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            releases/*.tar.gz
+            releases/*.deb
+            ~/rpmbuild/RPMS/**/*.rpm
+          retention-days: 7
+
+  build-macos-intel:
+    runs-on: macos-15-large
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Установка системных зависимостей
+        run: brew install python-tk
+
+      - name: Установка Python-зависимостей
+        run: |
+          pip install --upgrade pip
+          pip install -r server/requirements.txt pyinstaller
+
+      - name: Сборка standalone-бинарника
+        run: ./scripts/build/build.sh
+
+      - name: Упаковка архива релиза
+        run: ./scripts/build/create-release.sh
+
+      - name: Сборка .pkg-пакета
+        run: ./scripts/build/build-pkg.sh
+
+      - name: Загрузка артефактов
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-artifacts
+          path: |
+            releases/*.tar.gz
+            releases/*.pkg
+          retention-days: 7
+
+  build-macos-arm:
+    runs-on: macos-15
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Установка системных зависимостей
+        run: brew install python-tk
+
+      - name: Установка Python-зависимостей
+        run: |
+          pip install --upgrade pip
+          pip install -r server/requirements.txt pyinstaller
+
+      - name: Сборка standalone-бинарника
+        run: ./scripts/build/build.sh
+
+      - name: Упаковка архива релиза
+        run: ./scripts/build/create-release.sh
+
+      - name: Сборка .pkg-пакета
+        run: ./scripts/build/build-pkg.sh
+
+      - name: Загрузка артефактов
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm-artifacts
+          path: |
+            releases/*.tar.gz
+            releases/*.pkg
+          retention-days: 7
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Установка Inno Setup
+        run: choco install innosetup -y
+
+      - name: Установка Python-зависимостей
+        run: |
+          pip install --upgrade pip
+          pip install -r server/requirements.txt pyinstaller
+
+      - name: Сборка standalone-бинарника
+        run: python scripts/build/build.ps1
+
+      - name: Сборка установщика
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc scripts/installer/flowlink-installer.iss
+
+      - name: Загрузка артефактов
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            releases/FlowLink-Proxy-*-Setup.exe
+          retention-days: 7

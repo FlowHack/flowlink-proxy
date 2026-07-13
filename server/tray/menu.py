@@ -32,7 +32,8 @@ def load_icon(pil_image, logger_name='flowlink.tray'):
         PIL.Image (64x64 RGBA).
     """
     icon_logger = logging.getLogger(logger_name)
-    from server.utils import get_resource_dir
+    # Ленивый импорт: избегает циклических зависимостей
+    from server.utils import get_resource_dir  # pylint: disable=import-outside-toplevel
     icon_path = os.path.join(get_resource_dir(), _ICON_PATH)
 
     if os.path.exists(icon_path):
@@ -83,6 +84,19 @@ def safe_open_folder(path, label, log):
         )
 
 
+def _get_system_autostart_state(callbacks, logger_name):
+    """Безопасно читает текущее состояние системного автозапуска."""
+    if not callbacks.get('system_autostart_getter'):
+        return False
+    try:
+        return callbacks['system_autostart_getter']()
+    except (OSError, TypeError, AttributeError) as e:
+        logging.getLogger(logger_name).error(
+            '%s: ошибка чтения system_autostart: %s', logger_name, e,
+        )
+        return False
+
+
 def build_menu_items(callbacks, stop_fn, logger_name='flowlink.tray'):
     """
     Строит список пунктов меню для popup.
@@ -105,6 +119,8 @@ def build_menu_items(callbacks, stop_fn, logger_name='flowlink.tray'):
             stop: Callable — остановка сервера.
             autostart_getter: Callable → bool — чтение настройки.
             autostart_setter: Callable(bool) — запись настройки.
+            system_autostart_getter: Callable → bool — чтение системного автозапуска.
+            system_autostart_setter: Callable(bool) — запись системного автозапуска.
             log_dir_getter: Callable → str — путь к папке логов.
             data_dir_getter: Callable → str — путь к папке данных.
             clear_logs: Callable — очистка логов.
@@ -118,6 +134,7 @@ def build_menu_items(callbacks, stop_fn, logger_name='flowlink.tray'):
     """
     log = logging.getLogger(logger_name)
     autostart_enabled = get_autostart_state(callbacks, logger_name)
+    system_autostart_enabled = _get_system_autostart_state(callbacks, logger_name)
 
     def _safe_open_folder(path, label):
         """Безопасно открывает папку в файловом менеджере."""
@@ -177,6 +194,20 @@ def build_menu_items(callbacks, stop_fn, logger_name='flowlink.tray'):
                     'Tray: ошибка записи autostart: %s', exc,
                 )
 
+    def _toggle_system_autostart():
+        new_val = not system_autostart_enabled
+        log.info(
+            'Tray: автозапуск с системой → %s',
+            'включён' if new_val else 'выключен',
+        )
+        if callbacks.get('system_autostart_setter'):
+            try:
+                callbacks['system_autostart_setter'](new_val)
+            except OSError as exc:
+                log.error(
+                    'Tray: ошибка записи system_autostart: %s', exc,
+                )
+
     def _exit():
         log.info('Tray: выбран Выход')
         stop_fn()
@@ -207,6 +238,13 @@ def build_menu_items(callbacks, stop_fn, logger_name='flowlink.tray'):
             'icon': '\U0001f310',
             'checked': autostart_enabled,
             'command': _toggle_autostart,
+        },
+        {
+            'type': 'check',
+            'text': 'Запуск с системой',
+            'icon': '\U0001f50a',
+            'checked': system_autostart_enabled,
+            'command': _toggle_system_autostart,
         },
         {'type': 'separator'},
         {

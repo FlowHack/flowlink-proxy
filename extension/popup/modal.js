@@ -34,8 +34,9 @@ export function attachModalOverlayClose() {
         // Сброс selectedProxyId при закрытии modal-masks
         const masksModal = document.getElementById('modal-masks');
         if (masksModal && !masksModal.classList.contains('hidden')) {
-          const state = window.__FLOWLINK_STATE;
-          if (state) state.selectedProxyId = null;
+          if (window.__flowlinkResetSelectedProxy) {
+            window.__flowlinkResetSelectedProxy();
+          }
         }
         closeModal();
       }

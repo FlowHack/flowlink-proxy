@@ -78,7 +78,8 @@ def start_tray(callbacks, no_tkinter=False):
 def _start_win32_tray(callbacks):
     """Запуск трей через Win32 ctypes на Windows."""
     try:
-        from server.tray.win32 import Win32Tray
+        # Ленивый импорт: платформо-зависимый бэкенд
+        from server.tray.win32 import Win32Tray  # pylint: disable=import-outside-toplevel
     except ImportError:
         logger.error('Win32: модуль win32.py не найден')
         return None
@@ -95,7 +96,8 @@ def _start_win32_tray(callbacks):
 def _start_linux_tray(callbacks):
     """Запуск трей через pystray на Linux."""
     try:
-        from server.tray.linux import LinuxTray
+        # Ленивый импорт: платформо-зависимый бэкенд
+        from server.tray.linux import LinuxTray  # pylint: disable=import-outside-toplevel
     except ImportError:
         logger.error(
             'Linux: модуль linux.py не найден или '
@@ -115,7 +117,8 @@ def _start_linux_tray(callbacks):
 def _start_macos_tray(callbacks):
     """Запуск трей через pystray на macOS."""
     try:
-        from server.tray.macos import MacosTray
+        # Ленивый импорт: платформо-зависимый бэкенд
+        from server.tray.macos import MacosTray  # pylint: disable=import-outside-toplevel
     except ImportError:
         logger.error(
             'macOS: модуль macos.py не найден или '
@@ -135,7 +138,8 @@ def _start_macos_tray(callbacks):
 def _start_pystray_fallback(callbacks):
     """Запуск pystray с нативным меню (без tkinter)."""
     try:
-        from server.tray.fallback import start_pystray_fallback
+        # Ленивый импорт: pystray может быть не установлен
+        from server.tray.fallback import start_pystray_fallback  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error('Fallback: модуль fallback.py не найден: %s', e)
         return None

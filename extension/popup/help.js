@@ -190,6 +190,15 @@ const HELP_TEXTS = {
     </ol>
     ${_EMAIL_FOOTER}
   `,
+  license: `
+    <h3>Лицензия</h3>
+    <p>FlowLink Proxy распространяется под лицензией <strong>GNU AGPL v3</strong>.</p>
+    <p>При использовании вы соглашаетесь с условиями
+      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">EULA.rtf</a> и
+      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">LICENSE.txt</a>.
+    </p>
+    ${_EMAIL_FOOTER}
+  `,
   autostartHelp: `
     <h3>Скрипты запуска не найдены</h3>
     <p>Расширение не нашло файлы запуска (<code>FlowLink Proxy.bat</code>, <code>FlowLink Proxy.sh</code> или <code>FlowLink Proxy Source.sh</code>) рядом с бэкендом.</p>

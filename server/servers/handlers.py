@@ -8,7 +8,9 @@
 import logging
 
 from server.config import autostart
+from server.config import browser_config
 from server.config import config as cfg
+from server.config import system_autostart
 from server.services.debug import log_config_state
 from server.services.events import emit_event
 from server.services.ping import ping_proxy
@@ -22,28 +24,12 @@ logger = logging.getLogger('flowlink.api')
 
 
 def _extract_proxies_dict(data: dict) -> dict:
-    """
-    Извлекает словарь прокси из данных конфигурации.
-
-    Args:
-        data: словарь с ключом 'proxies' (список прокси).
-
-    Returns:
-        Словарь {proxyId: proxy_dict} без proxyId равных None.
-    """
+    """Извлекает словарь прокси из данных конфигурации."""
     return {p['proxyId']: p for p in data.get('proxies', []) if p.get('proxyId')}
 
 
 def _extract_masks_dict(data: dict) -> dict:
-    """
-    Извлекает словарь масок из данных конфигурации.
-
-    Args:
-        data: словарь с ключом 'masks' (список масок).
-
-    Returns:
-        Словарь {maskId: mask_dict} без maskId равных None.
-    """
+    """Извлекает словарь масок из данных конфигурации."""
     return {m['maskId']: m for m in data.get('masks', []) if m.get('maskId')}
 
 
@@ -54,8 +40,7 @@ def _close_tunnels_on_config_change(
     """
     Закрывает туннели при изменении статуса или адреса прокси.
 
-    Возвращает True, если нужен полный сброс всех соединений
-    (хотя бы один прокси был включён).
+    Возвращает True, если нужен полный сброс всех соединений.
     """
     needs_full_flush = False
     for pid, old_p in old_proxies.items():
@@ -106,14 +91,17 @@ def _log_config_changes(
 
 
 def handle_get_config() -> dict:
-    """GET /api/config — возвращает текущую конфигурацию (с isEnabled из памяти)."""
+    """GET /api/config — возвращает текущую конфигурацию."""
     try:
         data = cfg.load_config()
         data['isEnabled'] = cfg.is_enabled()
         return data
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка загрузки конфига: %s', e)
-        return {'error': 'Не удалось загрузить конфигурацию', 'isEnabled': cfg.is_enabled()}
+        return {
+            'error': 'Не удалось загрузить конфигурацию',
+            'isEnabled': cfg.is_enabled(),
+        }
 
 
 async def handle_post_config(data: dict, router: MaskRouter) -> dict:
@@ -131,8 +119,6 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict:
         new_proxies = _extract_proxies_dict(data)
         new_masks = _extract_masks_dict(data)
 
-        # Закрываем туннели при любом изменении конфига (прокси или маски)
-        # чтобы Chrome переподключился с актуальной маршрутизацией
         needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies)
         if needs_full_flush or old_masks != new_masks:
             close_all_connections()
@@ -187,7 +173,9 @@ async def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
         cfg.set_enabled(enabled)
         router.refresh()
         if enabled:
-            logger.info('Глобальное включение: закрытие всех соединений для перемаршрутизации')
+            logger.info(
+                'Глобальное включение: закрытие всех соединений для перемаршрутизации',
+            )
             close_all_connections()
         else:
             logger.info('Глобальное выключение: закрытие всех прокси-туннелей')
@@ -196,17 +184,23 @@ async def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
         return {'success': True, 'enabled': cfg.is_enabled()}
     except (OSError, RuntimeError, ValueError) as e:
         logger.error('Ошибка переключения состояния: %s', e)
-        return {'error': 'Не удалось переключить состояние', 'enabled': cfg.is_enabled()}
+        return {
+            'error': 'Не удалось переключить состояние',
+            'enabled': cfg.is_enabled(),
+        }
 
 
 async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
     """POST /api/ping — пингует прокси."""
     if not proxy_id:
         logger.warning('API: POST /api/ping без proxyId от %s', peername)
-        return {'error': 'proxyId required'}, 400
+        return {'error': 'Требуется proxyId'}, 400
 
     result = await ping_proxy(proxy_id)
-    proxy = next((p for p in cfg.get_all_proxies() if p.get('proxyId') == proxy_id), None)
+    proxy = next(
+        (p for p in cfg.get_all_proxies() if p.get('proxyId') == proxy_id),
+        None,
+    )
     if proxy:
         addr = f"{proxy.get('host', '?')}:{proxy.get('port', '?')}"
     else:
@@ -223,34 +217,25 @@ async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
     return result, 200
 
 
-def handle_get_autostart_browser() -> dict:
-    """
-    GET /api/autostart-browser — возвращает настройку автозапуска браузера.
+# --- Эндпоинты автозапуска браузера ---
 
-    Ответ содержит:
-      - autostartBrowser (bool): текущее значение настройки.
-      - launchScriptsFound (bool): найден ли хотя бы один скрипт запуска.
-      - launchScripts (dict): найденные скрипты по именам и путям.
-    """
+
+def handle_get_autostart_browser() -> dict:
+    """GET /api/autostart-browser — настройка автозапуска браузера."""
     try:
-        return autostart.get_autostart_status()
-    except (OSError, RuntimeError) as e:
-        logger.error('Ошибка чтения настройки autostart_browser: %s', e)
         return {
             'autostartBrowser': autostart.get_autostart_browser(),
-            'launchScriptsFound': False,
-            'launchScripts': {},
-            'error': 'Не удалось проверить статус скриптов запуска',
+        }
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка чтения autostart_browser: %s', e)
+        return {
+            'autostartBrowser': autostart.get_autostart_browser(),
+            'error': 'Не удалось прочитать настройку',
         }
 
 
 async def handle_post_autostart_browser(data: dict) -> dict:
-    """
-    POST /api/autostart-browser — обновляет настройку автозапуска браузера.
-
-    Тело запроса: {"autostartBrowser": true/false}
-    Эмитит SSE-событие autostart_browser_changed.
-    """
+    """POST /api/autostart-browser — обновляет настройку автозапуска браузера."""
     try:
         if not isinstance(data, dict) or 'autostartBrowser' not in data:
             raise ValueError('Требуется поле "autostartBrowser" (true/false)')
@@ -267,7 +252,7 @@ async def handle_post_autostart_browser(data: dict) -> dict:
         logger.error('Ошибка сохранения autostart_browser: %s', e)
         return {
             'error': 'Не удалось сохранить настройку. '
-                     'Проверьте права на запись в директорию данных. '
+                     'Проверьте права на запись. '
                      'Если проблема повторяется, обратитесь в поддержку: '
                      'flowlink.proxy@atomicmail.io',
             'autostartBrowser': autostart.get_autostart_browser(),
@@ -277,4 +262,152 @@ async def handle_post_autostart_browser(data: dict) -> dict:
         return {
             'error': str(e),
             'autostartBrowser': autostart.get_autostart_browser(),
+        }
+
+
+# --- Эндпоинты системного автозапуска ---
+
+
+def handle_get_system_autostart() -> dict:
+    """GET /api/system-autostart — информация о системном автозапуске."""
+    try:
+        return system_autostart.get_system_autostart_info()
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка чтения system_autostart: %s', e)
+        return {
+            'enabled': False,
+            'platform': 'unknown',
+            'method': 'unknown',
+            'path': '',
+            'error': 'Не удалось прочитать статус автозапуска',
+        }
+
+
+async def handle_post_system_autostart(data: dict) -> dict:
+    """POST /api/system-autostart — включает/отключает автозапуск с системой."""
+    try:
+        if not isinstance(data, dict) or 'enabled' not in data:
+            raise ValueError('Требуется поле "enabled" (true/false)')
+        value = bool(data['enabled'])
+        result = system_autostart.set_system_autostart_enabled(value)
+        if not result:
+            return {
+                'error': 'Не удалось изменить настройку автозапуска системы',
+                'enabled': system_autostart.is_system_autostart_enabled(),
+            }
+        await emit_event('system_autostart_changed', {
+            'enabled': value,
+        })
+        return {
+            'success': True,
+            'enabled': value,
+        }
+    except (ValueError, TypeError) as e:
+        logger.warning('Неверный запрос system_autostart: %s', e)
+        return {
+            'error': str(e),
+            'enabled': system_autostart.is_system_autostart_enabled(),
+        }
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка записи system_autostart: %s', e)
+        return {
+            'error': 'Не удалось изменить настройку автозапуска',
+            'enabled': system_autostart.is_system_autostart_enabled(),
+        }
+
+
+# --- Эндпоинты браузера ---
+
+
+def handle_post_validate_browser(data: dict) -> tuple[dict, int]:
+    """POST /api/validate-browser — валидирует путь к браузеру без сохранения."""
+    try:
+        if not isinstance(data, dict) or 'browserPath' not in data:
+            return {'error': 'Требуется поле "browserPath"'}, 400
+        path = str(data['browserPath']).strip()
+        result = browser_config.validate_browser_path_detailed(path)
+        return result, 200
+    except (ValueError, TypeError) as e:
+        logger.warning('Неверный запрос validate-browser: %s', e)
+        return {'error': str(e)}, 400
+
+
+def handle_get_browser_path() -> dict:
+    """GET /api/browser-path — текущий путь к браузеру."""
+    try:
+        return {
+            'browserPath': browser_config.get_browser_path(),
+        }
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка чтения browser_path: %s', e)
+        return {
+            'browserPath': '',
+            'error': 'Не удалось прочитать путь браузера',
+        }
+
+
+async def handle_post_browser_path(data: dict) -> tuple[dict, int]:
+    """POST /api/browser-path — сохраняет путь к браузеру (с валидацией)."""
+    try:
+        if not isinstance(data, dict) or 'browserPath' not in data:
+            raise ValueError('Требуется поле "browserPath"')
+        path = str(data['browserPath']).strip()
+
+        # Расширенная валидация перед сохранением
+        validation = browser_config.validate_browser_path_detailed(path)
+        if not validation['valid']:
+            logger.warning('Невалидный путь к браузеру: %s — %s', path, validation['error'])
+            return {
+                'error': validation['error'],
+                'browserPath': browser_config.get_browser_path(),
+                'validationFailed': True,
+            }, 422
+
+        browser_config.save_browser_path(path)
+        await emit_event('browser_config_changed', {
+            'browserPath': path,
+        })
+        return {
+            'success': True,
+            'browserPath': path,
+        }, 200
+    except (ValueError, TypeError) as e:
+        logger.warning('Неверный запрос browser_path: %s', e)
+        return {
+            'error': str(e),
+            'browserPath': browser_config.get_browser_path(),
+        }, 400
+    except OSError as e:
+        logger.error('Ошибка записи browser_path: %s', e)
+        return {
+            'error': 'Не удалось сохранить путь браузера',
+            'browserPath': browser_config.get_browser_path(),
+        }, 500
+
+
+def handle_get_detected_browsers() -> dict:
+    """GET /api/detected-browsers — список обнаруженных браузеров."""
+    try:
+        browsers = browser_config.auto_detect_browsers()
+        return {'browsers': browsers}
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка автопоиска браузеров: %s', e)
+        return {'browsers': [], 'error': 'Ошибка автопоиска'}
+
+
+def handle_get_browser_config() -> dict:
+    """GET /api/browser-config — полная конфигурация браузера."""
+    try:
+        config = browser_config.get_browser_config()
+        detected = browser_config.auto_detect_browsers()
+        config['detectedBrowsers'] = detected
+        return config
+    except (OSError, RuntimeError) as e:
+        logger.error('Ошибка чтения browser_config: %s', e)
+        return {
+            'browserPath': '',
+            'autostartBrowser': True,
+            'parallelLaunch': False,
+            'detectedBrowsers': [],
+            'error': 'Не удалось прочитать конфигурацию браузера',
         }

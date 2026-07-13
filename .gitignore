@@ -43,9 +43,20 @@ config.local.json
 
 # --- PyInstaller / сборка standalone ---
 server/work/
+server/dist/
 server/FlowLink Proxy/
 build-tmp/
 *.spec
+
+# --- Сборка релизов ---
+releases/
+scripts/installer/Output/
+
+# --- Сборка пакетов ---
+*.deb
+*.rpm
+*.pkg
+*.tar.gz
 
 # --- Покрытие тестов ---
 .coverage

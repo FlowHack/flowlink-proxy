@@ -26,6 +26,8 @@ import signal
 import sys
 
 from server.config import config as cfg
+from server.config import system_autostart as _system_autostart
+from server.config import browser_config as _browser_config
 from server.logging_config import setup_logging
 from server.protocols.mock_socks5 import MockSocks5Server
 from server.servers.api import ApiServer
@@ -88,7 +90,7 @@ async def _file_watcher(root: str, poll_interval: float = 1.0) -> None:
                 os._exit(0)
 
 
-def _start_tray_icon(
+def _start_tray_icon(  # pylint: disable=too-many-locals
     loop: asyncio.AbstractEventLoop,
     stop_event: asyncio.Event,
     args: argparse.Namespace,
@@ -119,6 +121,12 @@ def _start_tray_icon(
     def _autostart_setter(value):
         _autostart.set_autostart_browser(value)
 
+    def _system_autostart_getter():
+        return _system_autostart.is_system_autostart_enabled()
+
+    def _system_autostart_setter(value):
+        _system_autostart.set_system_autostart_enabled(value)
+
     def _log_dir_getter():
         return logs_dir
 
@@ -136,6 +144,8 @@ def _start_tray_icon(
             'stop': _on_stop,
             'autostart_getter': _autostart_getter,
             'autostart_setter': _autostart_setter,
+            'system_autostart_getter': _system_autostart_getter,
+            'system_autostart_setter': _system_autostart_setter,
             'log_dir_getter': _log_dir_getter,
             'data_dir_getter': _data_dir_getter,
             'clear_logs': _clear_logs,
@@ -279,6 +289,10 @@ async def main():
         '--no-tkinter', action='store_true',
         help='Принудительно отключить tkinter popup (fallback на pystray)',
     )
+    parser.add_argument(
+        '--browser-path', type=str, default=None, metavar='PATH',
+        help='Путь к браузеру для автозапуска (сохраняется в .flowlink-settings)',
+    )
     args = parser.parse_args()
 
     if args.dev:
@@ -288,6 +302,10 @@ async def main():
 
     if args.count_proxy > 0 and not args.debug:
         parser.error('--count-proxy требует флага --debug (или --dev)')
+
+    if args.browser_path:
+        _browser_config.save_browser_path(args.browser_path)
+        logger.info('Путь к браузеру сохранён: %s', args.browser_path)
 
     setup_logging(args.debug)
     logger.info('FlowLink Proxy v%s запуск...', __version__)
@@ -315,7 +333,8 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # Последний рубеж: логируем и корректно завершаем процесс
         logger = logging.getLogger('flowlink')
         logger.critical(
             'Критическая ошибка: %s. Если проблема повторяется, '

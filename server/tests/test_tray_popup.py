@@ -132,24 +132,28 @@ class TestFlowLinkPopupInit(unittest.TestCase):
     def test_initial_root_none(self):
         """При создании _root = None."""
         popup = FlowLinkPopup()
-        self.assertIsNone(popup._root)
+        # _root — internal tkinter: проверка начального состояния
+        self.assertIsNone(popup._root)  # pylint: disable=protected-access
 
     def test_initial_popup_none(self):
         """При создании _popup = None."""
         popup = FlowLinkPopup()
-        self.assertIsNone(popup._popup)
+        # _popup — internal tkinter: проверка начального состояния
+        self.assertIsNone(popup._popup)  # pylint: disable=protected-access
 
     def test_set_tk_root(self):
         """set_tk_root устанавливает _root."""
         popup = FlowLinkPopup()
         sentinel = object()
         popup.set_tk_root(sentinel)
-        self.assertIs(popup._root, sentinel)
+        # _root — internal tkinter: проверка что set_tk_root работает
+        self.assertIs(popup._root, sentinel)  # pylint: disable=protected-access
 
     def test_queue_created(self):
         """При создании создаётся очередь."""
         popup = FlowLinkPopup()
-        self.assertIsNotNone(popup._queue)
+        # _queue — internal tkinter: проверка что очередь создана
+        self.assertIsNotNone(popup._queue)  # pylint: disable=protected-access
 
     def test_dismiss_when_no_popup(self):
         """dismiss() на пустом popup не бросает исключение."""
@@ -160,7 +164,8 @@ class TestFlowLinkPopupInit(unittest.TestCase):
     def test_polling_active_initially_false(self):
         """_polling_active = False при создании."""
         popup = FlowLinkPopup()
-        self.assertFalse(popup._polling_active)
+        # _polling_active — internal tkinter: проверка начального состояния
+        self.assertFalse(popup._polling_active)  # pylint: disable=protected-access
 
 
 if __name__ == '__main__':

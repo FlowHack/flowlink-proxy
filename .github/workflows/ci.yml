@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Установка зависимостей
+        run: |
+          pip install --upgrade pip
+          pip install -r server/requirements.txt pylint pytest
+
+      - name: Pylint
+        run: python -m pylint server/
+
+      - name: Pytest
+        run: python -m pytest server/ -q

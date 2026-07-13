@@ -61,3 +61,24 @@ export async function apiPost(endpoint, body) {
     throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
   }
 }
+
+/**
+ * POST-запрос к API с возвратом HTTP-кода.
+ * Используется для обработки 422 (валидация).
+ * @param {string} endpoint — путь вида '/validate-browser'.
+ * @param {object} body — тело запроса.
+ * @returns {Promise<{status: number, data: object}>} — код + тело.
+ */
+export async function apiPostRaw(endpoint, body) {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  try {
+    const data = await res.json();
+    return { status: res.status, data };
+  } catch {
+    return { status: res.status, data: {} };
+  }
+}

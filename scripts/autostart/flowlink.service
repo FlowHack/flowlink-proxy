@@ -1,0 +1,12 @@
+[Unit]
+Description=FlowLink Proxy — шлюз для маршрутизации трафика
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/flowlink-proxy
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
