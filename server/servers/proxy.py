@@ -142,6 +142,7 @@ class ProxyServer(BaseServer):
             return
 
         _, host, port, path, relative_line = parsed
+        await validate_target(host, port)
         full_url = f'http://{host}:{port}{path}'
         proxy = self._router.route(full_url)
 
