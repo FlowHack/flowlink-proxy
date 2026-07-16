@@ -147,6 +147,8 @@ flowlink-proxy/
 │   │   ├── platform.py        # Определение ОС и возможностей
 │   │   ├── popup.py           # Tkinter безрамочное меню (тёмная тема)
 │   │   ├── menu.py            # Общая логика построения меню
+│   │   ├── fallback.py        # pystray fallback (нестандартные ОС)
+│   │   ├── pystray_base.py    # Базовый класс pystray-трея
 │   │   ├── win32.py           # Win32 Tray (ctypes)
 │   │   ├── linux.py           # Linux Tray (pystray + tkinter)
 │   │   └── macos.py           # macOS Tray (pystray + tkinter)
@@ -165,11 +167,12 @@ flowlink-proxy/
 │   │   └── mock_socks5.py     # Тестовый SOCKS5-сервер (--dev)
 │   ├── services/
 │   │   ├── router.py          # Маршрутизация URL по маскам
-│   │   ├── tunnel.py          # Установка туннелей (SOCKS5 / прямой)
+│   │   ├── tunnel.py          # Установка туннелей (SOCKS5 / прямой) + SSRF-защита
 │   │   ├── pipe.py            # Двусторонняя пересылка данных
 │   │   ├── ping.py            # Пинг прокси (SOCKS5 handshake)
 │   │   ├── debug.py           # Debug-утилиты
-│   │   └── events.py          # SSE-шина событий
+│   │   ├── events.py          # SSE-шина событий
+│   │   └── fake_proxies.py    # Генерация тестовых прокси (--count-proxy)
 │   ├── servers/
 │   │   ├── base_server.py     # ABC BaseServer
 │   │   ├── proxy.py           # HTTP CONNECT прокси (порт 8080)
@@ -179,6 +182,8 @@ flowlink-proxy/
 │   ├── icons/                 # Иконки бэкенда (icon.ico, icon.png)
 │   ├── requirements.txt       # Зависимости Python
 │   └── tests/                 # Юнит-тесты
+│       ├── base.py            # Базовые миксины (TempConfigMixin)
+│       ├── conftest.py        # Общие вспомогательные функции
 │       ├── test_config.py
 │       ├── test_crypto.py
 │       ├── test_handlers.py
@@ -186,7 +191,15 @@ flowlink-proxy/
 │       ├── test_proxy.py
 │       ├── test_router.py
 │       ├── test_socks5.py
-│       └── test_utils.py
+│       ├── test_tunnel.py     # SSRF-защита validate_target()
+│       ├── test_utils.py
+│       ├── test_autostart.py
+│       ├── test_browser_config.py
+│       ├── test_fake_proxies.py
+│       ├── test_system_autostart.py
+│       ├── test_tray_menu.py
+│       ├── test_tray_platform.py
+│       └── test_tray_popup.py
 │
 ├── extension/                 # Chrome-расширение (Manifest V3)
 │   ├── manifest.json          # Манифест расширения
@@ -204,12 +217,13 @@ flowlink-proxy/
 │   │   ├── tab-status.js      # Статус текущей вкладки
 │   │   ├── modal.js           # Модальные окна
 │   │   ├── help.js            # Окно помощи
+│   │   ├── help.html          # Статическая справка (открывается из tkinter-диалога)
 │   │   └── updater.js         # Проверка обновлений
 │   ├── shared/
 │   │   ├── api.js             # HTTP GET/POST хелперы (apiGet, apiPost, apiPostRaw)
 │   │   ├── constants.js       # API_BASE, GitHub URLs
 │   │   ├── dom.js             # escapeHtml, утилиты DOM
-│   │   ├── utils.js           # Валидация IP/port, wildcard→regex
+│   │   ├── utils.js           # Валидация IP/port, wildcard→regex, copyEmailToClipboard
 │   │   └── port_discovery.js  # Автообнаружение порта API
 │   └── icons/                 # Иконки расширения
 │
@@ -272,6 +286,28 @@ flowlink-proxy/
 - **macOS:** Intel или Apple Silicon (standalone-бинарник или `.pkg`)
 - **Исходный код:** Python 3.10+ и tkinter (см. [SETUP.md](SETUP.md#исходный-код-python))
 - **Браузер:** Chrome, Yandex Browser, Opera, Edge (Chromium)
+
+---
+
+## Удаление
+
+| Способ установки | Команда / действие |
+|------------------|--------------------|
+| **Windows (установщик)** | «Установка и удаление программ» → FlowLink Proxy → «Удалить» |
+| **Windows (standalone)** | Удалите папку с `FlowLink Proxy.exe` вручную |
+| **Linux (.deb)** | `sudo dpkg -r flowlink-proxy` |
+| **Linux (.rpm)** | `sudo rpm -e flowlink-proxy` |
+| **Linux (.tar.gz)** | Удалите папку с бинарником и лаунчером |
+| **macOS (.pkg)** | `sudo rm /usr/local/bin/flowlink-proxy && sudo rm -rf /usr/local/share/flowlink-proxy && rm ~/Library/LaunchAgents/com.flowlink.proxy.plist` |
+| **macOS (.tar.gz)** | Удалите папку с бинарником и лаунчером |
+| **Исходники** | Удалите `venv/` и папку данных (см. [SETUP.md](SETUP.md)) |
+
+Директория данных содержит зашифрованные пароли прокси. Удалите её отдельно, если нужно полностью очистить FlowLink Proxy:
+
+| ОС | Путь |
+|---|---|
+| Linux / macOS | `~/.flowlink-proxy/` |
+| Windows | `%APPDATA%\FlowLink Proxy\` |
 
 ---
 
