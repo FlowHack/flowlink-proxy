@@ -22,34 +22,34 @@ class TestPopupColors(unittest.TestCase):
 
     def test_bg_is_dark(self):
         """Фон — тёмный цвет."""
-        self.assertTrue(PopupColors.BG.startswith('#'))
+        self.assertTrue(PopupColors.BG.startswith('#'))  # type: ignore[reportPossiblyUnbound]
         # Тёмный фон: каналы < 0x20
-        r = int(PopupColors.BG[1:3], 16)
-        g = int(PopupColors.BG[3:5], 16)
-        b = int(PopupColors.BG[5:7], 16)
+        r = int(PopupColors.BG[1:3], 16)  # type: ignore[reportPossiblyUnbound]
+        g = int(PopupColors.BG[3:5], 16)  # type: ignore[reportPossiblyUnbound]
+        b = int(PopupColors.BG[5:7], 16)  # type: ignore[reportPossiblyUnbound]
         self.assertLess(r, 0x20)
         self.assertLess(g, 0x20)
         self.assertLess(b, 0x20)
 
     def test_text_is_light(self):
         """Текст — светлый цвет на тёмном фоне."""
-        r = int(PopupColors.TEXT[1:3], 16)
+        r = int(PopupColors.TEXT[1:3], 16)  # type: ignore[reportPossiblyUnbound]
         self.assertGreater(r, 0xC0)
 
     def test_green_for_checkmark(self):
         """Зелёный для галочки чекбокса."""
-        self.assertEqual(PopupColors.GREEN, '#2ecc71')
+        self.assertEqual(PopupColors.GREEN, '#2ecc71')  # type: ignore[reportPossiblyUnbound]
 
     def test_accent_is_red(self):
         """Accent — красный (как в расширении)."""
-        self.assertEqual(PopupColors.ACCENT, '#e74c3c')
+        self.assertEqual(PopupColors.ACCENT, '#e74c3c')  # type: ignore[reportPossiblyUnbound]
 
     def test_all_colors_are_hex(self):
         """Все цвета — валидные hex-строки."""
-        for attr in dir(PopupColors):
+        for attr in dir(PopupColors):  # type: ignore[reportPossiblyUnbound]
             if attr.startswith('_'):
                 continue
-            val = getattr(PopupColors, attr)
+            val = getattr(PopupColors, attr)  # type: ignore[reportPossiblyUnbound]
             if isinstance(val, str):
                 self.assertTrue(
                     val.startswith('#'),
@@ -67,13 +67,13 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
 
     def test_empty_list(self):
         """Пустой список — минимальная высота 40."""
-        result = FlowLinkPopup.calc_height([])
+        result = FlowLinkPopup.calc_height([])  # type: ignore[reportPossiblyUnbound]
         self.assertEqual(result, 40)
 
     def test_single_item(self):
         """Один пункт: 8 (padding) + 32 (item) + 8 (padding) = 48."""
         items = [{'type': 'item', 'text': 'Test'}]
-        result = FlowLinkPopup.calc_height(items)
+        result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
         self.assertEqual(result, 48)
 
     def test_two_items(self):
@@ -82,7 +82,7 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
             {'type': 'item', 'text': 'First'},
             {'type': 'item', 'text': 'Second'},
         ]
-        result = FlowLinkPopup.calc_height(items)
+        result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
         self.assertEqual(result, 80)
 
     def test_separator_height(self):
@@ -91,7 +91,7 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
             {'type': 'separator'},
             {'type': 'item', 'text': 'Test'},
         ]
-        result = FlowLinkPopup.calc_height(items)
+        result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
         self.assertEqual(result, 58)
 
     def test_menu_7_items_2_separators(self):
@@ -107,13 +107,13 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
             {'type': 'item', 'text': '6'},
         ]
         # 8 + 32*6 + 10*2 + 8 = 228
-        result = FlowLinkPopup.calc_height(items)
+        result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
         self.assertEqual(result, 228)
 
     def test_unknown_type_treated_as_item(self):
         """Неизвестный тип обрабатывается как пункт."""
         items = [{'type': 'unknown', 'text': 'Test'}]
-        result = FlowLinkPopup.calc_height(items)
+        result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
         # Высота как для обычного item
         self.assertEqual(result, 48)
 
@@ -121,7 +121,7 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
         """Минимальная высота — 40, даже если calculation меньше."""
         # Теоретически не может быть < 40 при реальных данных,
         # но проверяем guard в коде
-        result = FlowLinkPopup.calc_height([])
+        result = FlowLinkPopup.calc_height([])  # type: ignore[reportPossiblyUnbound]
         self.assertGreaterEqual(result, 40)
 
 
@@ -131,39 +131,39 @@ class TestFlowLinkPopupInit(unittest.TestCase):
 
     def test_initial_root_none(self):
         """При создании _root = None."""
-        popup = FlowLinkPopup()
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         # _root — internal tkinter: проверка начального состояния
         self.assertIsNone(popup._root)  # pylint: disable=protected-access
 
     def test_initial_popup_none(self):
         """При создании _popup = None."""
-        popup = FlowLinkPopup()
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         # _popup — internal tkinter: проверка начального состояния
         self.assertIsNone(popup._popup)  # pylint: disable=protected-access
 
     def test_set_tk_root(self):
         """set_tk_root устанавливает _root."""
-        popup = FlowLinkPopup()
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         sentinel = object()
-        popup.set_tk_root(sentinel)
+        popup.set_tk_root(sentinel)  # type: ignore[reportArgumentType]  # тест проверяет что set_tk_root принимает любой объект
         # _root — internal tkinter: проверка что set_tk_root работает
         self.assertIs(popup._root, sentinel)  # pylint: disable=protected-access
 
     def test_queue_created(self):
         """При создании создаётся очередь."""
-        popup = FlowLinkPopup()
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         # _queue — internal tkinter: проверка что очередь создана
         self.assertIsNotNone(popup._queue)  # pylint: disable=protected-access
 
     def test_dismiss_when_no_popup(self):
         """dismiss() на пустом popup не бросает исключение."""
-        popup = FlowLinkPopup()
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         # Не должен бросить исключение
         popup.dismiss()
 
     def test_polling_active_initially_false(self):
         """_polling_active = False при создании."""
-        popup = FlowLinkPopup()
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         # _polling_active — internal tkinter: проверка начального состояния
         self.assertFalse(popup._polling_active)  # pylint: disable=protected-access
 

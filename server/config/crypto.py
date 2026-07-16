@@ -153,6 +153,7 @@ def encrypt(plaintext: str) -> str:
         return ''
 
     _check_crypto()
+    assert AESGCM is not None
     # Если соли нет — генерируем и сохраняем (для новых установок)
     if not os.path.exists(SALT_FILE):
         _save_salt(os.urandom(32))
@@ -182,6 +183,7 @@ def decrypt(ciphertext_b64: str) -> str:
         return ''
 
     _check_crypto()
+    assert AESGCM is not None
     try:
         master_key = load_or_create_key()
         aes_key = _derive_key(master_key)

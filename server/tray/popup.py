@@ -240,7 +240,7 @@ class FlowLinkPopup:
 
         # Автозакрытие при потере фокуса
         try:
-            self._popup.bind('<FocusOut>', lambda _e: self.dismiss())
+            self._popup.bind('<FocusOut>', lambda _e: self.dismiss())  # type: ignore[reportArgumentType]
             self._popup.after(50, self._popup.grab_set)
         except tk.TclError as e:
             logger.warning(
@@ -273,7 +273,7 @@ class FlowLinkPopup:
 
         try:
             # Верхний padding
-            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')
+            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')  # type: ignore[reportCallIssue]
 
             for item in items:
                 item_type = item.get('type', 'item')
@@ -298,7 +298,7 @@ class FlowLinkPopup:
                     self._add_header(item.get('text', ''))
 
             # Нижний padding
-            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')
+            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')  # type: ignore[reportCallIssue]
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter при построении: %s', e,
@@ -318,14 +318,14 @@ class FlowLinkPopup:
             font=('Segoe UI', 11, 'bold'),
             anchor='w',
             padx=12,
-            pady=(4, 2),
+            pady=(4, 2),  # type: ignore[reportArgumentType]
         )
         lbl.pack(fill='x')
 
     def _add_menu_item(self, text: str, icon: str = '', command: Optional[Callable[[], None]] = None, color: Optional[str] = None) -> None:
         """Добавляет пункт меню."""
         try:
-            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')
+            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')  # type: ignore[reportCallIssue]
             frame.pack(fill='x', padx=4)
 
             # Иконка
@@ -356,12 +356,12 @@ class FlowLinkPopup:
             # Hover + клик
             def on_enter(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.SURFACE_HOVER)
-                fr.configure(bg=PopupColors.SURFACE_HOVER)
+                    child.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
+                fr.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
 
             def on_leave(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.BG)
+                    child.configure(bg=PopupColors.BG)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
                 fr.configure(bg=PopupColors.BG)
 
             def on_click(_event: tk.Event[tk.Tk], cmd: Optional[Callable[[], None]] = command) -> None:
@@ -370,9 +370,9 @@ class FlowLinkPopup:
                 self.dismiss()
 
             for widget in [frame] + frame.winfo_children():
-                widget.bind('<Enter>', on_enter)
-                widget.bind('<Leave>', on_leave)
-                widget.bind('<Button-1>', on_click)
+                widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
+                widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
+                widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_menu_item: %s', e,
@@ -385,7 +385,7 @@ class FlowLinkPopup:
     def _add_check_item(self, text: str, icon: str = '', checked: bool = False, command: Optional[Callable[[], None]] = None) -> None:
         """Добавляет пункт с чекбоксом."""
         try:
-            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')
+            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')  # type: ignore[reportCallIssue]
             frame.pack(fill='x', padx=4)
 
             # Иконка
@@ -428,12 +428,12 @@ class FlowLinkPopup:
             # Hover + клик
             def on_enter(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.SURFACE_HOVER)
-                fr.configure(bg=PopupColors.SURFACE_HOVER)
+                    child.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
+                fr.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
 
             def on_leave(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.BG)
+                    child.configure(bg=PopupColors.BG)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
                 fr.configure(bg=PopupColors.BG)
 
             def on_click(_event: tk.Event[tk.Tk], cmd: Optional[Callable[[], None]] = command) -> None:
@@ -442,9 +442,9 @@ class FlowLinkPopup:
                 self.dismiss()
 
             for widget in [frame] + frame.winfo_children():
-                widget.bind('<Enter>', on_enter)
-                widget.bind('<Leave>', on_leave)
-                widget.bind('<Button-1>', on_click)
+                widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
+                widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
+                widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_check_item: %s', e,
@@ -457,10 +457,10 @@ class FlowLinkPopup:
     def _add_separator(self) -> None:
         """Добавляет разделитель."""
         try:
-            frame = tk.Frame(self._popup, bg=PopupColors.BG, height=10)
+            frame = tk.Frame(self._popup, bg=PopupColors.BG, height=10)  # type: ignore[reportCallIssue]
             frame.pack(fill='x')
             frame.pack_propagate(False)
-            tk.Frame(frame, bg=PopupColors.BORDER, height=1).pack(
+            tk.Frame(frame, bg=PopupColors.BORDER, height=1).pack(  # type: ignore[reportCallIssue]
                 fill='x', padx=8, pady=4,
             )
         except tk.TclError as e:

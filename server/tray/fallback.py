@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import types
 
 if TYPE_CHECKING:
-    import pystray
+    import pystray  # type: ignore[reportMissingImports]
 
 import logging
 import threading
@@ -166,7 +166,7 @@ def start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[pystray.Icon]:
     """
     try:
         # Ленивый импорт: pystray/Pillow — опциональные зависимости
-        import pystray  # pylint: disable=import-outside-toplevel
+        import pystray  # type: ignore[reportMissingImports]  # pylint: disable=import-outside-toplevel
         from PIL import Image  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error('Fallback: pystray/Pillow не установлены: %s', e)

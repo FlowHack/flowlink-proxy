@@ -54,11 +54,11 @@ NOTIFYICON_VERSION_4 = 4
 TRAY_CALLBACK = WM_APP + 1
 
 # ───── Win32 API ─────
-_user32 = ctypes.windll.user32
-_kernel32 = ctypes.windll.kernel32
-_shell32 = ctypes.windll.shell32
+_user32 = ctypes.windll.user32  # type: ignore[reportAttributeAccessIssue]
+_kernel32 = ctypes.windll.kernel32  # type: ignore[reportAttributeAccessIssue]
+_shell32 = ctypes.windll.shell32  # type: ignore[reportAttributeAccessIssue]
 
-WNDPROC = ctypes.WINFUNCTYPE(
+WNDPROC = ctypes.WINFUNCTYPE(  # type: ignore[reportAttributeAccessIssue]
     ctypes.c_long, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM,
 )
 
@@ -308,7 +308,7 @@ class Win32Tray:
 
         atom = _user32.RegisterClassW(ctypes.byref(wc))
         if not atom:
-            raise ctypes.WinError()
+            raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
 
         hwnd = _user32.CreateWindowExW(
             0, wc.lpszClassName, 'FlowLink Tray',
@@ -319,7 +319,7 @@ class Win32Tray:
             None,
         )
         if not hwnd:
-            raise ctypes.WinError()
+            raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
 
         # Регистрируем WM_TASKBAR_CREATED для пересоздания иконки
         self._taskbar_msg_id = _user32.RegisterWindowMessageW(
@@ -385,7 +385,7 @@ class Win32Tray:
             NIM_ADD, ctypes.byref(nid),
         )
         if not ok:
-            raise ctypes.WinError()
+            raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
 
         nid.uVersion = NOTIFYICON_VERSION_4
         _shell32.Shell_NotifyIconW(
@@ -565,10 +565,10 @@ class Win32Tray:
             if msg == TRAY_CALLBACK:
                 event = lparam & 0xFFFF
                 if event in (WM_RBUTTONUP, WM_LBUTTONDBLCLK):
-                    self._tk_root.after(0, self._show_popup)
+                    self._tk_root.after(0, self._show_popup)  # type: ignore[reportOptionalMemberAccess]
                     return 0
                 if event == WM_LBUTTONUP:
-                    self._tk_root.after(0, self._show_popup)
+                    self._tk_root.after(0, self._show_popup)  # type: ignore[reportOptionalMemberAccess]
                     return 0
             elif msg == WM_DESTROY:
                 if self._shutting_down:

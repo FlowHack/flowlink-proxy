@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Optional
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import pystray
+    import pystray  # type: ignore[reportMissingImports]
 
 import logging
 import threading
@@ -67,7 +67,7 @@ class PystrayTray:
         """Запускает pystray + tkinter в отдельном потоке."""
         try:
             # Ленивый импорт: pystray/Pillow — опциональные зависимости
-            import pystray  # pylint: disable=import-outside-toplevel
+            import pystray  # type: ignore[reportMissingImports]  # pylint: disable=import-outside-toplevel
             from PIL import Image  # pylint: disable=import-outside-toplevel
         except ImportError as e:
             self._logger.error(

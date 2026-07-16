@@ -18,9 +18,9 @@ from server.config import repo as config_repo
 from server.config.repo import load_raw, save_raw
 
 try:
-    from cryptography.exceptions import CryptographyException
+    from cryptography.exceptions import CryptographyException  # type: ignore[reportAttributeAccessIssue]  # cryptography — runtime зависимость
 except ImportError:
-    CryptographyException = Exception
+    CryptographyException = Exception  # type: ignore[misc]  # fallback для сред без cryptography
 
 logger = logging.getLogger('flowlink.config')
 

@@ -14,8 +14,8 @@ class TestProxyRegex(unittest.TestCase):
         """RE_CONNECT совпадает с корректным CONNECT"""
         match = RE_CONNECT.match(b'CONNECT example.com:443 HTTP/1.1\r\n')
         self.assertIsNotNone(match)
-        self.assertEqual(match.group(2).decode(), 'example.com')
-        self.assertEqual(int(match.group(3)), 443)
+        self.assertEqual(match.group(2).decode(), 'example.com')  # type: ignore[reportOptionalMemberAccess]
+        self.assertEqual(int(match.group(3)), 443)  # type: ignore[reportOptionalMemberAccess]
 
     def test_connect_regex_no_port(self):
         """CONNECT без порта → не совпадает (требуется порт)"""
@@ -26,7 +26,7 @@ class TestProxyRegex(unittest.TestCase):
         """CONNECT с IPv4"""
         match = RE_CONNECT.match(b'CONNECT 1.2.3.4:8080 HTTP/1.1\r\n')
         self.assertIsNotNone(match)
-        self.assertEqual(match.group(2).decode(), '1.2.3.4')
+        self.assertEqual(match.group(2).decode(), '1.2.3.4')  # type: ignore[reportOptionalMemberAccess]
 
     def test_connect_regex_lowercase(self):
         """CONNECT lowercase"""
@@ -37,28 +37,28 @@ class TestProxyRegex(unittest.TestCase):
         """CONNECT с не-UTF8 хостом → decode не падает"""
         match = RE_CONNECT.match(b'CONNECT \xff\xfe\x00:443 HTTP/1.1\r\n')
         self.assertIsNotNone(match)
-        host = match.group(2).decode(errors='replace')
+        host = match.group(2).decode(errors='replace')  # type: ignore[reportOptionalMemberAccess]
         self.assertIn('\ufffd', host)
 
     def test_connect_regex_ipv6(self):
         """CONNECT с IPv6"""
         match = RE_CONNECT.match(b'CONNECT [::1]:443 HTTP/1.1\r\n')
         self.assertIsNotNone(match)
-        self.assertEqual(match.group(1).decode(), '::1')
-        self.assertEqual(int(match.group(3)), 443)
+        self.assertEqual(match.group(1).decode(), '::1')  # type: ignore[reportOptionalMemberAccess]
+        self.assertEqual(int(match.group(3)), 443)  # type: ignore[reportOptionalMemberAccess]
 
     def test_connect_regex_ipv6_full(self):
         """CONNECT с полным IPv6"""
         match = RE_CONNECT.match(b'CONNECT [2001:db8::1]:8080 HTTP/1.1\r\n')
         self.assertIsNotNone(match)
-        self.assertEqual(match.group(1).decode(), '2001:db8::1')
-        self.assertEqual(int(match.group(3)), 8080)
+        self.assertEqual(match.group(1).decode(), '2001:db8::1')  # type: ignore[reportOptionalMemberAccess]
+        self.assertEqual(int(match.group(3)), 8080)  # type: ignore[reportOptionalMemberAccess]
 
     def test_http_regex_valid(self):
         """RE_HTTP совпадает с корректным HTTP запросом"""
         match = RE_HTTP.match(b'GET http://example.com/path HTTP/1.1\r\n')
         self.assertIsNotNone(match)
-        self.assertEqual(match.group(2).decode(), 'example.com')
+        self.assertEqual(match.group(2).decode(), 'example.com')  # type: ignore[reportOptionalMemberAccess]
 
     def test_http_regex_https(self):
         """RE_HTTP совпадает с https URL"""
@@ -107,7 +107,7 @@ class TestParseHttp(unittest.TestCase):
         """Корректный GET → (method, host, port, path, relative_line)"""
         result = parse_http(b'GET http://example.com/path HTTP/1.1')
         self.assertIsNotNone(result)
-        method, host, port, path, relative_line = result
+        method, host, port, path, relative_line = result  # type: ignore[reportGeneralTypeIssues]
         self.assertEqual(method, 'GET')
         self.assertEqual(host, 'example.com')
         self.assertEqual(port, 80)
@@ -118,7 +118,7 @@ class TestParseHttp(unittest.TestCase):
         """POST с явным портом — порт входит в host-group парсера"""
         result = parse_http(b'POST http://example.com:8080/api HTTP/1.1')
         self.assertIsNotNone(result)
-        _, host, port, path, _ = result
+        _, host, port, path, _ = result  # type: ignore[reportGeneralTypeIssues]
         # Парсер включает порт в host-group: example.com:8080
         self.assertEqual(host, 'example.com:8080')
         # Портgroup не захватывается отдельно (consumed by host)
@@ -129,7 +129,7 @@ class TestParseHttp(unittest.TestCase):
         """HTTPS URL — порт по умолчанию 80 (парсер не различает http/https)"""
         result = parse_http(b'GET https://example.com/ HTTP/1.1')
         self.assertIsNotNone(result)
-        _, _, port, _, _ = result
+        _, _, port, _, _ = result  # type: ignore[reportGeneralTypeIssues]
         # Парсер использует порт по умолчанию 80 для всех протоколов
         self.assertEqual(port, 80)
 
@@ -147,5 +147,5 @@ class TestParseHttp(unittest.TestCase):
         """relative_line содержит method + path + HTTP/1.1"""
         result = parse_http(b'PUT http://example.com/data HTTP/1.1')
         self.assertIsNotNone(result)
-        _, _, _, _, relative_line = result
+        _, _, _, _, relative_line = result  # type: ignore[reportGeneralTypeIssues]
         self.assertEqual(relative_line, b'PUT /data HTTP/1.1\r\n')

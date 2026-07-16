@@ -33,7 +33,7 @@ def parse_connect(first_line: bytes) -> tuple[str, int] | None:
     return host, port
 
 
-def parse_http(first_line: bytes) -> tuple[str, str, int, str, str] | None:
+def parse_http(first_line: bytes) -> tuple[str, str, int, str, bytes] | None:
     """Парсит plain HTTP запрос, возвращает (method, host, port, path, relative_line) или None."""
     match = RE_HTTP.match(first_line)
     if not match:

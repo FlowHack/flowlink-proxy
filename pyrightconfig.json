@@ -1,0 +1,9 @@
+{
+  "include": ["server/"],
+
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": false
+}

@@ -170,7 +170,14 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
             'clear_data': _clear_data,
             'test_fallback_icon': args.test_fallback_icon,
         }
-        icon = start_tray(callbacks, no_tkinter=args.no_tkinter)
+        if not _HAS_TRAY:
+            logger.warning('Модуль трея недоступен')
+            return None
+        # _HAS_TRAY=True гарантирует, что start_tray импортирован
+        assert start_tray is not None  # type: ignore[reportPossiblyUnbound]
+        icon = start_tray(  # type: ignore[reportPossiblyUnbound]  # assert выше доказывает доступность
+            callbacks, no_tkinter=args.no_tkinter,
+        )
         if icon:
             logger.info('Иконка в трее запущена')
         else:
@@ -439,7 +446,7 @@ async def _run_server(args: argparse.Namespace) -> None:
     os._exit(0)
 
 
-async def main():
+async def main() -> None:
     """
     Главная корутина FlowLink Proxy.
 

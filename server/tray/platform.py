@@ -33,7 +33,7 @@ def has_pystray() -> bool:
     """Проверяет, доступен ли pystray."""
     try:
         # Runtime-проверка: нужен для выбора бэкенда трей.
-        import pystray  # pylint: disable=import-outside-toplevel,unused-import
+        import pystray  # type: ignore[reportMissingImports]  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
         # pystray не установлен — штатный случай
@@ -43,7 +43,7 @@ def has_pystray() -> bool:
         # Xlib.error.DisplayNameError при отсутствии X-дисплея.
         # Ловим display-ошибки Xlib, остальное — пробрасываем.
         try:
-            from Xlib.error import DisplayError  # pylint: disable=import-outside-toplevel
+            from Xlib.error import DisplayError  # type: ignore[reportMissingModuleSource]  # Xlib — optional, headless CI  # pylint: disable=import-outside-toplevel
             if isinstance(exc, DisplayError):
                 logger.debug('pystray: Xlib display-ошибка (headless?): %s', exc)
                 return False

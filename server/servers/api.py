@@ -221,7 +221,7 @@ class ApiServer(BaseServer):
         peername = writer.get_extra_info('peername', ('?', 0))
         try:
             method, path, body = await _parse_http_request(reader, peername)
-            if method is None:
+            if method is None or path is None:
                 writer.close()
                 return
 

@@ -106,8 +106,8 @@ def _check_windows() -> bool:
         # winreg доступен только на Windows
         import winreg  # pylint: disable=import-outside-toplevel
         _get_executable_info()
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _WINDOWS_KEY) as key:
-            winreg.QueryValueEx(key, _APP_NAME)
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _WINDOWS_KEY) as key:  # type: ignore[reportAttributeAccessIssue]
+            winreg.QueryValueEx(key, _APP_NAME)  # type: ignore[reportAttributeAccessIssue]
             return True
     except (ImportError, OSError):
         return False
@@ -121,16 +121,16 @@ def _set_windows(enabled: bool) -> bool:
         exe, args = _get_executable_info()
         cmd = f'"{exe}"' + (' ' + ' '.join(args) if args else '')
 
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, _WINDOWS_KEY,
-            0, winreg.KEY_SET_VALUE,
+        with winreg.OpenKey(  # type: ignore[reportAttributeAccessIssue]
+            winreg.HKEY_CURRENT_USER, _WINDOWS_KEY,  # type: ignore[reportAttributeAccessIssue]
+            0, winreg.KEY_SET_VALUE,  # type: ignore[reportAttributeAccessIssue]
         ) as key:
             if enabled:
-                winreg.SetValueEx(key, _APP_NAME, 0, winreg.REG_SZ, cmd)
+                winreg.SetValueEx(key, _APP_NAME, 0, winreg.REG_SZ, cmd)  # type: ignore[reportAttributeAccessIssue]
                 logger.info('Автозапуск Windows включён: %s', cmd)
             else:
                 try:
-                    winreg.DeleteValue(key, _APP_NAME)
+                    winreg.DeleteValue(key, _APP_NAME)  # type: ignore[reportAttributeAccessIssue]
                     logger.info('Автозапуск Windows выключен')
                 except FileNotFoundError:
                     pass

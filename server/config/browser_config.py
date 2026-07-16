@@ -65,15 +65,15 @@ def _detect_windows() -> list[tuple[str, str]]:
         # winreg доступен только на Windows
         import winreg  # pylint: disable=import-outside-toplevel
         reg_paths = [
-            (winreg.HKEY_CURRENT_USER,
+            (winreg.HKEY_CURRENT_USER,  # type: ignore[reportAttributeAccessIssue]
              r'Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe'),
-            (winreg.HKEY_LOCAL_MACHINE,
+            (winreg.HKEY_LOCAL_MACHINE,  # type: ignore[reportAttributeAccessIssue]
              r'Software\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe'),
         ]
         for root, subpath in reg_paths:
             try:
-                with winreg.OpenKey(root, subpath) as key:
-                    val, _ = winreg.QueryValueEx(key, '')
+                with winreg.OpenKey(root, subpath) as key:  # type: ignore[reportAttributeAccessIssue]
+                    val, _ = winreg.QueryValueEx(key, '')  # type: ignore[reportAttributeAccessIssue]
                     if val and os.path.isfile(val):
                         name = 'Chrome' if 'chrome' in val.lower() else 'Edge'
                         candidates.append((name, val))
