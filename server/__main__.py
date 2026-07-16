@@ -24,6 +24,10 @@ import logging
 import os
 import signal
 import sys
+import threading
+import urllib.request
+import urllib.error
+import webbrowser
 
 from server.config import config as cfg
 from server.config import system_autostart as _system_autostart
@@ -104,6 +108,12 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
     - Выход из приложения
     """
     if not getattr(sys, 'frozen', False) or not _HAS_TRAY or args.dev:
+        if not _HAS_TRAY:
+            logger.info('Трей-иконка недоступна: tray модуль не найден')
+        elif args.dev:
+            logger.info('Трей-иконка отключена в dev-режиме')
+        else:
+            logger.info('Трей-иконка доступна только в standalone-сборке')
         return None
 
     logs_dir = os.path.join(get_data_dir(), 'logs')
@@ -178,6 +188,87 @@ def _on_signal(sig: signal.Signals, stop_event: asyncio.Event) -> None:
     stop_event.set()
 
 
+# Таймаут ожидания подключения расширения (секунды)
+_EXTENSION_CONNECT_TIMEOUT = 300
+_EXTENSION_CHECK_INTERVAL = 10
+
+
+async def _watch_api_connection(api_port: int, server_dir: str) -> None:
+    """
+    Следит за подключением расширения к API-серверу.
+
+    Если за 5 минут ни один запрос от расширения не был получен —
+    показывает пользователю уведомление с инструкцией по установке.
+    Использует stdlib urllib (без внешних зависимостей).
+
+    Args:
+        api_port: Порт API-сервера для проверки.
+        server_dir: Директория server/ (для поиска help.html).
+    """
+    logger.debug('Ожидание подключения расширения (%d сек)...',
+                 _EXTENSION_CONNECT_TIMEOUT)
+
+    for elapsed in range(0, _EXTENSION_CONNECT_TIMEOUT, _EXTENSION_CHECK_INTERVAL):
+        await asyncio.sleep(_EXTENSION_CHECK_INTERVAL)
+        try:
+            url = f'http://127.0.0.1:{api_port}/api/version'
+            req = urllib.request.Request(url, method='GET')
+            with urllib.request.urlopen(req, timeout=3):
+                # Сервер отвечает — расширение может подключиться
+                logger.debug('API-сервер отвечает (прошло %d сек)', elapsed + _EXTENSION_CHECK_INTERVAL)
+                return
+        except (urllib.error.URLError, OSError):
+            continue
+
+    # 5 минут прошли, расширение не подключилось
+    logger.warning('Расширение не подключено к API-серверу за %d секунд',
+                   _EXTENSION_CONNECT_TIMEOUT)
+
+    help_path = os.path.join(server_dir, '..', 'extension', 'popup', 'help.html')
+    help_path = os.path.normpath(help_path)
+
+    def _show_notification():
+        """Показывает уведомление в отдельном потоке (tkinter или webbrowser)."""
+        try:
+            import tkinter as tk  # pylint: disable=import-outside-toplevel
+            from tkinter import messagebox  # pylint: disable=import-outside-toplevel
+
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+
+            message = (
+                'FlowLink Proxy запущен. Для работы необходимы также\n'
+                'браузер Chrome и расширение FlowLink.\n\n'
+                'Установите расширение и подключите его к серверу.'
+            )
+            answer = messagebox.askyesno(
+                'FlowLink Proxy',
+                message,
+                icon='info',
+            )
+            root.destroy()
+
+            if answer:
+                logger.warning(
+                    'Возможно, потребуется VPN или прокси для доступа '
+                    'к GitHub (для пользователей в России)',
+                )
+                if os.path.isfile(help_path):
+                    webbrowser.open(f'file://{os.path.abspath(help_path)}')
+                else:
+                    webbrowser.open('https://github.com/FlowHack/flowlink-proxy')
+        except ImportError:
+            logger.info('tkinter недоступен, открытие help.html через браузер')
+            if os.path.isfile(help_path):
+                webbrowser.open(f'file://{os.path.abspath(help_path)}')
+            else:
+                webbrowser.open('https://github.com/FlowHack/flowlink-proxy')
+
+    thread = threading.Thread(target=_show_notification, daemon=True)
+    thread.start()
+
+
 async def _run_server(args: argparse.Namespace) -> None:
     """Запускает proxy + API серверы и ждёт сигнала остановки."""
     try:
@@ -203,6 +294,10 @@ async def _run_server(args: argparse.Namespace) -> None:
         logger.info('Прокси-сервер слушает 127.0.0.1:%d', args.proxy_port)
         logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
         write_port_file(args.api_port, args.proxy_port)
+        asyncio.create_task(_watch_api_connection(
+            args.api_port,
+            os.path.dirname(os.path.abspath(__file__)),
+        ))
     except OSError as e:
         if 'address already in use' in str(e).lower():
             logger.error(
