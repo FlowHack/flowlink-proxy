@@ -271,6 +271,25 @@ python -m server
 
 > Если tkinter не установлен, бэкенд работает нормально, но вместо кастомного трей-меню используется стандартное меню pystray (без чекбокса автозапуска браузера).
 
+#### Удаление
+
+```bash
+# Остановить бэкенд (если запущен)
+pkill -f "python -m server"       # Linux / macOS
+# taskkill /F /IM python.exe      # Windows (CMD)
+
+# Удалить виртуальное окружение
+rm -rf venv/                      # Linux / macOS
+# rmdir /s /q venv                # Windows
+```
+
+Удаление директории данных (опционально, содержит зашифрованные пароли прокси):
+
+| ОС | Путь |
+|---|---|
+| Linux / macOS | `~/.flowlink-proxy/` → `rm -rf ~/.flowlink-proxy/` |
+| Windows | `%APPDATA%\FlowLink Proxy\` → `rmdir /s /q "%APPDATA%\FlowLink Proxy"` |
+
 ---
 
 ## Сборка бинарников
@@ -428,7 +447,7 @@ open -a "Firefox" --args --proxy-server=127.0.0.1:8080
 # Standalone / Python
 "FlowLink Proxy" --proxy-port 9090 --api-port 9091
 python -m server --proxy-port 9090 --api-port 9091
-./scripts/FlowLink Proxy Source.sh --proxy-port 9090 --api-port 9091
+./scripts/setup/setup-and-run-linux.sh --proxy-port 9090 --api-port 9091
 ```
 
 ### После смены порта
@@ -497,7 +516,7 @@ python -m server --proxy-port 9090 --api-port 9091
 
 ```bash
 git pull
-./scripts/FlowLink Proxy Source.sh
+./scripts/setup/setup-and-run-linux.sh
 # или
 python -m server
 ```

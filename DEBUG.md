@@ -13,9 +13,10 @@
 ## Флаги CLI
 
 ```bash
-"FlowLink Proxy" [флаги]                       # standalone
-python -m server [флаги]                        # исходный код
-./scripts/FlowLink Proxy Source.sh [флаги]      # dev-лаунчер
+"FlowLink Proxy" [флаги]                          # standalone
+python -m server [флаги]                           # исходный код
+./scripts/setup/setup-and-run-linux.sh [флаги]     # dev-лаунчер (Linux)
+./scripts/setup/setup-and-run-macos.sh [флаги]     # dev-лаунчер (macOS)
 ```
 
 | Флаг | По умолч. | Описание |

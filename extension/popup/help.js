@@ -121,7 +121,7 @@ const HELP_TEXTS = {
     <h3>3. Запустите</h3>
     <ol>
       <li><code>cd flowlink-proxy</code></li>
-      <li><code>./scripts/FlowLink Proxy Source.sh</code> — скрипт создаст venv, установит зависимости и запустит сервер</li>
+      <li><code>./scripts/setup/setup-and-run-linux.sh</code> (Linux) или <code>./scripts/setup/setup-and-run-macos.sh</code> (macOS) — скрипт создаст venv, установит зависимости и запустит сервер</li>
     </ol>
     <h3>Установка расширения</h3>
     <p>Откройте <code>chrome://extensions</code> → «Режим разработчика» → «Загрузить распакованное расширение» → папка <code>extension/</code>.</p>
@@ -142,7 +142,7 @@ const HELP_TEXTS = {
       <li><strong>Убедитесь, что бэкенд запущен.</strong>
         <ul>
           <li>Windows: нажмите «FlowLink Proxy» в меню «Пуск»</li>
-          <li>Linux/macOS: <code>./scripts/FlowLink Proxy Source.sh</code></li>
+          <li>Linux/macOS: <code>./scripts/setup/setup-and-run-linux.sh</code></li>
         </ul>
       </li>
       <li><strong>Нажмите «Повторить»</strong> — расширение автоматически проверит соединение.</li>
@@ -180,7 +180,7 @@ const HELP_TEXTS = {
     <ol>
       <li><strong>Через Git:</strong> <code>git pull</code></li>
       <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
-      <li>Остановите старый процесс, перезапустите: <code>./scripts/FlowLink Proxy Source.sh</code></li>
+      <li>Остановите старый процесс, перезапустите: <code>./scripts/setup/setup-and-run-linux.sh</code></li>
     </ol>
     ${_EMAIL_FOOTER}
   `,
@@ -202,7 +202,7 @@ const HELP_TEXTS = {
   `,
   autostartHelp: `
     <h3>Скрипты запуска не найдены</h3>
-    <p>Расширение не нашло файлы запуска (<code>FlowLink Proxy.bat</code>, <code>FlowLink Proxy.sh</code> или <code>FlowLink Proxy Source.sh</code>) рядом с бэкендом.</p>
+    <p>Расширение не нашло файлы запуска (<code>FlowLink Proxy.bat</code>, <code>FlowLink Proxy.sh</code> или <code>setup-and-run-linux.sh</code>) рядом с бэкендом.</p>
     <p>Это означает, что автозапуск браузера вместе с бэкендом невозможен.</p>
     <h3>Как исправить</h3>
     <p>Скопируйте скрипт запуска в ту же папку, где находится <code>FlowLink Proxy.exe</code> (или бинарник):</p>
@@ -227,8 +227,8 @@ const HELP_TEXTS = {
     <h3>Исходный код (Python)</h3>
     <ol>
       <li>Скачайте исходный код: <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
-      <li>Убедитесь, что скрипт <code>scripts/FlowLink Proxy Source.sh</code> на месте</li>
-      <li>Запустите: <code>./scripts/"FlowLink Proxy Source.sh"</code></li>
+      <li>Убедитесь, что скрипт <code>scripts/setup/setup-and-run-linux.sh</code> на месте</li>
+      <li>Запустите: <code>./scripts/setup/setup-and-run-linux.sh</code></li>
     </ol>
 
     <p>После размещения скрипта запуска рядом с бэкендом, перезапустите бэкенд и заново откройте расширение — тоггл автозапуска браузера станет доступен.</p>
