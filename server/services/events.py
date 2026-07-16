@@ -15,6 +15,9 @@ logger = logging.getLogger('flowlink.events')
 
 # Максимальный размер очереди (защита от утечки памяти при отключённом клиенте)
 _MAX_QUEUE_SIZE = 100
+# Таймаут keepalive для SSE (секунды) — если очередь пуста дольше этого,
+# отправляется комментарий для поддержания соединения
+_SSE_KEEPALIVE_TIMEOUT = 30
 SSE_QUEUE: asyncio.Queue[dict] = asyncio.Queue(maxsize=_MAX_QUEUE_SIZE)
 
 
@@ -80,7 +83,16 @@ async def handle_sse(writer: asyncio.StreamWriter) -> None:
         await writer.drain()
 
         while True:
-            event = await queue.get()
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=_SSE_KEEPALIVE_TIMEOUT)
+            except asyncio.TimeoutError:
+                try:
+                    writer.write(b': keepalive\n\n')
+                    await writer.drain()
+                except (OSError, ConnectionError):
+                    logger.debug('SSE: клиент %s отключился (keepalive)', peername)
+                    break
+                continue
             payload = (
                 f'event: {event["event"]}\n'
                 f'data: {json.dumps(event["data"], ensure_ascii=False)}\n\n'
