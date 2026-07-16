@@ -5,6 +5,8 @@ HTTP CONNECT прокси-сервер на asyncio.
 Парсинг протокола, туннелирование и пересылка данных вынесены в отдельные модули.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 
@@ -37,7 +39,7 @@ class ProxyServer(BaseServer):
 
     async def _handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
-    ):
+    ) -> None:
         """Читает первую строку запроса и диспетчеризует:
         CONNECT → _handle_connect, GET/POST → _handle_http."""
         peername = writer.get_extra_info('peername', ('?', 0))
@@ -98,7 +100,7 @@ class ProxyServer(BaseServer):
     async def _handle_connect(
         self, reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter, first_line: bytes,
-    ):
+    ) -> None:
         """Обрабатывает HTTPS CONNECT-запрос:
         парсит host:port, находит прокси, устанавливает туннель."""
         parsed = parse_connect(first_line)
@@ -129,7 +131,7 @@ class ProxyServer(BaseServer):
     async def _handle_http(
         self, reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter, first_line: bytes,
-    ):
+    ) -> None:
         """Обрабатывает plain HTTP запрос:
         переписывает URL (абсолютный → относительный), туннелирует."""
         parsed = parse_http(first_line)

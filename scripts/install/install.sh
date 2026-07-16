@@ -22,7 +22,7 @@ warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 error() { echo -e "${RED}[X]${NC} $1"; exit 1; }
 
 INSTALL_DIR="/usr/local/bin"
-SHARE_DIR="/usr/local/share/flowlink-proxy"
+SHARE_DIR="/usr/local/share/FlowLink Proxy"
 
 # --- Определение платформы ---
 OS="$(uname -s)"
@@ -47,7 +47,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BINARY=""
 
 # Ищем бинарник рядом с install.sh
-for name in "flowlink-proxy" "FlowLink Proxy" "flowlink-proxy-$PLATFORM-$ARCH_NAME"; do
+for name in "FlowLink Proxy" "flowlink-proxy" "flowlink-proxy-$PLATFORM-$ARCH_NAME"; do
     if [ -f "$SCRIPT_DIR/$name" ]; then
         BINARY="$SCRIPT_DIR/$name"
         break
@@ -69,7 +69,7 @@ fi
 # --- Установка ---
 info "Установка FlowLink Proxy..."
 $SUDO mkdir -p "$INSTALL_DIR" "$SHARE_DIR"
-$SUDO install -m 755 "$BINARY" "$INSTALL_DIR/flowlink-proxy"
+$SUDO install -m 755 "$BINARY" "$INSTALL_DIR/FlowLink Proxy"
 
 # Копирование документации
 for doc in EULA.rtf LICENSE.txt; do
@@ -101,6 +101,6 @@ for f in com.flowlink.proxy.plist flowlink.desktop flowlink.service; do
     fi
 done
 
-info "FlowLink Proxy установлен в $INSTALL_DIR/flowlink-proxy"
-info "Для запуска: flowlink-proxy"
+info "FlowLink Proxy установлен в $INSTALL_DIR/FlowLink Proxy"
+info "Для запуска: FlowLink Proxy"
 info "Для автозапуска с системой: включите через расширение или tray-меню."

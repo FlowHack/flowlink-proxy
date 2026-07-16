@@ -6,16 +6,16 @@
     <string>com.flowlink.proxy</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/flowlink-proxy</string>
+        <string>/usr/local/bin/FlowLink Proxy</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <false/>
     <key>StandardOutPath</key>
-    <string>/tmp/flowlink-proxy-stdout.log</string>
+    <string>/tmp/FlowLink Proxy-stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/flowlink-proxy-stderr.log</string>
+    <string>/tmp/FlowLink Proxy-stderr.log</string>
     <key>WorkingDirectory</key>
     <string>/usr/local/bin</string>
 </dict>

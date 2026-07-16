@@ -8,6 +8,8 @@ SOCKS5 клиент на чистом asyncio + struct (без внешних з
 - CONNECT-команду
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import socket
@@ -116,7 +118,7 @@ class Socks5Protocol(ProxyProtocol):
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
-    ):
+    ) -> None:
         """
         SOCKS5 method negotiation + аутентификация.
 
@@ -191,7 +193,7 @@ class Socks5Protocol(ProxyProtocol):
     async def _skip_bind_address(
         reader: asyncio.StreamReader,
         atyp: int,
-    ):
+    ) -> None:
         """Пропускает bind address в ответе SOCKS5."""
         if atyp == ATYP_IPV4:
             await reader.readexactly(4 + 2)

@@ -14,6 +14,10 @@
 - Позиционирование относительно иконки трей
 """
 
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, List, Optional
+
 import logging
 import threading
 import tkinter as tk
@@ -48,14 +52,14 @@ class FlowLinkPopup:
         popup.show(x=100, y=200, items=[...])
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._root = None
         self._popup = None
         self._queue = Queue()
         self._build_lock = threading.Lock()
         self._polling_active = False
 
-    def set_tk_root(self, root):
+    def set_tk_root(self, root: tk.Tk) -> None:
         """
         Устанавливает корневой Tk (для интеграции с внешним mainloop).
 
@@ -64,7 +68,16 @@ class FlowLinkPopup:
         """
         self._root = root
 
-    def thread_safe(self, func):
+    def _safe_destroy(self) -> None:
+        """Безопасно уничтожает popup-окно (вызывается при ошибке)."""
+        if self._popup:
+            try:
+                self._popup.destroy()
+            except tk.TclError:
+                pass
+            self._popup = None
+
+    def thread_safe(self, func: Callable[[], None]) -> None:
         """
         Безопасно выполняет функцию в потоке tkinter.
 
@@ -76,18 +89,33 @@ class FlowLinkPopup:
             self._polling_active = True
             self._root.after(50, self._poll_queue)
 
-    def _poll_queue(self):
+    def _poll_queue(self) -> None:
         """Очищает очередь сообщений и выполняет функции."""
         try:
             while True:
                 func = self._queue.get_nowait()
-                func()
+                try:
+                    func()
+                except tk.TclError as e:
+                    logger.debug(
+                        'Popup: ошибка tkinter в callback: %s', e,
+                    )
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error(
+                        'Popup: ошибка в callback из очереди: %s',
+                        e, exc_info=True,
+                    )
         except Empty:
             pass
         if self._root and self._polling_active:
-            self._root.after(100, self._poll_queue)
+            try:
+                self._root.after(100, self._poll_queue)
+            except tk.TclError:
+                logger.debug(
+                    'Popup: не удалось запланировать _poll_queue',
+                )
 
-    def show(self, x=None, y=None, items=None):
+    def show(self, x: Optional[int] = None, y: Optional[int] = None, items: Optional[List[Dict[str, Any]]] = None) -> None:
         """
         Показывает popup-меню в указанной позиции.
 
@@ -96,11 +124,25 @@ class FlowLinkPopup:
             y: Координата Y (экранная). Если None — над курсором.
             items: Список элементов меню (см. _build_items).
         """
-        with self._build_lock:
-            self.dismiss()
-            self._create_popup(x, y, items or [])
+        try:
+            with self._build_lock:
+                self.dismiss()
+                self._create_popup(x, y, items or [])
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка tkinter при показе: %s', e,
+            )
+        except (TypeError, ValueError) as e:
+            logger.error(
+                'Popup: некорректные аргументы: %s', e,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(
+                'Popup: непредвиденная ошибка при показе: %s',
+                e, exc_info=True,
+            )
 
-    def dismiss(self):
+    def dismiss(self) -> None:
         """Закрывает popup-меню, если оно открыто."""
         self._polling_active = False
         if self._popup:
@@ -108,22 +150,49 @@ class FlowLinkPopup:
                 self._popup.grab_release()
             except tk.TclError:
                 logger.debug('grab_release: окно уже уничтожено')
+            except RuntimeError as e:
+                logger.debug(
+                    'grab_release: runtime ошибка: %s', e,
+                )
             try:
                 self._popup.destroy()
             except tk.TclError:
                 logger.debug('destroy: окно уже уничтожено')
+            except RuntimeError as e:
+                logger.debug(
+                    'destroy: runtime ошибка: %s', e,
+                )
             self._popup = None
 
-    def _create_popup(self, x, y, items):
+    def _create_popup(self, x: Optional[int], y: Optional[int], items: List[Dict[str, Any]]) -> None:
         """Создаёт и отображает popup-окно."""
         if not self._root:
             logger.error('Tk root не установлен — popup невозможен')
             return
 
-        self._popup = tk.Toplevel(self._root)
-        self._popup.overrideredirect(True)
-        self._popup.attributes('-topmost', True)
-        self._popup.configure(bg=PopupColors.BG)
+        try:
+            self._popup = tk.Toplevel(self._root)
+        except tk.TclError as e:
+            logger.error(
+                'Popup: не удалось создать Toplevel: %s', e,
+            )
+            return
+        except RuntimeError as e:
+            logger.error(
+                'Popup: runtime ошибка при создании Toplevel: %s', e,
+            )
+            return
+
+        try:
+            self._popup.overrideredirect(True)
+            self._popup.attributes('-topmost', True)
+            self._popup.configure(bg=PopupColors.BG)
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка настройки окна: %s', e,
+            )
+            self._safe_destroy()
+            return
 
         # Ширина popup
         width = 220
@@ -137,25 +206,52 @@ class FlowLinkPopup:
             y = self._root.winfo_pointery() - height - 8
 
         # Не выходит за экран
-        sw = self._popup.winfo_screenwidth()
-        sh = self._popup.winfo_screenheight()
+        try:
+            sw = self._popup.winfo_screenwidth()
+            sh = self._popup.winfo_screenheight()
+        except tk.TclError as e:
+            logger.warning(
+                'Popup: не удалось получить размер экрана: %s', e,
+            )
+            sw, sh = 1920, 1080
         x = max(0, min(x, sw - width - 4))
         y = max(0, min(y, sh - height - 4))
 
-        self._popup.geometry(f'{width}x{height}+{x}+{y}')
+        try:
+            self._popup.geometry(f'{width}x{height}+{x}+{y}')
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка установки geometry: %s', e,
+            )
+            self._safe_destroy()
+            return
 
         # Строим содержимое
-        self._build_items(items)
+        try:
+            self._build_items(items)
+        except (TypeError, ValueError) as e:
+            logger.error(
+                'Popup: ошибка построения элементов: %s', e,
+            )
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка tkinter при построении: %s', e,
+            )
 
         # Автозакрытие при потере фокуса
-        self._popup.bind('<FocusOut>', lambda _e: self.dismiss())
-        self._popup.after(50, self._popup.grab_set)
+        try:
+            self._popup.bind('<FocusOut>', lambda _e: self.dismiss())
+            self._popup.after(50, self._popup.grab_set)
+        except tk.TclError as e:
+            logger.warning(
+                'Popup: не удалось установить grab: %s', e,
+            )
 
         # Плавное появление
         self._fade_in()
 
     @staticmethod
-    def calc_height(items):
+    def calc_height(items: List[Dict[str, Any]]) -> int:
         """Вычисляет высоту popup на основе количества элементов."""
         item_height = 32  # высота одного пункта
         separator_height = 10  # высота разделителя
@@ -170,40 +266,49 @@ class FlowLinkPopup:
         height += padding
         return max(height, 40)
 
-    def _build_items(self, items):
+    def _build_items(self, items: List[Dict[str, Any]]) -> None:
         """Строит элементы меню."""
         if not self._popup:
             return
 
-        # Верхний padding
-        tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')
+        try:
+            # Верхний padding
+            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')
 
-        for item in items:
-            item_type = item.get('type', 'item')
+            for item in items:
+                item_type = item.get('type', 'item')
 
-            if item_type == 'separator':
-                self._add_separator()
-            elif item_type == 'item':
-                self._add_menu_item(
-                    text=item.get('text', ''),
-                    icon=item.get('icon', ''),
-                    command=item.get('command'),
-                    color=item.get('color'),
-                )
-            elif item_type == 'check':
-                self._add_check_item(
-                    text=item.get('text', ''),
-                    icon=item.get('icon', ''),
-                    checked=item.get('checked', False),
-                    command=item.get('command'),
-                )
-            elif item_type == 'header':
-                self._add_header(item.get('text', ''))
+                if item_type == 'separator':
+                    self._add_separator()
+                elif item_type == 'item':
+                    self._add_menu_item(
+                        text=item.get('text', ''),
+                        icon=item.get('icon', ''),
+                        command=item.get('command'),
+                        color=item.get('color'),
+                    )
+                elif item_type == 'check':
+                    self._add_check_item(
+                        text=item.get('text', ''),
+                        icon=item.get('icon', ''),
+                        checked=item.get('checked', False),
+                        command=item.get('command'),
+                    )
+                elif item_type == 'header':
+                    self._add_header(item.get('text', ''))
 
-        # Нижний padding
-        tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')
+            # Нижний padding
+            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка tkinter при построении: %s', e,
+            )
+        except (TypeError, ValueError, KeyError) as e:
+            logger.error(
+                'Popup: ошибка данных при построении: %s', e,
+            )
 
-    def _add_header(self, text):
+    def _add_header(self, text: str) -> None:
         """Добавляет заголовок в меню."""
         lbl = tk.Label(
             self._popup,
@@ -217,130 +322,153 @@ class FlowLinkPopup:
         )
         lbl.pack(fill='x')
 
-    def _add_menu_item(self, text, icon='', command=None, color=None):
+    def _add_menu_item(self, text: str, icon: str = '', command: Optional[Callable[[], None]] = None, color: Optional[str] = None) -> None:
         """Добавляет пункт меню."""
-        frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')
-        frame.pack(fill='x', padx=4)
+        try:
+            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')
+            frame.pack(fill='x', padx=4)
 
-        # Иконка
-        if icon:
-            icon_lbl = tk.Label(
+            # Иконка
+            if icon:
+                icon_lbl = tk.Label(
+                    frame,
+                    text=icon,
+                    bg=PopupColors.BG,
+                    fg=color or PopupColors.ACCENT,
+                    font=('Segoe UI', 12),
+                    width=2,
+                    anchor='center',
+                )
+                icon_lbl.pack(side='left', padx=(4, 0))
+
+            # Текст
+            fg = color or PopupColors.TEXT
+            text_lbl = tk.Label(
                 frame,
-                text=icon,
+                text=text,
                 bg=PopupColors.BG,
-                fg=color or PopupColors.ACCENT,
-                font=('Segoe UI', 12),
-                width=2,
-                anchor='center',
+                fg=fg,
+                font=('Segoe UI', 10),
+                anchor='w',
             )
-            icon_lbl.pack(side='left', padx=(4, 0))
+            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=6)
 
-        # Текст
-        fg = color or PopupColors.TEXT
-        text_lbl = tk.Label(
-            frame,
-            text=text,
-            bg=PopupColors.BG,
-            fg=fg,
-            font=('Segoe UI', 10),
-            anchor='w',
-        )
-        text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=6)
+            # Hover + клик
+            def on_enter(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+                for child in fr.winfo_children():
+                    child.configure(bg=PopupColors.SURFACE_HOVER)
+                fr.configure(bg=PopupColors.SURFACE_HOVER)
 
-        # Hover + клик
-        def on_enter(_event, fr=frame):
-            for child in fr.winfo_children():
-                child.configure(bg=PopupColors.SURFACE_HOVER)
-            fr.configure(bg=PopupColors.SURFACE_HOVER)
+            def on_leave(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+                for child in fr.winfo_children():
+                    child.configure(bg=PopupColors.BG)
+                fr.configure(bg=PopupColors.BG)
 
-        def on_leave(_event, fr=frame):
-            for child in fr.winfo_children():
-                child.configure(bg=PopupColors.BG)
-            fr.configure(bg=PopupColors.BG)
+            def on_click(_event: tk.Event[tk.Tk], cmd: Optional[Callable[[], None]] = command) -> None:
+                if cmd:
+                    cmd()
+                self.dismiss()
 
-        def on_click(_event, cmd=command):
-            if cmd:
-                cmd()
-            self.dismiss()
+            for widget in [frame] + frame.winfo_children():
+                widget.bind('<Enter>', on_enter)
+                widget.bind('<Leave>', on_leave)
+                widget.bind('<Button-1>', on_click)
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка tkinter в _add_menu_item: %s', e,
+            )
+        except (TypeError, ValueError) as e:
+            logger.error(
+                'Popup: ошибка данных в _add_menu_item: %s', e,
+            )
 
-        for widget in [frame] + frame.winfo_children():
-            widget.bind('<Enter>', on_enter)
-            widget.bind('<Leave>', on_leave)
-            widget.bind('<Button-1>', on_click)
-
-    def _add_check_item(self, text, icon='', checked=False, command=None):
+    def _add_check_item(self, text: str, icon: str = '', checked: bool = False, command: Optional[Callable[[], None]] = None) -> None:
         """Добавляет пункт с чекбоксом."""
-        frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')
-        frame.pack(fill='x', padx=4)
+        try:
+            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')
+            frame.pack(fill='x', padx=4)
 
-        # Иконка
-        if icon:
-            icon_lbl = tk.Label(
+            # Иконка
+            if icon:
+                icon_lbl = tk.Label(
+                    frame,
+                    text=icon,
+                    bg=PopupColors.BG,
+                    fg=PopupColors.ACCENT,
+                    font=('Segoe UI', 12),
+                    width=2,
+                    anchor='center',
+                )
+                icon_lbl.pack(side='left', padx=(4, 0))
+
+            # Текст
+            text_lbl = tk.Label(
                 frame,
-                text=icon,
+                text=text,
                 bg=PopupColors.BG,
-                fg=PopupColors.ACCENT,
-                font=('Segoe UI', 12),
+                fg=PopupColors.TEXT,
+                font=('Segoe UI', 10),
+                anchor='w',
+            )
+            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=6)
+
+            # Чекбокс
+            mark = '\u2713' if checked else ''
+            check_lbl = tk.Label(
+                frame,
+                text=mark,
+                bg=PopupColors.BG,
+                fg=PopupColors.GREEN if checked else PopupColors.BG,
+                font=('Segoe UI', 12, 'bold'),
                 width=2,
                 anchor='center',
             )
-            icon_lbl.pack(side='left', padx=(4, 0))
+            check_lbl.pack(side='right', padx=(0, 8))
 
-        # Текст
-        text_lbl = tk.Label(
-            frame,
-            text=text,
-            bg=PopupColors.BG,
-            fg=PopupColors.TEXT,
-            font=('Segoe UI', 10),
-            anchor='w',
-        )
-        text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=6)
+            # Hover + клик
+            def on_enter(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+                for child in fr.winfo_children():
+                    child.configure(bg=PopupColors.SURFACE_HOVER)
+                fr.configure(bg=PopupColors.SURFACE_HOVER)
 
-        # Чекбокс
-        mark = '\u2713' if checked else ''
-        check_lbl = tk.Label(
-            frame,
-            text=mark,
-            bg=PopupColors.BG,
-            fg=PopupColors.GREEN if checked else PopupColors.BG,
-            font=('Segoe UI', 12, 'bold'),
-            width=2,
-            anchor='center',
-        )
-        check_lbl.pack(side='right', padx=(0, 8))
+            def on_leave(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+                for child in fr.winfo_children():
+                    child.configure(bg=PopupColors.BG)
+                fr.configure(bg=PopupColors.BG)
 
-        # Hover + клик
-        def on_enter(_event, fr=frame):
-            for child in fr.winfo_children():
-                child.configure(bg=PopupColors.SURFACE_HOVER)
-            fr.configure(bg=PopupColors.SURFACE_HOVER)
+            def on_click(_event: tk.Event[tk.Tk], cmd: Optional[Callable[[], None]] = command) -> None:
+                if cmd:
+                    cmd()
+                self.dismiss()
 
-        def on_leave(_event, fr=frame):
-            for child in fr.winfo_children():
-                child.configure(bg=PopupColors.BG)
-            fr.configure(bg=PopupColors.BG)
+            for widget in [frame] + frame.winfo_children():
+                widget.bind('<Enter>', on_enter)
+                widget.bind('<Leave>', on_leave)
+                widget.bind('<Button-1>', on_click)
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка tkinter в _add_check_item: %s', e,
+            )
+        except (TypeError, ValueError) as e:
+            logger.error(
+                'Popup: ошибка данных в _add_check_item: %s', e,
+            )
 
-        def on_click(_event, cmd=command):
-            if cmd:
-                cmd()
-            self.dismiss()
-
-        for widget in [frame] + frame.winfo_children():
-            widget.bind('<Enter>', on_enter)
-            widget.bind('<Leave>', on_leave)
-            widget.bind('<Button-1>', on_click)
-
-    def _add_separator(self):
+    def _add_separator(self) -> None:
         """Добавляет разделитель."""
-        frame = tk.Frame(self._popup, bg=PopupColors.BG, height=10)
-        frame.pack(fill='x')
-        frame.pack_propagate(False)
-        tk.Frame(frame, bg=PopupColors.BORDER, height=1).pack(
-            fill='x', padx=8, pady=4,
-        )
+        try:
+            frame = tk.Frame(self._popup, bg=PopupColors.BG, height=10)
+            frame.pack(fill='x')
+            frame.pack_propagate(False)
+            tk.Frame(frame, bg=PopupColors.BORDER, height=1).pack(
+                fill='x', padx=8, pady=4,
+            )
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка tkinter в _add_separator: %s', e,
+            )
 
-    def _fade_in(self, alpha=0.0):
+    def _fade_in(self, alpha: float = 0.0) -> None:
         """
         Плавное появление (fadeIn).
 
@@ -362,4 +490,9 @@ class FlowLinkPopup:
             logger.debug(
                 '_fade_in: окно закрылось во время анимации '
                 '(alpha=%.1f)', alpha,
+            )
+        except RuntimeError as e:
+            logger.debug(
+                '_fade_in: runtime ошибка (alpha=%.1f): %s',
+                alpha, e,
             )

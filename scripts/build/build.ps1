@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = "Stop"
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
 Set-Location $ProjectRoot
 
 function Info  { Write-Host "[+] $args" -ForegroundColor Green }
@@ -69,7 +69,7 @@ if (Test-Path "scripts/icons/icon.ico") {
     $iconFlag = "--icon=server/icons/icon.ico"
 }
 
-$binaryName = "flowlink-proxy.exe"
+$binaryName = "FlowLink Proxy.exe"
 
 & $python -m PyInstaller `
     --onefile `
@@ -78,6 +78,11 @@ $binaryName = "flowlink-proxy.exe"
     $iconFlag `
     --add-data "server/requirements.txt;server/" `
     --add-data "server/icons;icons/" `
+    --hidden-import tkinter `
+    --hidden-import _tkinter `
+    --hidden-import pystray `
+    --hidden-import PIL `
+    --collect-all tkinter `
     --paths server `
     --distpath server/dist `
     --workpath server/work `

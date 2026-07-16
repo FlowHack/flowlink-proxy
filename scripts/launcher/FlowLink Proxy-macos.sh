@@ -16,12 +16,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Поиск бинарника: рядом со скриптом или в PATH
 BACKEND=""
-if [ -f "$SCRIPT_DIR/flowlink-proxy" ]; then
-    BACKEND="$SCRIPT_DIR/flowlink-proxy"
-elif [ -f "$SCRIPT_DIR/FlowLink Proxy" ]; then
+if [ -f "$SCRIPT_DIR/FlowLink Proxy" ]; then
     BACKEND="$SCRIPT_DIR/FlowLink Proxy"
-elif command -v flowlink-proxy &>/dev/null; then
-    BACKEND="flowlink-proxy"
+elif [ -f "$SCRIPT_DIR/flowlink-proxy" ]; then
+    BACKEND="$SCRIPT_DIR/flowlink-proxy"
+elif command -v "FlowLink Proxy" &>/dev/null; then
+    BACKEND="FlowLink Proxy"
 fi
 
 if [ -z "$BACKEND" ]; then

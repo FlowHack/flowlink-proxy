@@ -4,28 +4,32 @@
 Единственная ответственность: определение платформы и доступности компонентов.
 """
 
+from __future__ import annotations
+
+from typing import Any, Dict
+
 import logging
 import sys
 
 logger = logging.getLogger('flowlink.tray')
 
 
-def is_windows():
+def is_windows() -> bool:
     """Проверяет, запущен ли на Windows."""
     return sys.platform == 'win32'
 
 
-def is_linux():
+def is_linux() -> bool:
     """Проверяет, запущен ли на Linux."""
     return sys.platform == 'linux'
 
 
-def is_macos():
+def is_macos() -> bool:
     """Проверяет, запущен ли на macOS."""
     return sys.platform == 'darwin'
 
 
-def has_pystray():
+def has_pystray() -> bool:
     """Проверяет, доступен ли pystray."""
     try:
         # Runtime-проверка: нужен для выбора бэкенда трей.
@@ -49,7 +53,7 @@ def has_pystray():
         return False
 
 
-def has_pil():
+def has_pil() -> bool:
     """Проверяет, доступен ли Pillow (нужен для иконки)."""
     try:
         # Runtime-проверка: нужен для иконки трея
@@ -59,7 +63,7 @@ def has_pil():
         return False
 
 
-def has_tkinter():
+def has_tkinter() -> bool:
     """Проверяет, доступен ли tkinter (нужен для popup-меню)."""
     try:
         # Runtime-проверка: нужен для popup-меню
@@ -69,7 +73,7 @@ def has_tkinter():
         return False
 
 
-def get_backend_info():
+def get_backend_info() -> Dict[str, Any]:
     """
     Возвращает информацию о доступных бэкендах трей.
 

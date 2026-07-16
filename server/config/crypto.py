@@ -8,6 +8,8 @@
 Требуется библиотека cryptography (pip install cryptography).
 """
 
+from __future__ import annotations
+
 import base64
 import logging
 import os
@@ -37,7 +39,7 @@ PBKDF2_ITERATIONS = 600_000
 _LEGACY_SALT = b'flowlink_proxy_salt_v1'
 
 
-def _check_crypto():
+def _check_crypto() -> None:
     """Проверяет наличие библиотеки cryptography. Вызывает ImportError, если её нет."""
     if not HAS_CRYPTO:
         logger.error('Библиотека cryptography не установлена')

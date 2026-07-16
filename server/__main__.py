@@ -106,6 +106,14 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
     - Открытие/очистка логов и данных
     - Переключение автозапуска браузера
     - Выход из приложения
+
+    Цепочка исключений (от конкретного к общему):
+    1. ImportError — модуль tray не найден
+    2. OSError — системные ошибки (Win32 API, файловая система)
+    3. RuntimeError — runtime ошибки (Tcl, tkinter)
+    4. ValueError/TypeError — некорректные аргументы
+    5. AttributeError — отсутствующие атрибуты
+    6. Exception — последний рубец
     """
     if not getattr(sys, 'frozen', False) or not _HAS_TRAY or args.dev:
         if not _HAS_TRAY:
@@ -125,28 +133,28 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
             # Loop уже закрыт — сервер и так завершается
             pass
 
-    def _autostart_getter():
+    def _autostart_getter() -> bool:
         return _autostart.get_autostart_browser()
 
-    def _autostart_setter(value):
+    def _autostart_setter(value: bool) -> None:
         _autostart.set_autostart_browser(value)
 
-    def _system_autostart_getter():
+    def _system_autostart_getter() -> bool:
         return _system_autostart.is_system_autostart_enabled()
 
-    def _system_autostart_setter(value):
+    def _system_autostart_setter(value: bool) -> None:
         _system_autostart.set_system_autostart_enabled(value)
 
-    def _log_dir_getter():
+    def _log_dir_getter() -> str:
         return logs_dir
 
-    def _data_dir_getter():
+    def _data_dir_getter() -> str:
         return get_data_dir()
 
-    def _clear_logs():
+    def _clear_logs() -> None:
         clear_logs_only()
 
-    def _clear_data():
+    def _clear_data() -> None:
         clear_all_data()
 
     try:
@@ -160,13 +168,86 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
             'data_dir_getter': _data_dir_getter,
             'clear_logs': _clear_logs,
             'clear_data': _clear_data,
+            'test_fallback_icon': args.test_fallback_icon,
         }
         icon = start_tray(callbacks, no_tkinter=args.no_tkinter)
         if icon:
             logger.info('Иконка в трее запущена')
+        else:
+            if getattr(sys, 'frozen', False):
+                logger.critical(
+                    'Трей-иконка не запущена в standalone-сборке. '
+                    'Приложение не может работать без трея. '
+                    'Убедитесь, что icons/icon.ico находится '
+                    'рядом с бинарником.',
+                )
+                sys.exit(1)
+            logger.warning(
+                'Трей-иконка не запущена (start_tray вернул None). '
+                'Приложение продолжает работу без трея.'
+            )
         return icon
-    except (ImportError, OSError, RuntimeError) as e:
-        logger.warning('Не удалось запустить иконку в трее: %s', e)
+    except ImportError as e:
+        if getattr(sys, 'frozen', False):
+            logger.critical(
+                'Не удалось запустить трей (импорт): %s', e,
+            )
+            sys.exit(1)
+        logger.warning(
+            'Не удалось запустить трей (импорт): %s', e,
+        )
+        return None
+    except OSError as e:
+        if getattr(sys, 'frozen', False):
+            logger.critical(
+                'Не удалось запустить трей (системная ошибка): %s', e,
+            )
+            sys.exit(1)
+        logger.warning(
+            'Не удалось запустить трей (системная ошибка): %s', e,
+        )
+        return None
+    except RuntimeError as e:
+        if getattr(sys, 'frozen', False):
+            logger.critical(
+                'Не удалось запустить трей (runtime ошибка): %s', e,
+            )
+            sys.exit(1)
+        logger.warning(
+            'Не удалось запустить трей (runtime ошибка): %s', e,
+        )
+        return None
+    except (ValueError, TypeError) as e:
+        if getattr(sys, 'frozen', False):
+            logger.critical(
+                'Не удалось запустить трей (некорректные данные): %s', e,
+            )
+            sys.exit(1)
+        logger.warning(
+            'Не удалось запустить трей (некорректные данные): %s', e,
+        )
+        return None
+    except AttributeError as e:
+        if getattr(sys, 'frozen', False):
+            logger.critical(
+                'Не удалось запустить трей (атрибут не найден): %s', e,
+            )
+            sys.exit(1)
+        logger.warning(
+            'Не удалось запустить трей (атрибут не найден): %s', e,
+        )
+        return None
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        if getattr(sys, 'frozen', False):
+            logger.critical(
+                'Не удалось запустить трей (непредвиденная ошибка): %s',
+                e, exc_info=True,
+            )
+            sys.exit(1)
+        logger.warning(
+            'Не удалось запустить трей (непредвиденная ошибка): %s',
+            e, exc_info=True,
+        )
         return None
 
 
@@ -386,6 +467,11 @@ async def main():
     parser.add_argument(
         '--no-tkinter', action='store_true',
         help='Принудительно отключить tkinter popup (fallback на pystray)',
+    )
+    parser.add_argument(
+        '--test-fallback-icon', action='store_true',
+        help='Тестирование дефолтной иконки (красный круг + FLP) '
+             'вместо icons/icon.ico',
     )
     parser.add_argument(
         '--browser-path', type=str, default=None, metavar='PATH',

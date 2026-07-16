@@ -32,8 +32,8 @@ def get_data_dir() -> str:
     Приоритет (от высшего к низшему):
     1. Переменная окружения FLOWLINK_DATA_DIR (для systemd-сервиса и кастомных путей)
     2. Стандартная директория данных ОС:
-       - Linux/macOS: ~/.flowlink-proxy
-       - Windows: %APPDATA%\\FlowLink Proxy
+       - Linux/macOS: ~/.FlowHack/FlowLink Proxy
+       - Windows: %APPDATA%\\FlowHack\\FlowLink Proxy
 
     Гарантия: возвращаемая директория существует (создаётся при первом вызове).
     """
@@ -43,11 +43,15 @@ def get_data_dir() -> str:
     elif sys.platform == 'win32':
         appdata = os.environ.get('APPDATA')
         if appdata:
-            data_dir = os.path.join(appdata, 'FlowLink Proxy')
+            data_dir = os.path.join(appdata, 'FlowHack', 'FlowLink Proxy')
         else:
-            data_dir = os.path.join(os.path.expanduser('~'), '.flowlink-proxy')
+            data_dir = os.path.join(
+                os.path.expanduser('~'), '.FlowHack', 'FlowLink Proxy',
+            )
     else:
-        data_dir = os.path.join(os.path.expanduser('~'), '.flowlink-proxy')
+        data_dir = os.path.join(
+            os.path.expanduser('~'), '.FlowHack', 'FlowLink Proxy',
+        )
 
     # Создаём директорию, если она ещё не существует (exist_ok)
     try:

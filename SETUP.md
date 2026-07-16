@@ -116,14 +116,14 @@ sudo apt-get install -f
 ```
 
 **Что создаёт пакет:**
-- Бинарник: `/usr/local/bin/flowlink-proxy`
-- Документация: `/usr/local/share/flowlink-proxy/` (EULA.rtf, LICENSE.txt)
+- Бинарник: `/usr/local/bin/FlowLink Proxy`
+- Документация: `/usr/local/share/FlowLink Proxy/` (EULA.rtf, LICENSE.txt)
 - Лаунчер: `/usr/local/bin/flowlink-launcher`
-- Шаблоны автозапуска: `/usr/local/share/flowlink-proxy/autostart/`
+- Шаблоны автозапуска: `/usr/local/share/FlowLink Proxy/autostart/`
 
 **Запуск:**
 ```bash
-flowlink-proxy              # Запуск бэкенда
+FlowLink Proxy              # Запуск бэкенда
 flowlink-launcher           # Запуск бэкенда + браузера
 ```
 

@@ -4,6 +4,14 @@
 Общая логика для Linux и macOS: pystray иконка + tkinter popup-меню.
 """
 
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pystray
+
 import logging
 import threading
 import tkinter as tk
@@ -24,7 +32,7 @@ class PystrayTray:
         platform_name: Имя платформы для логов и иконки (например 'Linux').
     """
 
-    def __init__(self, callbacks, platform_name):
+    def __init__(self, callbacks: Dict[str, Any], platform_name: str) -> None:
         self._callbacks = callbacks
         self._platform_name = platform_name
         self._logger = logging.getLogger(f'flowlink.tray.{platform_name.lower()}')
@@ -33,14 +41,14 @@ class PystrayTray:
         self._tk_root = None
         self._tk_thread = None
 
-    def start(self):
+    def start(self) -> None:
         """Запускает трей в отдельном потоке."""
         self._tk_thread = threading.Thread(
             target=self._run, daemon=True,
         )
         self._tk_thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         """Останавливает трей."""
         if self._icon:
             try:
@@ -51,11 +59,11 @@ class PystrayTray:
                     self._platform_name, e,
                 )
 
-    def refresh_menu(self):
+    def refresh_menu(self) -> None:
         """Обновляет popup-меню (вызывается при изменении конфига)."""
         # Popup рендерит свежее состояние при каждом открытии
 
-    def _run(self):
+    def _run(self) -> None:
         """Запускает pystray + tkinter в отдельном потоке."""
         try:
             # Ленивый импорт: pystray/Pillow — опциональные зависимости
@@ -77,7 +85,12 @@ class PystrayTray:
                 target=self._tk_root.mainloop, daemon=True,
             ).start()
 
-            icon_image = load_icon(Image, f'Tray {self._platform_name}')
+            icon_image = load_icon(
+                Image, f'Tray {self._platform_name}',
+                force_fallback=self._callbacks.get(
+                    'test_fallback_icon', False,
+                ),
+            )
             if icon_image is None:
                 self._logger.error(
                     'Tray %s: не удалось загрузить иконку',
@@ -85,7 +98,7 @@ class PystrayTray:
                 )
                 return
 
-            def on_click(icon, item):
+            def on_click(icon: pystray.Icon, item: pystray.MenuItem) -> None:
                 del icon, item
                 self._show_popup()
 
@@ -107,7 +120,7 @@ class PystrayTray:
                 'Tray %s: ошибка потока: %s', self._platform_name, e,
             )
 
-    def _show_popup(self):
+    def _show_popup(self) -> None:
         """Показывает popup-меню при позиции курсора."""
         if not self._tk_root:
             return

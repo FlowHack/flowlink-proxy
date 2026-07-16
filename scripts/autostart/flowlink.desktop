@@ -2,7 +2,7 @@
 Type=Application
 Name=FlowLink Proxy
 Comment=FlowLink Proxy — шлюз для маршрутизации трафика
-Exec=/usr/local/bin/flowlink-proxy
+Exec=/usr/local/bin/FlowLink Proxy
 Terminal=false
 X-GNOME-Autostart-enabled=true
 Categories=Network;Utility;

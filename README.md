@@ -112,8 +112,8 @@ SOCKS5 с паролем       Прямое соединение
 
 | ОС | Путь |
 |---|---|
-| Linux / macOS | `~/.flowlink-proxy/` |
-| Windows | `%APPDATA%\FlowLink Proxy\` |
+| Linux / macOS | `~/.FlowHack/FlowLink Proxy/` |
+| Windows | `%APPDATA%\FlowHack\FlowLink Proxy\` |
 | systemd | Путь из `FLOWLINK_DATA_DIR` |
 
 Содержимое: `config.json`, ключи шифрования (`.flowlink.key`, `.flowlink.salt`), настройки автозапуска (`.flowlink-settings`), порты (`.flowlink-port`), логи (`logs/`).
@@ -298,7 +298,7 @@ flowlink-proxy/
 | **Linux (.deb)** | `sudo dpkg -r flowlink-proxy` |
 | **Linux (.rpm)** | `sudo rpm -e flowlink-proxy` |
 | **Linux (.tar.gz)** | Удалите папку с бинарником и лаунчером |
-| **macOS (.pkg)** | `sudo rm /usr/local/bin/flowlink-proxy && sudo rm -rf /usr/local/share/flowlink-proxy && rm ~/Library/LaunchAgents/com.flowlink.proxy.plist` |
+| **macOS (.pkg)** | `sudo rm /usr/local/bin/FlowLink Proxy && sudo rm -rf "/usr/local/share/FlowLink Proxy" && rm ~/Library/LaunchAgents/com.flowlink.proxy.plist` |
 | **macOS (.tar.gz)** | Удалите папку с бинарником и лаунчером |
 | **Исходники** | Удалите `venv/` и папку данных (см. [SETUP.md](SETUP.md)) |
 
@@ -306,8 +306,8 @@ flowlink-proxy/
 
 | ОС | Путь |
 |---|---|
-| Linux / macOS | `~/.flowlink-proxy/` |
-| Windows | `%APPDATA%\FlowLink Proxy\` |
+| Linux / macOS | `~/.FlowHack/FlowLink Proxy/` |
+| Windows | `%APPDATA%\FlowHack\FlowLink Proxy\` |
 
 ---
 

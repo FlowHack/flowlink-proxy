@@ -4,6 +4,8 @@
 Предкомпилирует все RegExp из масок для быстрой проверки.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from typing import Optional
@@ -27,7 +29,7 @@ class MaskRouter:
         self._proxy_map: dict[str, dict] = {}
         self._rebuild()
 
-    def _rebuild(self):
+    def _rebuild(self) -> None:
         """
         Перестраивает список правил из текущего конфига.
         Вызывается при инициализации и refresh().
@@ -133,7 +135,7 @@ class MaskRouter:
         logger.debug('Маршрут: %s -> напрямую (нет совпадений)', url)
         return None
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Принудительно перезагружает конфиг и перестраивает правила."""
         logger.info('Обновление правил маршрутизации')
         self._rebuild()

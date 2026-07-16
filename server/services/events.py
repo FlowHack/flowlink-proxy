@@ -7,6 +7,8 @@ SSE-шина событий для realtime-уведомлений расшир�
   from server.services.events import emit_event
   await emit_event('config_changed', {})
 """
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

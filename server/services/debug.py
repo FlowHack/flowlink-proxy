@@ -5,6 +5,8 @@
 без бизнес-логики и без утечки чувствительных данных.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 
@@ -42,7 +44,7 @@ def truncate(text: str, max_len: int = 2000) -> str:
     return text
 
 
-def log_config_state(is_startup: bool = False):
+def log_config_state(is_startup: bool = False) -> None:
     """Выводит текущее состояние конфига в debug-ログ (без паролей).
 
     Args:

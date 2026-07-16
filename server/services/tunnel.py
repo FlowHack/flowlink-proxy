@@ -5,9 +5,12 @@
 приватные функции. Единственная ответственность: установка и обслуживание туннелей.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import socket
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from ipaddress import ip_address
 
@@ -25,7 +28,7 @@ _all_writers: set[asyncio.StreamWriter] = set()
 _active_tunnels: dict[str, list[asyncio.StreamWriter]] = {}
 
 
-def register_tunnel(proxy_id: str, writer: asyncio.StreamWriter):
+def register_tunnel(proxy_id: str, writer: asyncio.StreamWriter) -> None:
     """Регистрирует remote writer для отслеживания активного туннеля.
 
     Args:
@@ -37,7 +40,7 @@ def register_tunnel(proxy_id: str, writer: asyncio.StreamWriter):
     _active_tunnels[proxy_id].append(writer)
 
 
-def unregister_tunnel(proxy_id: str, writer: asyncio.StreamWriter):
+def unregister_tunnel(proxy_id: str, writer: asyncio.StreamWriter) -> None:
     """Удаляет writer из отслеживаемых при штатном завершении туннеля.
 
     Args:
@@ -54,7 +57,7 @@ def unregister_tunnel(proxy_id: str, writer: asyncio.StreamWriter):
             _active_tunnels.pop(proxy_id, None)
 
 
-def close_tunnels_for_proxy(proxy_id: str):
+def close_tunnels_for_proxy(proxy_id: str) -> None:
     """Принудительно закрывает все активные туннели указанного прокси.
 
     Args:
@@ -69,13 +72,13 @@ def close_tunnels_for_proxy(proxy_id: str):
         _all_writers.discard(w)
 
 
-def close_all_proxy_tunnels():
+def close_all_proxy_tunnels() -> None:
     """Закрывает все активные прокси-туннели (при глобальном выключении)."""
     for pid in list(_active_tunnels.keys()):
         close_tunnels_for_proxy(pid)
 
 
-def close_all_connections():
+def close_all_connections() -> None:
     """Закрывает ВСЕ соединения через прокси-сервер (прокси + direct).
 
     Очищает оба трекера: _all_writers (все удалённые соединения)
@@ -94,7 +97,7 @@ async def _send_error(
     client_writer: asyncio.StreamWriter,
     url: str,
     message: str,
-):
+) -> None:
     """Логирует предупреждение и отправляет 502 Bad Gateway клиенту."""
     logger.warning('%s для %s', message, url)
     try:
@@ -104,7 +107,7 @@ async def _send_error(
         pass
 
 
-async def validate_target(host: str, port: int):
+async def validate_target(host: str, port: int) -> None:
     """
     Проверяет, что целевой хост не является приватным/локальным IP (SSRF-защита).
 
@@ -165,7 +168,7 @@ async def _handle_tunnel_error(
     proxy_addr: str,
     error: Exception,
     prefix: str = '',
-):
+) -> None:
     """Логирует и отправляет 502 при ошибке туннеля."""
     if isinstance(error, ProxyError):
         msg = f'{prefix}Ошибка SOCKS5 для {url} через {proxy_addr}: {error}'
@@ -189,7 +192,7 @@ async def _tunnel_context(
     url: str,
     proxy: dict | None = None,
     prefix: str = '',
-):
+) -> AsyncIterator[tuple[asyncio.StreamReader, asyncio.StreamWriter, str]]:
     """Контекстный менеджер для lifecycle туннеля (SOCKS5 или direct).
 
     Обеспечивает:
@@ -244,7 +247,7 @@ async def tunnel_connect(
     target: tuple[str, int],
     url: str,
     proxy: dict | None = None,
-):
+) -> None:
     """Устанавливает HTTPS-туннель через SOCKS5 (если proxy) или напрямую."""
     async with _tunnel_context(
         client, target, url, proxy,
@@ -272,7 +275,7 @@ async def tunnel_http(
     url: str,
     relative_line: bytes,
     proxy: dict | None = None,
-):
+) -> None:
     """Пересылает plain HTTP запрос через SOCKS5 (если proxy) или напрямую."""
     async with _tunnel_context(
         client, target, url, proxy, prefix='HTTP ',

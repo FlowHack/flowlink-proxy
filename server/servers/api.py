@@ -5,6 +5,8 @@ HTTP API сервер для управления FlowLink Proxy из расши
 Обработчики эндпоинтов вынесены в handlers.py.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -71,7 +73,7 @@ async def _build_response(
     writer: asyncio.StreamWriter,
     status_code: int,
     response_body: dict,
-):
+) -> None:
     """Собирает и отправляет HTTP JSON-ответ."""
     try:
         response_json = json.dumps(response_body, ensure_ascii=False)
@@ -214,7 +216,7 @@ class ApiServer(BaseServer):
 
     async def _handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
-    ):
+    ) -> None:
         """Диспетчеризует входящие HTTP-запросы к API."""
         peername = writer.get_extra_info('peername', ('?', 0))
         try:

@@ -28,6 +28,7 @@ python -m server [флаги]                           # исходный ко�
 | `--need-update` | выкл. | Симуляция обновления (подробные логи + баннер «Доступно обновление») |
 | `--count-proxy` | `0` | Количество тестовых прокси (требует `--debug`, `--dev` или `--need-update`) |
 | `--no-tkinter` | выкл. | Отключить tkinter popup, использовать pystray с нативным меню |
+| `--test-fallback-icon` | выкл. | Тестирование дефолтной иконки (красный круг + FLP) вместо `icons/icon.ico` |
 | `--browser-path` | нет | Путь к браузеру (перезаписывает настройку из `.flowlink-settings`) |
 
 ### Примеры
@@ -56,6 +57,9 @@ python -m server --dev --count-proxy 10
 
 # Всё вместе: тестовые прокси + автообновление + баннер обновления
 python -m server --dev --need-update --count-proxy 5
+
+# Тестирование дефолтной иконки (красный круг + FLP)
+python -m server --debug --test-fallback-icon
 ```
 
 ### `--debug`
@@ -122,9 +126,31 @@ python -m server --no-tkinter
 python -m server --debug --no-tkinter
 ```
 
----
+### `--test-fallback-icon`
 
-### Совмещение флагов
+Принудительно использует **дефолтную иконку** (красный круг с «FLP») вместо `icons/icon.ico`. Иконка генерируется через Pillow при запуске и сохраняется во временный `.ico` файл.
+
+Используется для:
+- **Тестирования дефолтной иконки** — проверить как выглядит красный круг + «FLP» в трее
+- **Диагностики проблем с иконкой** — если `icons/icon.ico` не загружается (неправильный формат, отсутствует, повреждён)
+- **Отладки без иконки** — проверить поведение при отсутствии `icons/icon.ico`
+
+На standalone-сборках без `icons/icon.ico` рядом с бинарником:
+- При запуске **без** этого флага — автоматически создастся дефолтная иконка (красный круг + FLP)
+- При запуске **с** этим флагом — будет использована дефолтная иконка и в логе будет `INFO: Tray Win32: --test-fallback-icon, пропуск icon.ico`
+
+```bash
+# Тестирование дефолтной иконки
+python -m server --test-fallback-icon
+
+# С отладкой
+python -m server --debug --test-fallback-icon
+
+# Отключить tkinter + дефолтная иконка
+python -m server --no-tkinter --test-fallback-icon
+```
+
+---
 
 Все флаги можно комбинировать. Вот полная таблица совместимости:
 
@@ -138,6 +164,7 @@ python -m server --debug --no-tkinter
 | `--need-update --count-proxy N` | Тестовые прокси + баннер обновления. Удобно для проверки UI обновлений |
 | `--dev --need-update --count-proxy N` | Всё вместе: тестовые прокси + автообновление + тестовый SOCKS5 + баннер обновления |
 | `--no-tkinter` | Отключает tkinter popup, использует pystray с нативным меню (✓/✗ для автозапуска) |
+| `--test-fallback-icon` | Использует дефолтную иконку (красный круг + FLP) вместо `icons/icon.ico` |
 | `--proxy-port 9090 --api-port 9091` | Кастомные порты (работает с любыми другими флагами) |
 
 Примеры:
@@ -151,6 +178,9 @@ python -m server --dev --need-update --count-proxy 5
 
 # Кастомные порты + тестовые прокси
 python -m server --proxy-port 9090 --api-port 9091 --debug --count-proxy 3
+
+# Тестирование дефолтной иконки + отладка
+python -m server --debug --test-fallback-icon
 
 # Тестирование pystray fallback (без tkinter)
 python -m server --debug --no-tkinter

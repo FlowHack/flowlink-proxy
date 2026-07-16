@@ -6,7 +6,7 @@
 #define MyAppVersion "0.3.0"
 #define MyAppPublisher "FlowLink"
 #define MyAppURL "https://github.com/anomalyco/flowlink-proxy"
-#define MyAppExeName "flowlink-proxy.exe"
+#define MyAppExeName "FlowLink Proxy.exe"
 
 [Setup]
 AppId={{A3F5B2C1-7E4D-4A9B-8F6E-2D1C3B5A7E9F}

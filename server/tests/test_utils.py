@@ -49,34 +49,39 @@ class TestGetDataDirPlatform(unittest.TestCase):
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_linux_uses_home(self, mock_sys, _mock_makedirs):
-        """На Linux/macOS используется $HOME/.flowlink-proxy."""
+        """На Linux/macOS используется $HOME/.FlowHack/FlowLink Proxy."""
         mock_sys.platform = 'linux'
         mock_sys.frozen = False
         result = get_data_dir()
         home = os.path.expanduser('~')
-        self.assertEqual(result, os.path.join(home, '.flowlink-proxy'))
+        self.assertEqual(
+            result, os.path.join(home, '.FlowHack', 'FlowLink Proxy'),
+        )
 
     @patch.dict(os.environ, {}, clear=True)
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_macos_uses_home(self, mock_sys, _mock_makedirs):
-        """На macOS используется $HOME/.flowlink-proxy."""
+        """На macOS используется $HOME/.FlowHack/FlowLink Proxy."""
         mock_sys.platform = 'darwin'
         mock_sys.frozen = False
         result = get_data_dir()
         home = os.path.expanduser('~')
-        self.assertEqual(result, os.path.join(home, '.flowlink-proxy'))
+        self.assertEqual(
+            result, os.path.join(home, '.FlowHack', 'FlowLink Proxy'),
+        )
 
     @patch.dict(os.environ, {'APPDATA': 'C:\\Users\\test\\AppData\\Roaming'})
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_windows_uses_appdata(self, mock_sys, _mock_makedirs):
-        """На Windows используется %APPDATA%\\FlowLink Proxy."""
+        """На Windows используется %APPDATA%\\FlowHack\\FlowLink Proxy."""
         mock_sys.platform = 'win32'
         mock_sys.frozen = False
         result = get_data_dir()
         expected = os.path.join(
-            'C:\\Users\\test\\AppData\\Roaming', 'FlowLink Proxy',
+            'C:\\Users\\test\\AppData\\Roaming',
+            'FlowHack', 'FlowLink Proxy',
         )
         self.assertEqual(result, expected)
 
@@ -84,12 +89,14 @@ class TestGetDataDirPlatform(unittest.TestCase):
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_windows_no_appdata_fallback(self, mock_sys, _mock_makedirs):
-        """На Windows без APPDATA — fallback на $HOME/.flowlink-proxy."""
+        """На Windows без APPDATA — fallback на $HOME/.FlowHack/FlowLink Proxy."""
         mock_sys.platform = 'win32'
         mock_sys.frozen = False
         result = get_data_dir()
         home = os.path.expanduser('~')
-        self.assertEqual(result, os.path.join(home, '.flowlink-proxy'))
+        self.assertEqual(
+            result, os.path.join(home, '.FlowHack', 'FlowLink Proxy'),
+        )
 
 
 class TestGetDataDirCreatesDir(unittest.TestCase):

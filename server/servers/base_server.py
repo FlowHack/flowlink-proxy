@@ -5,12 +5,14 @@
 Единственная ответственность: запуск/остановка TCP-сервера.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from abc import ABC, abstractmethod
 
 
-def safe_close_writer(writer: asyncio.StreamWriter | None):
+def safe_close_writer(writer: asyncio.StreamWriter | None) -> None:
     """Безопасно закрывает writer, игнорируя ошибки."""
     if writer is None:
         return
@@ -41,11 +43,11 @@ class BaseServer(ABC):
         self._server: asyncio.AbstractServer | None = None
 
     @abstractmethod
-    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Обрабатывает одно входящее подключение. Должен быть переопределён в подклассе."""
         raise NotImplementedError
 
-    async def start(self):
+    async def start(self) -> None:
         """Запускает TCP-сервер на self._host:self._port."""
         self._server = await asyncio.start_server(
             self._handle_client,
@@ -55,7 +57,7 @@ class BaseServer(ABC):
         logger = logging.getLogger(f'flowlink.{self._name}')
         logger.info('%s сервер запущен на %s:%s', self._name.capitalize(), self._host, self._port)
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Корректно останавливает сервер: закрывает все подключения."""
         if self._server:
             self._server.close()

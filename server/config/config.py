@@ -7,6 +7,8 @@ isEnabled хранится ТОЛЬКО в памяти — расширение
 Единственная ответственность: управление конфигурацией с шифрованием.
 """
 
+from __future__ import annotations
+
 import copy
 import logging
 import time
@@ -81,7 +83,7 @@ def _load_cached() -> dict:
     return _CACHE[key]
 
 
-def invalidate_cache():
+def invalidate_cache() -> None:
     """Сбрасывает кэш после сохранения."""
     key = _cache_key()
     _CACHE.pop(key, None)
@@ -110,7 +112,7 @@ def load_config(force: bool = False) -> dict:
     return _decrypt_proxies(copy.deepcopy(data))
 
 
-def set_enabled(val: bool):
+def set_enabled(val: bool) -> None:
     """Устанавливает глобальный флаг включения (только в памяти)."""
     _STATE['enabled'] = bool(val)
     logger.info(
@@ -119,7 +121,7 @@ def set_enabled(val: bool):
     )
 
 
-def save_config(data: dict):
+def save_config(data: dict) -> None:
     """Шифрует username/password и сохраняет конфиг.
     isEnabled НЕ пишется в файл — хранится только в памяти."""
     to_save = {
