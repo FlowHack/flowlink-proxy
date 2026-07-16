@@ -24,7 +24,7 @@ venv/
 .ruff_cache/
 .python-version
 .tox/
-build/
+/build/
 dist/
 *.egg
 .eggs/
