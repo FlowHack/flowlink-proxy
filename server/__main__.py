@@ -215,7 +215,10 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
             req = urllib.request.Request(url, method='GET')
             with urllib.request.urlopen(req, timeout=3):
                 # Сервер отвечает — расширение может подключиться
-                logger.debug('API-сервер отвечает (прошло %d сек)', elapsed + _EXTENSION_CHECK_INTERVAL)
+                logger.debug(
+                    'API-сервер отвечает (прошло %d сек)',
+                    elapsed + _EXTENSION_CHECK_INTERVAL,
+                )
                 return
         except (urllib.error.URLError, OSError):
             continue
