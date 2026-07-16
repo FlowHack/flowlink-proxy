@@ -4,7 +4,10 @@
 Единственная ответственность: определение платформы и доступности компонентов.
 """
 
+import logging
 import sys
+
+logger = logging.getLogger('flowlink.tray')
 
 
 def is_windows():
@@ -25,10 +28,24 @@ def is_macos():
 def has_pystray():
     """Проверяет, доступен ли pystray."""
     try:
-        # Runtime-проверка: нужен для выбора бэкенда трей
+        # Runtime-проверка: нужен для выбора бэкенда трей.
         import pystray  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
+        # pystray не установлен — штатный случай
+        return False
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # В headless CI (GitHub Actions) import pystray бросает
+        # Xlib.error.DisplayNameError при отсутствии X-дисплея.
+        # Ловим display-ошибки Xlib, остальное — пробрасываем.
+        try:
+            from Xlib.error import DisplayError  # pylint: disable=import-outside-toplevel
+            if isinstance(exc, DisplayError):
+                logger.debug('pystray: Xlib display-ошибка (headless?): %s', exc)
+                return False
+        except ImportError:
+            pass
+        logger.warning('pystray: неожиданная ошибка при импорте: %s', exc)
         return False
 
 
