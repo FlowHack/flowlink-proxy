@@ -7,6 +7,7 @@
 import { apiGet } from '../shared/api.js';
 import { escapeHtml } from '../shared/dom.js';
 import { API_BASE, setApiPort } from '../shared/constants.js';
+import { copyEmailToClipboard } from '../shared/utils.js';
 import { handlePingAll } from './ping.js';
 import { openHelpModal, switchHelpTab } from './help.js';
 import { showModal, closeModal, attachModalOverlayClose } from './modal.js';
@@ -419,23 +420,8 @@ function attachGlobalListeners() {
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);
 
   // Копирование email в буфер обмена
-  document.getElementById('contact-email')?.addEventListener('click', copyEmailToClipboard);
-}
-
-/** Копирует email поддержки в буфер обмена и показывает toast. */
-function copyEmailToClipboard() {
-  const email = 'flowlink.proxy@atomicmail.io';
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(email)
-      .then(() => showToast('Email скопирован: ' + email))
-      .catch(() => {
-        // Если clipboard API недоступен — показываем для ручного копирования
-        showToast('Не удалось скопировать. Выделите email вручную: ' + email);
-      });
-  } else {
-    // Если API clipboard нет — показываем подсказку
-    showToast('Выделите email вручную: ' + email);
-  }
+  document.getElementById('contact-email')?.addEventListener('click',
+    () => copyEmailToClipboard('flowlink.proxy@atomicmail.io', showToast));
 }
 
 /** Переключает видимость пароля в форме прокси. */

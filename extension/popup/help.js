@@ -6,6 +6,7 @@
 
 import { GITHUB_RELEASES_URL, EXTENSION_STORE_URL } from '../shared/constants.js';
 import { escapeHtml } from '../shared/dom.js';
+import { copyEmailToClipboard } from '../shared/utils.js';
 import { showModal } from './modal.js';
 
 /** Email поддержки — сноска внизу каждого раздела помощи. */
@@ -298,18 +299,11 @@ function _showAutostartHelpContent() {
 
 /**
  * Копирует email в буфер обмена и показывает toast.
- * Использует глобальный window.__flowlinkShowToast (устанавливается popup.js).
+ * Использует shared/utils.js copyEmailToClipboard.
  * @param {string} email — адрес для копирования.
  */
 function _copyEmailToClipboard(email) {
-  const toast = window.__flowlinkShowToast;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(email)
-      .then(() => { if (toast) toast('Email скопирован: ' + email); })
-      .catch(() => { if (toast) toast('Не удалось скопировать. Выделите вручную: ' + email); });
-  } else if (toast) {
-    toast('Выделите вручную: ' + email);
-  }
+  copyEmailToClipboard(email, window.__flowlinkShowToast);
 }
 
 /** Флаг: обработчик делегирования уже установлен. */

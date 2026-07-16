@@ -82,3 +82,20 @@ export function convertWildcardToRegex(pattern) {
   }
   return escaped;
 }
+
+/**
+ * Копирует email в буфер обмена и показывает toast-уведомление.
+ * @param {string} email — адрес для копирования.
+ * @param {function} [showToastFn] — функция показа toast (если не передана — без уведомления).
+ */
+export function copyEmailToClipboard(email, showToastFn) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(email)
+      .then(() => { if (showToastFn) showToastFn('Email скопирован: ' + email); })
+      .catch(() => {
+        if (showToastFn) showToastFn('Не удалось скопировать. Выделите вручную: ' + email);
+      });
+  } else if (showToastFn) {
+    showToastFn('Выделите вручную: ' + email);
+  }
+}
