@@ -124,10 +124,15 @@ class FlowLinkPopup:
             y: Координата Y (экранная). Если None — над курсором.
             items: Список элементов меню (см. _build_items).
         """
+        logger.debug('Popup: show() вызван, x=%s, y=%s', x, y)
         try:
+            logger.debug('Popup: show() — ожидание _build_lock')
             with self._build_lock:
+                logger.debug('Popup: show() — _build_lock получен')
                 self.dismiss()
+                logger.debug('Popup: show() — dismiss() завершён')
                 self._create_popup(x, y, items or [])
+                logger.debug('Popup: show() — _create_popup() завершён')
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter при показе: %s', e,
@@ -241,7 +246,16 @@ class FlowLinkPopup:
         # Автозакрытие при потере фокуса
         try:
             self._popup.bind('<FocusOut>', lambda _e: self.dismiss())  # type: ignore[reportArgumentType]
-            self._popup.after(50, self._popup.grab_set)
+            def _safe_grab_set() -> None:
+                """Безопасный grab_set — ловит TclError если окно уже закрыто."""
+                if self._popup:
+                    try:
+                        self._popup.grab_set()
+                    except tk.TclError as e:
+                        logger.debug(
+                            'Popup: grab_set failed (окно закрыто?): %s', e,
+                        )
+            self._popup.after(50, _safe_grab_set)
         except tk.TclError as e:
             logger.warning(
                 'Popup: не удалось установить grab: %s', e,

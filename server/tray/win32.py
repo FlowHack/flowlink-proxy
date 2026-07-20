@@ -37,6 +37,35 @@ from server.tray.menu import build_menu_items
 
 logger = logging.getLogger('flowlink.tray.win32')
 
+# ───── Crash-safe диагностика ─────
+_CRASH_LOG_PATH: str | None = None
+
+
+def _get_crash_log_path() -> str:
+    """Возвращает путь к crash-логу (ленивая инициализация)."""
+    global _CRASH_LOG_PATH  # noqa: PLW0603  # pylint: disable=global-statement
+    if _CRASH_LOG_PATH is None:
+        from server.utils import get_data_dir  # pylint: disable=import-outside-toplevel
+        _CRASH_LOG_PATH = os.path.join(get_data_dir(), 'tray_crash.log')
+    return _CRASH_LOG_PATH
+
+
+def _crash_log(message: str) -> None:
+    """
+    Пишет timestamp + сообщение в tray_crash.log.
+    Использует open() с flush=True — гарантированная запись на диск
+    даже при крахе Tcl/Tk. Не использует logger.
+    """
+    import datetime  # pylint: disable=import-outside-toplevel
+    try:
+        path = _get_crash_log_path()
+        ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        with open(path, 'a', encoding='utf-8') as f:
+            f.write(f'[{ts}] {message}\n')
+            f.flush()
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass  # Ничего не поделать — пишем молча
+
 # ───── Константы Win32 ─────
 WM_APP = 0x8000
 WM_RBUTTONUP = 0x0205
@@ -134,6 +163,7 @@ class Win32Tray:
 
     def __init__(self, callbacks):
         self._callbacks = callbacks
+        self._stop = self.stop
         self._hwnd = None
         self._wndproc = None
         self._popup = FlowLinkPopup()
@@ -168,6 +198,98 @@ class Win32Tray:
         """Обновляет popup-меню (вызывается при изменении конфига)."""
         # Popup рендерит свежее состояние при каждом открытии
 
+    def _init_tk(self) -> bool:
+        """
+        Инициализирует tkinter root и withdraw.
+
+        Returns:
+            True при успехе, False при ошибке.
+        """
+        logger.debug('Tray Win32: инициализация tkinter...')
+        try:
+            self._tk_root = tk.Tk()
+        except tk.TclError as e:
+            logger.error(
+                'Tray Win32: Tcl/Tk ошибка инициализации: %s. '
+                'Возможно, не найдены библиотеки tcl/tk.', e,
+            )
+            return False
+        except RuntimeError as e:
+            logger.error(
+                'Tray Win32: Tcl runtime не найден: %s. '
+                'PyInstaller мог не упаковать Tcl/Tk файлы.', e,
+            )
+            return False
+        except OSError as e:
+            logger.error(
+                'Tray Win32: системная ошибка при создании Tk: %s', e,
+            )
+            return False
+
+        logger.debug('Tray Win32: tkinter создан, withdraw...')
+        try:
+            self._tk_root.withdraw()
+        except tk.TclError as e:
+            logger.error(
+                'Tray Win32: ошибка withdraw(): %s', e,
+            )
+            return False
+
+        self._popup.set_tk_root(self._tk_root)
+        return True
+
+    def _init_tray_icon(self) -> bool:
+        """
+        Создаёт иконку в трее.
+
+        Returns:
+            True при успехе, False при ошибке.
+        """
+        logger.debug('Tray Win32: создание иконки в трее...')
+        try:
+            self._create_tray_icon()
+        except OSError as e:
+            logger.error(
+                'Tray Win32: ошибка создания иконки: %s', e,
+            )
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(
+                'Tray Win32: ошибка аргументов при создании '
+                'иконки: %s', e,
+            )
+            return False
+
+        if not self._hwnd:
+            logger.error(
+                'Tray Win32: hwnd не установлен после '
+                '_create_tray_icon',
+            )
+            return False
+        return True
+
+    def _run_mainloop(self) -> None:
+        """Запускает tkinter mainloop с обработкой ошибок."""
+        self._icon_ready.set()
+        logger.debug('Tray Win32: запуск mainloop...')
+        try:
+            self._tk_root.mainloop()
+        except tk.TclError as e:
+            logger.error(
+                'Tray Win32: ошибка mainloop: %s', e,
+            )
+        except OSError as e:
+            logger.error(
+                'Tray Win32: системная ошибка в mainloop: %s', e,
+            )
+        except BaseException as e:
+            _crash_log(f'_run_tk: BaseException в mainloop: {e}')
+            logger.error(
+                'Tray Win32: критическая ошибка mainloop: %s',
+                e, exc_info=True,
+            )
+            raise
+
     def _run_tk(self):
         """
         Запускает tkinter mainloop в отдельном потоке.
@@ -181,80 +303,11 @@ class Win32Tray:
         6. Exception — последний рубец (всё остальное)
         """
         try:
-            logger.debug('Tray Win32: инициализация tkinter...')
-            try:
-                self._tk_root = tk.Tk()
-            except tk.TclError as e:
-                logger.error(
-                    'Tray Win32: Tcl/Tk ошибка инициализации: %s. '
-                    'Возможно, не найдены библиотеки tcl/tk.', e,
-                )
+            if not self._init_tk():
                 return
-            except RuntimeError as e:
-                logger.error(
-                    'Tray Win32: Tcl runtime не найден: %s. '
-                    'PyInstaller мог не упаковать Tcl/Tk файлы.', e,
-                )
+            if not self._init_tray_icon():
                 return
-            except OSError as e:
-                logger.error(
-                    'Tray Win32: системная ошибка при создании Tk: %s', e,
-                )
-                return
-
-            logger.debug('Tray Win32: tkinter создан, withdraw...')
-            try:
-                self._tk_root.withdraw()
-            except tk.TclError as e:
-                logger.error(
-                    'Tray Win32: ошибка withdraw(): %s', e,
-                )
-                return
-
-            self._popup.set_tk_root(self._tk_root)
-
-            logger.debug('Tray Win32: создание иконки в трее...')
-            try:
-                self._create_tray_icon()
-            except OSError as e:
-                logger.error(
-                    'Tray Win32: ошибка создания иконки: %s', e,
-                )
-                return
-            except (ValueError, TypeError) as e:
-                logger.error(
-                    'Tray Win32: ошибка аргументов при создании '
-                    'иконки: %s', e,
-                )
-                return
-
-            if not self._hwnd:
-                logger.error(
-                    'Tray Win32: hwnd не установлен после '
-                    '_create_tray_icon',
-                )
-                return
-
-            self._icon_ready.set()
-            logger.debug('Tray Win32: запуск mainloop...')
-
-            try:
-                self._tk_root.mainloop()
-            except tk.TclError as e:
-                logger.error(
-                    'Tray Win32: ошибка mainloop: %s', e,
-                )
-            except OSError as e:
-                logger.error(
-                    'Tray Win32: системная ошибка в mainloop: %s', e,
-                )
-            except BaseException as e:
-                logger.error(
-                    'Tray Win32: критическая ошибка mainloop: %s',
-                    e, exc_info=True,
-                )
-                raise
-
+            self._run_mainloop()
         except ImportError as e:
             logger.error(
                 'Tray Win32: модуль не найден: %s', e,
@@ -408,11 +461,38 @@ class Win32Tray:
             NIM_SETVERSION, ctypes.byref(nid),
         )
         if not ok:
+            _crash_log('NIM_SETVERSION не удался (NOTIFYICON_VERSION_4)')
             logger.warning(
                 'Tray Win32: NIM_SETVERSION не удался '
                 '(NOTIFYICON_VERSION_4) — события мыши '
                 'могут работать некорректно',
             )
+
+    def _draw_fallback_image(self, draw, font):
+        """Рисует красный круг с текстом FLP на изображении."""
+        size = 16
+        draw.ellipse(
+            [1, 1, size - 2, size - 2],
+            fill=(231, 76, 60, 255),
+        )
+        bbox = draw.textbbox((0, 0), 'FLP', font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        tx, ty = (size - tw) // 2, (size - th) // 2 - 1
+        draw.text((tx, ty), 'FLP', fill=(0, 0, 0, 255), font=font)
+
+    def _load_fallback_font(self):
+        """Загружает шрифт для дефолтной иконки."""
+        from PIL import ImageFont  # pylint: disable=import-outside-toplevel
+        try:
+            return ImageFont.truetype('arial.ttf', 7)
+        except OSError:
+            try:
+                return ImageFont.truetype(
+                    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                    7,
+                )
+            except OSError:
+                return ImageFont.load_default()
 
     def _create_fallback_icon(self):
         """
@@ -425,7 +505,7 @@ class Win32Tray:
             HICON или 0 при ошибке.
         """
         try:
-            from PIL import Image, ImageDraw, ImageFont  # pylint: disable=import-outside-toplevel
+            from PIL import Image, ImageDraw  # pylint: disable=import-outside-toplevel
         except ImportError:
             logger.warning(
                 'Tray Win32: Pillow недоступен для дефолтной иконки',
@@ -435,50 +515,25 @@ class Win32Tray:
         try:
             import tempfile  # pylint: disable=import-outside-toplevel
 
-            size = 16
-            img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+            img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
-
-            # Красный круг
-            draw.ellipse(
-                [1, 1, size - 2, size - 2],
-                fill=(231, 76, 60, 255),
-            )
-
-            # Текст «FLP»
-            try:
-                font = ImageFont.truetype('arial.ttf', 7)
-            except OSError:
-                try:
-                    font = ImageFont.truetype(
-                        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-                        7,
-                    )
-                except OSError:
-                    font = ImageFont.load_default()
-
-            bbox = draw.textbbox((0, 0), 'FLP', font=font)
-            tw = bbox[2] - bbox[0]
-            th = bbox[3] - bbox[1]
-            tx = (size - tw) // 2
-            ty = (size - th) // 2 - 1
-            draw.text((tx, ty), 'FLP', fill=(0, 0, 0, 255), font=font)
+            font = self._load_fallback_font()
+            self._draw_fallback_image(draw, font)
 
             # Сохраняем во временный .ico
-            tmp = tempfile.NamedTemporaryFile(
+            with tempfile.NamedTemporaryFile(
                 suffix='.ico', delete=False,
-            )
-            img.save(tmp, format='ICO')
-            tmp.close()
-            self._fallback_icon_path = tmp.name
+            ) as tmp:
+                img.save(tmp, format='ICO')
+                self._fallback_icon_path = tmp.name
 
             hicon = _user32.LoadImageW(
-                0, tmp.name, 1, 0, 0, 0x00000010,
+                0, self._fallback_icon_path, 1, 0, 0, 0x00000010,
             )
             if hicon:
                 logger.info(
                     'Tray Win32: дефолтная иконка создана (%s)',
-                    tmp.name,
+                    self._fallback_icon_path,
                 )
             return hicon
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -548,6 +603,7 @@ class Win32Tray:
         tkinter mainloop. Даже если _show_popup выбросит
         исключение, которое не поймано — этот метод его поймает.
         """
+        _crash_log('_safe_show_popup: вход')
         reason = None
         if self._popup_open:
             reason = 'popup уже открыт'
@@ -578,7 +634,8 @@ class Win32Tray:
         except BaseException as e:  # pylint: disable=broad-exception-caught
             logger.error('Tray Win32: _safe_show_popup — критическая '
                          'ошибка: %s', e, exc_info=True)
-            raise
+            # НЕ пробрасываем — tkinter mainloop крашнет окно
+            return
         finally:
             self._popup_open = False
 
@@ -589,6 +646,7 @@ class Win32Tray:
         Ловит все исключения — callback не должен крашить
         mainloop.
         """
+        _crash_log('_show_popup: вход')
         logger.debug('Tray Win32: _show_popup вызван')
         try:
             rect = self._get_icon_rect()
@@ -612,6 +670,7 @@ class Win32Tray:
 
             if self._tk_root:
                 logger.debug('Tray Win32: _show_popup — вызов popup.show()')
+                _crash_log(f'_show_popup: вызов popup.show() x={x} y={y} items={len(items)}')
                 self._popup.show(x=x, y=y, items=items)
                 logger.debug('Tray Win32: _show_popup — popup.show() завершён')
             else:
@@ -634,6 +693,66 @@ class Win32Tray:
                 e, exc_info=True,
             )
 
+    def _handle_tray_callback(self, event):
+        """Обрабатывает событие трей (правый/левый клик)."""
+        if event not in (WM_RBUTTONUP, WM_RBUTTONDBLCLK,
+                         WM_LBUTTONDBLCLK, WM_LBUTTONUP):
+            return None
+        if not self._tk_root:
+            return 0
+        try:
+            if not self._tk_root.winfo_exists():
+                logger.debug(
+                    'Tray Win32: tk_root уничтожен, пропускаю popup',
+                )
+                return 0
+        except tk.TclError:
+            logger.debug(
+                'Tray Win32: tk_root недоступен, пропускаю popup',
+            )
+            return 0
+        _crash_log(
+            f'_wnd_proc: событие 0x{event:X}, вызов _safe_show_popup',
+        )
+        try:
+            self._tk_root.after(
+                0, self._safe_show_popup,
+            )  # type: ignore[reportOptionalMemberAccess]
+        except (tk.TclError, RuntimeError) as e:
+            _crash_log(f'_wnd_proc: after() failed: {e}')
+            logger.debug(
+                'Tray Win32: after() failed: %s', e,
+            )
+        return 0
+
+    def _handle_wm_destroy(self):
+        """Обрабатывает WM_DESTROY."""
+        if self._shutting_down:
+            logger.debug(
+                'Tray Win32: WM_DESTROY (shutdown), удаление иконки',
+            )
+            self._remove_icon()
+            _user32.PostQuitMessage(0)
+            return 0
+        logger.warning(
+            'Tray Win32: WM_DESTROY получен без '
+            'shutdown-флага, игнорируется',
+        )
+        return 0
+
+    def _handle_taskbar_created(self):
+        """Обрабатывает WM_TASKBAR_CREATED — пересоздание иконки."""
+        logger.info(
+            'Tray Win32: WM_TASKBAR_CREATED — пересоздание иконки',
+        )
+        try:
+            self._add_icon()
+        except OSError as e:
+            logger.error(
+                'Tray Win32: ошибка пересоздания иконки: %s', e,
+            )
+        return 0
+
     def _wnd_proc(self, hwnd, msg, wparam, lparam):
         """
         Обработчик сообщений окна трей.
@@ -647,56 +766,13 @@ class Win32Tray:
         )
         try:
             if msg == TRAY_CALLBACK:
-                event = lparam & 0xFFFF
-                if event in (WM_RBUTTONUP, WM_RBUTTONDBLCLK, WM_LBUTTONDBLCLK, WM_LBUTTONUP):
-                    if self._tk_root:
-                        try:
-                            if not self._tk_root.winfo_exists():
-                                logger.debug(
-                                    'Tray Win32: tk_root уничтожен, '
-                                    'пропускаю popup',
-                                )
-                                return 0
-                        except tk.TclError:
-                            logger.debug(
-                                'Tray Win32: tk_root недоступен, '
-                                'пропускаю popup',
-                            )
-                            return 0
-                        try:
-                            self._tk_root.after(0, self._safe_show_popup)  # type: ignore[reportOptionalMemberAccess]  # _tk_root проверен на None выше
-                        except (tk.TclError, RuntimeError) as e:
-                            logger.debug(
-                                'Tray Win32: after() failed: %s', e,
-                            )
-                    return 0
+                result = self._handle_tray_callback(lparam & 0xFFFF)
+                if result is not None:
+                    return result
             elif msg == WM_DESTROY:
-                if self._shutting_down:
-                    logger.debug(
-                        'Tray Win32: WM_DESTROY (shutdown), '
-                        'удаление иконки',
-                    )
-                    self._remove_icon()
-                    _user32.PostQuitMessage(0)
-                    return 0
-                logger.warning(
-                    'Tray Win32: WM_DESTROY получен без '
-                    'shutdown-флага, игнорируется',
-                )
-                return 0
+                return self._handle_wm_destroy()
             elif self._taskbar_msg_id and msg == self._taskbar_msg_id:
-                logger.info(
-                    'Tray Win32: WM_TASKBAR_CREATED — '
-                    'пересоздание иконки',
-                )
-                try:
-                    self._add_icon()
-                except OSError as e:
-                    logger.error(
-                        'Tray Win32: ошибка пересоздания '
-                        'иконки: %s', e,
-                    )
-                return 0
+                return self._handle_taskbar_created()
         except AttributeError as e:
             logger.error(
                 'Tray Win32: _wnd_proc — атрибут не найден: %s', e,

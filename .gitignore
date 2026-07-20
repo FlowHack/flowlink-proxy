@@ -1,7 +1,14 @@
 # --- Конфигурация агента (секреты, промпты, лог разработки) ---
 /myAgents/
 AI_DEV_LOG.md
-AGENTS.md
+AGENTS*
+CONVENTIONS*
+.aider*
+aider*
+.opencodeignore
+litellm*
+.opencode/
+task*
 
 # --- IDE и редакторы ---
 .idea/
