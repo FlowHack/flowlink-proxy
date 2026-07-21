@@ -50,6 +50,12 @@ for doc in EULA.rtf LICENSE.txt; do
     fi
 done
 
+# CRX расширение
+if [ -f "$PROJECT_DIR/releases/flowlink-proxy.crx" ]; then
+    install -m 644 "$PROJECT_DIR/releases/flowlink-proxy.crx" \
+        "$ROOT_DIR$INSTALL_DIR/share/$PKG_NAME/flowlink-proxy.crx"
+fi
+
 # --- pkgbuild ---
 pkgbuild --root "$ROOT_DIR" \
     --identifier "$IDENTIFIER" \

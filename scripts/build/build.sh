@@ -88,6 +88,23 @@ pip install -q pyinstaller
 VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)")
 info "Версия: $VERSION"
 
+# ─── Сборка CRX расширения ───
+CRX_DATA=""
+if [ -f "$SCRIPT_DIR/crx-private-key.pem" ]; then
+    info "Сборка CRX расширения..."
+    bash "$SCRIPT_DIR/build-crx.sh"
+    if [ -f "$PROJECT_DIR/releases/flowlink-proxy.crx" ]; then
+        CRX_DATA="--add-data releases/flowlink-proxy.crx${DATA_SEP}."
+        info "CRX собран: releases/flowlink-proxy.crx"
+    else
+        warn "Не удалось собрать CRX"
+    fi
+else
+    warn "Приватный ключ CRX не найден ($SCRIPT_DIR/crx-private-key.pem)."
+    warn "CRX не будет включён в сборку. Расширение можно будет установить только из исходников."
+    warn "Сгенерируйте ключ: openssl genrsa -out $SCRIPT_DIR/crx-private-key.pem 2048"
+fi
+
 # --- Сборка ---
 info "Очистка предыдущей сборки..."
 rm -rf server/dist server/work
@@ -117,6 +134,7 @@ $PYTHON -m PyInstaller \
     $ICON_FLAG \
     --add-data "server/requirements.txt${DATA_SEP}server/" \
     --add-data "server/icons${DATA_SEP}icons/" \
+    $CRX_DATA \
     --hidden-import tkinter \
     --hidden-import _tkinter \
     --hidden-import pystray \

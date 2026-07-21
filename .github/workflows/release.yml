@@ -30,7 +30,7 @@ jobs:
       - name: Сборка артефактов
         run: |
           mkdir -p release-files
-          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" \) \
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" -o -name "*.crx" \) \
             -exec cp {} release-files/ \;
 
       - name: Создание Draft Release
@@ -56,6 +56,7 @@ jobs:
             | macOS x64 | `.pkg` | Автоматическая установка |
             | macOS arm64 | `.tar.gz` | Standalone + лаунчер + документация |
             | macOS arm64 | `.pkg` | Автоматическая установка |
+            | Все платформы | `.crx` | Chrome расширение (установка вручную) |
 
             ### Установка
 

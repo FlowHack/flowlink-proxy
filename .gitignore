@@ -41,6 +41,10 @@ dist/
 logs/
 *.log
 
+# --- CRX private key (не коммитить!) ---
+scripts/build/crx-private-key.pem
+*.crx
+
 # --- Конфигурация прокси (пароли в открытом виде не хранятся) ---
 config.json
 config.local.json
@@ -78,3 +82,4 @@ extension/icons/*.ico
 .env.*
 *.local
 *.secret
+crx-private-key.pem

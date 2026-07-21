@@ -65,6 +65,60 @@ Remove-Item -Recurse -Force "server/dist", "server/work" -ErrorAction SilentlyCo
 $VERSION = & $python -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)"
 Info "Сборка FlowLink Proxy v$VERSION для Windows..."
 
+# ─── Сборка CRX расширения ───
+$crxKeyPath = Join-Path $ProjectRoot "scripts\build\crx-private-key.pem"
+$crxOutput = Join-Path $ProjectRoot "releases\flowlink-proxy.crx"
+if (Test-Path $crxKeyPath) {
+    Info "Сборка CRX расширения..."
+    # Создание временной папки с расширением
+    $tmpZip = Join-Path $env:TEMP "extension.zip"
+    $tmpDir = Join-Path $env:TEMP "crx-build"
+    Remove-Item -Recurse -Force $tmpDir, $tmpZip -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+    Copy-Item -Recurse "$ProjectRoot\extension\*" $tmpDir
+    
+    # Добавление публичного ключа в manifest.json
+    & $python -c @"
+import json, subprocess, base64
+with open('$tmpDir/manifest.json') as f:
+    m = json.load(f)
+r = subprocess.run(['openssl', 'rsa', '-pubout', '-in', '$crxKeyPath', '-outform', 'DER'],
+                  capture_output=True)
+m['key'] = base64.b64encode(r.stdout).decode('ascii')
+with open('$tmpDir/manifest.json', 'w') as f:
+    json.dump(m, f, indent=2)
+"@
+    
+    # Создание ZIP
+    & $python -c @"
+import zipfile, os
+with zipfile.ZipFile('$tmpZip', 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk('$tmpDir'):
+        for fn in files:
+            fp = os.path.join(root, fn)
+            zf.write(fp, os.path.relpath(fp, '$tmpDir'))
+"@
+    
+    # Сборка CRX через crx3-utils
+    New-Item -ItemType Directory -Force -Path "releases" | Out-Null
+    $crxCmd = "npx -p crx3-utils crx3-new `"$crxKeyPath`" < `"$tmpZip`" > `"$crxOutput`""
+    Invoke-Expression $crxCmd
+    
+    Remove-Item -Recurse -Force $tmpDir, $tmpZip -ErrorAction SilentlyContinue
+    if (Test-Path $crxOutput) {
+        $crxDataFlag = "--add-data `"releases/flowlink-proxy.crx;.`""
+        Info "CRX собран: $crxOutput"
+    } else {
+        $crxDataFlag = ""
+        Warn "Не удалось собрать CRX"
+    }
+} else {
+    $crxDataFlag = ""
+    Warn "Приватный ключ CRX не найден ($crxKeyPath)."
+    Warn "CRX не будет включён в сборку."
+    Warn "Сгенерируйте ключ: openssl genrsa -out scripts\build\crx-private-key.pem 2048"
+}
+
 # Иконки из scripts/icons/
 $iconFlag = ""
 if (Test-Path "scripts/icons/icon.ico") {
@@ -82,6 +136,7 @@ $binaryName = "FlowLink Proxy.exe"
     $iconFlag `
     --add-data "server/requirements.txt;server/" `
     --add-data "server/icons;icons/" `
+    $crxDataFlag `
     --hidden-import tkinter `
     --hidden-import _tkinter `
     --hidden-import pystray `

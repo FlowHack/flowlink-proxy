@@ -42,6 +42,7 @@ Name: "autostart"; Description: "Запускать FlowLink Proxy при вхо
 
 [Files]
 Source: "..\..\releases\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\releases\flowlink-proxy.crx"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\EULA.rtf"; DestDir: "{app}"; Flags: ignoreversion
 
