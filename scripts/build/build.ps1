@@ -106,16 +106,32 @@ with zipfile.ZipFile('$tmpZipNix', 'w', zipfile.ZIP_DEFLATED) as zf:
     
     # Сборка CRX через crx3-utils (через cmd, т.к. PowerShell не поддерживает < в Invoke-Expression)
     New-Item -ItemType Directory -Force -Path "releases" | Out-Null
-    $crxCmd = "npx -p crx3-utils crx3-new `"$crxKeyPath`" < `"$tmpZip`" > `"$crxOutput`""
-    & cmd /c $crxCmd
+    
+    # Проверка наличия npx
+    $npxCheck = Get-Command "npx" -ErrorAction SilentlyContinue
+    if (-not $npxCheck) {
+        Warn "npx не найден. Установите Node.js (npm) для сборки CRX."
+        $crxDataFlag = ""
+    } else {
+        $crxCmd = "npx -p crx3-utils crx3-new `"$crxKeyPath`" < `"$tmpZip`" > `"$crxOutput`""
+        & cmd /c $crxCmd
+        if ($LASTEXITCODE -ne 0) {
+            Warn "Ошибка сборки CRX (npx вернул код $LASTEXITCODE)"
+            $crxDataFlag = ""
+        } else {
+            $crxDataFlag = "--add-data `"releases/flowlink-proxy.crx;.`""
+            Info "CRX собран: $crxOutput"
+        }
+    }
     
     Remove-Item -Recurse -Force $tmpDir, $tmpZip -ErrorAction SilentlyContinue
-    if (Test-Path $crxOutput) {
-        $crxDataFlag = "--add-data `"releases/flowlink-proxy.crx;.`""
-        Info "CRX собран: $crxOutput"
-    } else {
-        $crxDataFlag = ""
-        Warn "Не удалось собрать CRX"
+    if (-not $crxDataFlag) {
+        if (Test-Path $crxOutput) {
+            $crxDataFlag = "--add-data `"releases/flowlink-proxy.crx;.`""
+            Info "CRX собран: $crxOutput"
+        } else {
+            Warn "Не удалось собрать CRX"
+        }
     }
 } else {
     $crxDataFlag = ""

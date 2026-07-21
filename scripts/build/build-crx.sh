@@ -47,6 +47,10 @@ with zipfile.ZipFile('/tmp/extension.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
 
 # Сборка CRX через crx3-utils
 mkdir -p "$PROJECT_DIR/releases"
+if ! command -v npx &>/dev/null; then
+    echo "[!] npx не найден. Установите Node.js (npm) для сборки CRX."
+    exit 1
+fi
 npx -p crx3-utils crx3-new "$KEY_FILE" < /tmp/extension.zip > "$PROJECT_DIR/releases/flowlink-proxy.crx"
 
 rm -rf "$TMP_DIR" /tmp/extension.zip
