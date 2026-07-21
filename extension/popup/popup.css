@@ -1122,6 +1122,31 @@ body {
   border: none;
 }
 
+/* Кнопка действия в баннере ошибки — тёмная, при наведении серая */
+.banner-error .banner-action {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.banner-error .banner-action:hover {
+  background: var(--bg-surface-hover);
+}
+
+/* Кнопка помощи в баннере */
+.banner-help {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.banner-help:hover {
+  opacity: 0.8;
+}
+
 .banner-dismiss {
   color: inherit;
   font-size: 14px;

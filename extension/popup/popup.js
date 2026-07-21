@@ -142,6 +142,8 @@ function renderBanner(type, message, options = {}) {
     dismissable = false,
     actionText,
     actionCallback,
+    helpText,
+    helpCallback,
     bannerId,
   } = options;
   const container = document.getElementById(containerId);
@@ -153,13 +155,22 @@ function renderBanner(type, message, options = {}) {
     banner = document.createElement('div');
     banner.id = id;
     banner.className = `banner banner-${type}`;
-    container.prepend(banner);
+    // Вставляем после .header, а не в начало контейнера
+    const header = container.querySelector('.header');
+    if (header && header.nextSibling) {
+      container.insertBefore(banner, header.nextSibling);
+    } else {
+      container.prepend(banner);
+    }
   }
 
   banner.className = `banner banner-${type}`;
   let html = `<span class="banner-message">${escapeHtml(message)}</span>`;
   if (actionText) {
     html += `<button class="btn-small banner-action">${escapeHtml(actionText)}</button>`;
+  }
+  if (helpText) {
+    html += `<button class="btn-small banner-help">${escapeHtml(helpText)}</button>`;
   }
   if (dismissable) {
     html += `<button class="btn-icon banner-dismiss" title="Закрыть">✕</button>`;
@@ -170,6 +181,10 @@ function renderBanner(type, message, options = {}) {
   const actionBtn = banner.querySelector('.banner-action');
   if (actionBtn && actionCallback) {
     actionBtn.addEventListener('click', actionCallback, { once: true });
+  }
+  const helpBtn = banner.querySelector('.banner-help');
+  if (helpBtn && helpCallback) {
+    helpBtn.addEventListener('click', helpCallback);
   }
   const dismissBtn = banner.querySelector('.banner-dismiss');
   if (dismissBtn) {
@@ -196,6 +211,8 @@ function showError(visible) {
       bannerId: 'banner-connection-error',
       actionText: 'Повторить',
       actionCallback: handleRetry,
+      helpText: 'Помощь',
+      helpCallback: () => openHelpModal('port'),
     });
     // Скрываем всё, что требует бэкенд (нет данных — нет смысла показывать)
     document.getElementById('browser-not-found-banner')?.classList.add('hidden');
