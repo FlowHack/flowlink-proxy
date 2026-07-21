@@ -71,28 +71,28 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
         self.assertEqual(result, 40)
 
     def test_single_item(self):
-        """Один пункт: 8 (padding) + 32 (item) + 8 (padding) = 48."""
+        """Один пункт: 12 (padding) + 40 (item) + 12 (padding) = 64."""
         items = [{'type': 'item', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 48)
+        self.assertEqual(result, 64)
 
     def test_two_items(self):
-        """Два пункта: 8 + 32 + 32 + 8 = 80."""
+        """Два пункта: 12 + 40 + 40 + 12 = 104."""
         items = [
             {'type': 'item', 'text': 'First'},
             {'type': 'item', 'text': 'Second'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 80)
+        self.assertEqual(result, 104)
 
     def test_separator_height(self):
-        """Разделитель: 8 + 10 + 32 + 8 = 58."""
+        """Разделитель: 12 + 12 + 40 + 12 = 76."""
         items = [
             {'type': 'separator'},
             {'type': 'item', 'text': 'Test'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 58)
+        self.assertEqual(result, 76)
 
     def test_menu_7_items_2_separators(self):
         """Полное меню (6 пунктов + 2 разделителя)."""
@@ -106,16 +106,16 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
             {'type': 'separator'},
             {'type': 'item', 'text': '6'},
         ]
-        # 8 + 32*6 + 10*2 + 8 = 228
+        # 12 + 40*6 + 12*2 + 12 = 288
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 228)
+        self.assertEqual(result, 288)
 
     def test_unknown_type_treated_as_item(self):
         """Неизвестный тип обрабатывается как пункт."""
         items = [{'type': 'unknown', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
         # Высота как для обычного item
-        self.assertEqual(result, 48)
+        self.assertEqual(result, 64)
 
     def test_min_height_floor(self):
         """Минимальная высота — 40, даже если calculation меньше."""

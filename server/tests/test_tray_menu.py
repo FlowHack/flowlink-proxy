@@ -148,7 +148,8 @@ class TestBuildMenuItems(unittest.TestCase):
         ]
         self.assertEqual(len(separators), 2)
 
-    def test_exit_calls_stop_fn(self):
+    @patch('server.tray.menu.os._exit')
+    def test_exit_calls_stop_fn(self, mock_exit):  # pylint: disable=unused-argument
         """Клик по «Выход» вызывает stop_fn."""
         stop_fn = MagicMock()
         callbacks = self._base_callbacks()
@@ -160,7 +161,8 @@ class TestBuildMenuItems(unittest.TestCase):
         exit_item['command']()
         stop_fn.assert_called_once()
 
-    def test_exit_calls_stop_callback(self):
+    @patch('server.tray.menu.os._exit')
+    def test_exit_calls_stop_callback(self, mock_exit):  # pylint: disable=unused-argument
         """Клик по «Выход» вызывает callbacks['stop']."""
         callbacks = self._base_callbacks()
         items = build_menu_items(callbacks, MagicMock())

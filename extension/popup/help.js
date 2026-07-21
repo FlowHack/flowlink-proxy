@@ -103,69 +103,27 @@ const HELP_TEXTS = {
       ? `<p>Или установите из магазина: <a href="${escapeHtml(EXTENSION_STORE_URL)}" target="_blank" rel="noopener">открыть страницу расширения</a></p>`
       : '<p>Расширение будет доступно в Chrome Web Store после публикации.</p>'
     }
-    ${_PORTS_DEFAULT_TABLE}
-    ${_PORTS_TROUBLESHOOT}
   `,
-  linux: `
-    <h3>1. Установите Python 3.10+</h3>
-    <ol>
-      <li><strong>Debian/Ubuntu:</strong> <code>sudo apt install python3 python3-venv python3-pip</code></li>
-      <li><strong>Fedora:</strong> <code>sudo dnf install python3 python3-virtualenv python3-pip</code></li>
-      <li><strong>Arch:</strong> <code>sudo pacman -S python python-virtualenv python-pip</code></li>
-      <li>Проверьте: <code>python3 --version</code></li>
-    </ol>
-    <h3>2. Получите исходный код</h3>
-    <ol>
-      <li><strong>Через Git:</strong> <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
-      <li><strong>Или ZIP:</strong> скачайте со <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-    </ol>
-    <h3>3. Запустите</h3>
-    <ol>
-      <li><code>cd flowlink-proxy</code></li>
-      <li>Создайте виртуальное окружение: <code>python3 -m venv venv</code></li>
-      <li>Активируйте: <code>source venv/bin/activate</code></li>
-      <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
-      <li>Запустите бэкенд: <code>python3 -m server</code></li>
-    </ol>
-    <h3>Установка расширения</h3>
-    <ol>
-      <li>Откройте <code>chrome://extensions</code></li>
-      <li>Включите «Режим разработчика»</li>
-      <li>Нажмите «Загрузить распакованное расширение»</li>
-      <li>Выберите папку <code>extension/</code></li>
-    </ol>
-    ${_PORTS_DEFAULT_TABLE}
-    ${_PORTS_TROUBLESHOOT}
+  linux: () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-linux">
+      <button class="help-sub-tab active" data-sub="linux-bin">Бинарник (.tar.gz)</button>
+      <button class="help-sub-tab" data-sub="linux-deb">Пакет (.deb)</button>
+      <button class="help-sub-tab" data-sub="linux-rpm">Пакет (.rpm)</button>
+    </div>
+    <div class="help-sub-content" id="help-sub-content-linux">
+      ${_renderSubTabContent('linux', 'linux-bin')}
+    </div>
   `,
-  macos: `
-    <h3>1. Установите Python 3.10+</h3>
-    <ol>
-      <li><strong>Homebrew:</strong> <code>brew install python@3.12</code></li>
-      <li><strong>Или:</strong> скачайте с <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">официального сайта</a></li>
-      <li>Проверьте: <code>python3 --version</code></li>
-    </ol>
-    <h3>2. Получите исходный код</h3>
-    <ol>
-      <li><strong>Через Git:</strong> <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
-      <li><strong>Или ZIP:</strong> скачайте со <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-    </ol>
-    <h3>3. Запустите</h3>
-    <ol>
-      <li><code>cd flowlink-proxy</code></li>
-      <li>Создайте виртуальное окружение: <code>python3 -m venv venv</code></li>
-      <li>Активируйте: <code>source venv/bin/activate</code></li>
-      <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
-      <li>Запустите бэкенд: <code>python3 -m server</code></li>
-    </ol>
-    <h3>Установка расширения</h3>
-    <ol>
-      <li>Откройте <code>chrome://extensions</code></li>
-      <li>Включите «Режим разработчика»</li>
-      <li>Нажмите «Загрузить распакованное расширение»</li>
-      <li>Выберите папку <code>extension/</code></li>
-    </ol>
-    ${_PORTS_DEFAULT_TABLE}
-    ${_PORTS_TROUBLESHOOT}
+  macos: () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-macos">
+      <button class="help-sub-tab active" data-sub="macos-intel-bin">Intel — Бинарник (.tar.gz)</button>
+      <button class="help-sub-tab" data-sub="macos-intel-pkg">Intel — Пакет (.pkg)</button>
+      <button class="help-sub-tab" data-sub="macos-arm-bin">ARM — Бинарник (.tar.gz)</button>
+      <button class="help-sub-tab" data-sub="macos-arm-pkg">ARM — Пакет (.pkg)</button>
+    </div>
+    <div class="help-sub-content" id="help-sub-content-macos">
+      ${_renderSubTabContent('macos', 'macos-intel-bin')}
+    </div>
   `,
   source: `
     <h3>1. Установите Python 3.10+</h3>
@@ -214,17 +172,7 @@ const HELP_TEXTS = {
 
     ${_PORTS_DEFAULT_TABLE}
 
-    <div class="help-section" id="help-diagnose">
-      <h4>🩺 Диагностика</h4>
-      <p>Если ни один из вариантов не помог, попробуйте следующее:</p>
-      <ul>
-        <li>Проверьте, запущен ли процесс бэкенда (в диспетчере задач или <code>ps aux | grep flowlink</code>).</li>
-        <li>Проверьте логи бэкенда на наличие ошибок (правый клик на иконке в трее → «Посмотреть логи»).</li>
-        <li>Перезапустите бэкенд.</li>
-        <li>Перезапустите браузер.</li>
-        <li>Временно отключите антивирус или файрволл для проверки.</li>
-      </ul>
-    </div>
+    <p>Если проблема не решена — обратитесь в поддержку (ссылка ниже).</p>
   `,
   updateExe: (tag) => `
     <h3>Установщик</h3>
@@ -414,4 +362,175 @@ export function switchHelpTab(tab) {
     const content = HELP_TEXTS[tab] || '';
     container.innerHTML = content + _EMAIL_FOOTER;
   }
+
+  // Если вкладка linux/macos — вешаем обработчик на подвкладки
+  if (tab === 'linux' || tab === 'macos') {
+    _setupSubTabHandler(tab);
+  }
+}
+
+/**
+ * Контент для подвкладок Linux и macOS.
+ * @type {Object<string, Object<string, string>>}
+ */
+const _SUB_TEXTS = {
+  linux: {
+    'linux-bin': `
+      <h3>Бинарник (.tar.gz)</h3>
+      <ol>
+        <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+        <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
+        <li>Запустите: <code>./flowlink-proxy</code></li>
+      </ol>
+      <h3>Установка расширения</h3>
+      <ol>
+        <li>Откройте <code>chrome://extensions</code></li>
+        <li>Включите «Режим разработчика»</li>
+        <li>Нажмите «Загрузить распакованное расширение»</li>
+        <li>Выберите папку <code>extension/</code></li>
+      </ol>
+    `,
+    'linux-deb': `
+      <h3>Пакет (.deb)</h3>
+      <ol>
+        <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.deb</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+        <li>Установите: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
+        <li>Запустите: <code>flowlink-proxy</code></li>
+      </ol>
+      <h3>Установка расширения</h3>
+      <ol>
+        <li>Откройте <code>chrome://extensions</code></li>
+        <li>Включите «Режим разработчика»</li>
+        <li>Нажмите «Загрузить распакованное расширение»</li>
+        <li>Выберите папку <code>extension/</code></li>
+      </ol>
+    `,
+    'linux-rpm': `
+      <h3>Пакет (.rpm)</h3>
+      <ol>
+        <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.rpm</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+        <li>Установите: <code>sudo rpm -i FlowLink-Proxy-*.rpm</code></li>
+        <li>Запустите: <code>flowlink-proxy</code></li>
+      </ol>
+      <h3>Установка расширения</h3>
+      <ol>
+        <li>Откройте <code>chrome://extensions</code></li>
+        <li>Включите «Режим разработчика»</li>
+        <li>Нажмите «Загрузить распакованное расширение»</li>
+        <li>Выберите папку <code>extension/</code></li>
+      </ol>
+    `,
+  },
+  macos: {
+    'macos-intel-bin': `
+      <h3>Intel — Бинарник (.tar.gz)</h3>
+      <ol>
+        <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+        <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
+        <li>Запустите: <code>./flowlink-proxy</code></li>
+      </ol>
+      <h3>Установка расширения</h3>
+      <ol>
+        <li>Откройте <code>chrome://extensions</code></li>
+        <li>Включите «Режим разработчика»</li>
+        <li>Нажмите «Загрузить распакованное расширение»</li>
+        <li>Выберите папку <code>extension/</code></li>
+      </ol>
+    `,
+    'macos-intel-pkg': `
+      <h3>Intel — Пакет (.pkg)</h3>
+      <ol>
+        <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+        <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
+        <li>Запустите: <code>flowlink-proxy</code></li>
+      </ol>
+      <h3>Установка расширения</h3>
+      <ol>
+        <li>Откройте <code>chrome://extensions</code></li>
+        <li>Включите «Режим разработчика»</li>
+        <li>Нажмите «Загрузить распакованное расширение»</li>
+        <li>Выберите папку <code>extension/</code></li>
+      </ol>
+    `,
+    'macos-arm-bin': `
+      <h3>ARM — Бинарник (.tar.gz)</h3>
+      <ol>
+        <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+        <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
+        <li>Запустите: <code>./flowlink-proxy</code></li>
+      </ol>
+      <h3>Установка расширения</h3>
+      <ol>
+        <li>Откройте <code>chrome://extensions</code></li>
+        <li>Включите «Режим разработчика»</li>
+        <li>Нажмите «Загрузить распакованное расширение»</li>
+        <li>Выберите папку <code>extension/</code></li>
+      </ol>
+    `,
+    'macos-arm-pkg': `
+      <h3>ARM — Пакет (.pkg)</h3>
+      <ol>
+        <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+        <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
+        <li>Запустите: <code>flowlink-proxy</code></li>
+      </ol>
+      <h3>Установка расширения</h3>
+      <ol>
+        <li>Откройте <code>chrome://extensions</code></li>
+        <li>Включите «Режим разработчика»</li>
+        <li>Нажмите «Загрузить распакованное расширение»</li>
+        <li>Выберите папку <code>extension/</code></li>
+      </ol>
+    `,
+  },
+};
+
+/**
+ * Возвращает HTML-контент для подвкладки.
+ * @param {string} os — 'linux' или 'macos'
+ * @param {string} subId — идентификатор подвкладки
+ * @returns {string}
+ */
+function _renderSubTabContent(os, subId) {
+  return _SUB_TEXTS[os] && _SUB_TEXTS[os][subId]
+    ? _SUB_TEXTS[os][subId]
+    : '<p>Контент не найден.</p>';
+}
+
+/**
+ * Устанавливает обработчик переключения подвкладок для linux/macos.
+ * @param {string} os — 'linux' или 'macos'
+ */
+function _setupSubTabHandler(os) {
+  const container = document.getElementById('help-content');
+  if (!container) return;
+
+  // Удаляем старый обработчик, если был
+  const oldHandler = container._subTabHandler;
+  if (oldHandler) {
+    container.removeEventListener('click', oldHandler);
+  }
+
+  const handler = (e) => {
+    const btn = e.target.closest('.help-sub-tab');
+    if (!btn) return;
+    const subId = btn.dataset.sub;
+    if (!subId || !subId.startsWith(os)) return;
+
+    // Переключаем активный класс у кнопок
+    const parent = btn.closest('.help-sub-tabs');
+    if (parent) {
+      parent.querySelectorAll('.help-sub-tab').forEach(b => b.classList.remove('active'));
+    }
+    btn.classList.add('active');
+
+    // Обновляем контент
+    const contentEl = document.getElementById('help-sub-content-' + os);
+    if (contentEl) {
+      contentEl.innerHTML = _renderSubTabContent(os, subId);
+    }
+  };
+
+  container.addEventListener('click', handler);
+  container._subTabHandler = handler;
 }
