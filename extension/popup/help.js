@@ -4,9 +4,8 @@
  * Единственная ответственность: help-контент и управление его отображением.
  */
 
-import { GITHUB_RELEASES_URL, EXTENSION_STORE_URL } from '../shared/constants.js';
-import { escapeHtml } from '../shared/dom.js';
-import { copyEmailToClipboard } from '../shared/utils.js';
+import { GITHUB_RELEASES_URL } from '../shared/constants.js';
+
 import { showModal } from './modal.js';
 
 /** Email поддержки — сноска внизу каждого раздела помощи. */
@@ -62,93 +61,23 @@ const _PORTS_TROUBLESHOOT = `
 /**
  * Тексты помощи для разных режимов.
  * Ключи:
- *   windows/linux/macos/source — установка (заголовок «Настройка FlowLink Proxy»).
+ *   backend — установка бэкенда (с подвкладками windows/linux/macos/source).
  *   port — настройка порта и диагностика.
+ *   ext — установка расширения (с подвкладками store/crx-auto/crx/source).
  *   updateExe/updateSource/updateExt — обновление (заголовок «Обновление»).
  *   autostartHelp — помощь по настройке автозапуска браузера.
  */
 const HELP_TEXTS = {
-  windows: `
-    <h3>1. Скачайте установщик</h3>
-    <ol>
-      <li>Перейдите по ссылке <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
-      <li>Скачайте <code>FlowLink-Proxy-vX.X.X-Setup.exe</code></li>
-    </ol>
-    <h3>2. Установите</h3>
-    <ol>
-      <li>Запустите установщик</li>
-      <li>На странице выбора браузера укажите ваш браузер (автопоиск или вручную)</li>
-      <li>Установщик создаст:
-        <ul>
-          <li>Программу в <code>C:\\Program Files\\FlowLink Proxy\\</code></li>
-          <li>Ярлык в меню «Пуск» и на рабочем столе</li>
-          <li>Автозапуск бэкенда при входе в Windows</li>
-          <li>Ярлык для запуска бэкенда</li>
-        </ul>
-      </li>
-    </ol>
-    <h3>3. Запустите</h3>
-    <ol>
-      <li>Нажмите «FlowLink Proxy» в меню «Пуск» или на рабочем столе</li>
-      <li>Бэкенд и браузер запустятся автоматически</li>
-    </ol>
-    <h3>Установка расширения</h3>
-    <ol>
-      <li>Откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>)</li>
-      <li>Включите «Режим разработчика»</li>
-      <li>Нажмите «Загрузить распакованное расширение»</li>
-      <li>Выберите папку <code>extension\\</code> внутри установленной директории</li>
-    </ol>
-    ${EXTENSION_STORE_URL
-      ? `<p>Или установите из магазина: <a href="${escapeHtml(EXTENSION_STORE_URL)}" target="_blank" rel="noopener">открыть страницу расширения</a></p>`
-      : '<p>Расширение будет доступно в Chrome Web Store после публикации.</p>'
-    }
-  `,
-  linux: () => `
-    <div class="help-sub-tabs" id="help-sub-tabs-linux">
-      <button class="help-sub-tab active" data-sub="linux-bin">Бинарник (.tar.gz)</button>
-      <button class="help-sub-tab" data-sub="linux-deb">Пакет (.deb)</button>
-      <button class="help-sub-tab" data-sub="linux-rpm">Пакет (.rpm)</button>
+  backend: () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-backend">
+      <button class="help-sub-tab active" data-sub="backend-windows">Windows</button>
+      <button class="help-sub-tab" data-sub="backend-linux">Linux</button>
+      <button class="help-sub-tab" data-sub="backend-macos">macOS</button>
+      <button class="help-sub-tab" data-sub="backend-source">Исходный код</button>
     </div>
-    <div class="help-sub-content" id="help-sub-content-linux">
-      ${_renderSubTabContent('linux', 'linux-bin')}
+    <div class="help-sub-content" id="help-sub-content-backend">
+      ${_renderSubTabContent('backend', 'backend-windows')}
     </div>
-  `,
-  macos: () => `
-    <div class="help-sub-tabs" id="help-sub-tabs-macos">
-      <button class="help-sub-tab active" data-sub="macos-intel-bin">Intel — Бинарник (.tar.gz)</button>
-      <button class="help-sub-tab" data-sub="macos-intel-pkg">Intel — Пакет (.pkg)</button>
-      <button class="help-sub-tab" data-sub="macos-arm-bin">ARM — Бинарник (.tar.gz)</button>
-      <button class="help-sub-tab" data-sub="macos-arm-pkg">ARM — Пакет (.pkg)</button>
-    </div>
-    <div class="help-sub-content" id="help-sub-content-macos">
-      ${_renderSubTabContent('macos', 'macos-intel-bin')}
-    </div>
-  `,
-  source: `
-    <h3>1. Установите Python 3.10+</h3>
-    <ol>
-      <li>Скачайте Python с <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">официального сайта</a></li>
-      <li>При установке обязательно отметьте «Add Python to PATH»</li>
-      <li>Проверьте: <code>python --version</code></li>
-    </ol>
-    <h3>2. Получите исходный код</h3>
-    <ol>
-      <li><strong>Через Git:</strong> <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
-      <li><strong>Или ZIP:</strong> скачайте со <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-    </ol>
-    <h3>3. Запустите</h3>
-    <ol>
-      <li><code>cd flowlink-proxy</code></li>
-      <li>Создайте виртуальное окружение: <code>python -m venv venv</code></li>
-      <li>Активируйте: <code>source venv/bin/activate</code> (Linux/macOS) или <code>venv\\Scripts\\activate</code> (Windows)</li>
-      <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
-      <li>Запустите бэкенд: <code>python -m server</code></li>
-    </ol>
-    <h3>Установка расширения</h3>
-    <p>Откройте <code>chrome://extensions</code> → «Режим разработчика» → «Загрузить распакованное расширение» → папка <code>extension/</code>.</p>
-    ${_PORTS_DEFAULT_TABLE}
-    ${_PORTS_TROUBLESHOOT}
   `,
   port: `
     <h3>Настройка порта</h3>
@@ -173,6 +102,17 @@ const HELP_TEXTS = {
     ${_PORTS_DEFAULT_TABLE}
 
     <p>Если проблема не решена — обратитесь в поддержку (ссылка ниже).</p>
+  `,
+  ext: () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-ext">
+      <button class="help-sub-tab active" data-sub="ext-store">Chrome Web Store</button>
+      <button class="help-sub-tab" data-sub="ext-crx-auto">CRX (авто)</button>
+      <button class="help-sub-tab" data-sub="ext-crx">CRX (вручную)</button>
+      <button class="help-sub-tab" data-sub="ext-source">Из исходников</button>
+    </div>
+    <div class="help-sub-content" id="help-sub-content-ext">
+      ${_renderSubTabContent('ext', 'ext-store')}
+    </div>
   `,
   updateExe: (tag) => `
     <h3>Установщик</h3>
@@ -233,275 +173,167 @@ const HELP_TEXTS = {
     </ul>
     ${_EMAIL_FOOTER}
   `,
-  ext: () => `
-    <div class="help-sub-tabs" id="help-sub-tabs-ext">
-      <button class="help-sub-tab active" data-sub="ext-crx">Из CRX</button>
-      <button class="help-sub-tab" data-sub="ext-store">Chrome Web Store</button>
-      <button class="help-sub-tab" data-sub="ext-source">Из исходников</button>
+};
+
+/**
+ * Контент для подвкладок бэкенда (backend).
+ * @type {Object<string, Object<string, string>>}
+ */
+const _BACKEND_SUB_TEXTS = {
+  'backend-windows': `
+    <h3>1. Скачайте установщик</h3>
+    <ol>
+      <li>Перейдите по ссылке <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
+      <li>Скачайте <code>FlowLink-Proxy-vX.X.X-Setup.exe</code></li>
+    </ol>
+    <h3>2. Установите</h3>
+    <ol>
+      <li>Запустите установщик</li>
+      <li>На странице выбора браузера укажите ваш браузер (автопоиск или вручную)</li>
+      <li>Установщик создаст:
+        <ul>
+          <li>Программу в <code>C:\\Program Files\\FlowLink Proxy\\</code></li>
+          <li>Ярлык в меню «Пуск» и на рабочем столе</li>
+          <li>Автозапуск бэкенда при входе в Windows</li>
+          <li>Ярлык для запуска бэкенда</li>
+        </ul>
+      </li>
+    </ol>
+    <h3>3. Запустите</h3>
+    <ol>
+      <li>Нажмите «FlowLink Proxy» в меню «Пуск» или на рабочем столе</li>
+      <li>Бэкенд и браузер запустятся автоматически</li>
+    </ol>
+    <p>После установки бэкенда перейдите на вкладку <strong>«Расширение»</strong> в этом окне помощи, чтобы установить расширение в браузер.</p>
+  `,
+  'backend-linux': () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-linux">
+      <button class="help-sub-tab active" data-sub="linux-deb">Пакет (.deb)</button>
+      <button class="help-sub-tab" data-sub="linux-rpm">Пакет (.rpm)</button>
+      <button class="help-sub-tab" data-sub="linux-bin">Бинарник (.tar.gz)</button>
     </div>
-    <div class="help-sub-content" id="help-sub-content-ext">
-      ${_renderSubTabContent('ext', 'ext-crx')}
+    <div class="help-sub-content" id="help-sub-content-linux">
+      ${_renderSubTabContent('linux', 'linux-deb')}
     </div>
+  `,
+  'backend-macos': () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-macos">
+      <button class="help-sub-tab active" data-sub="macos-intel-pkg">Intel — Пакет (.pkg)</button>
+      <button class="help-sub-tab" data-sub="macos-intel-bin">Intel — Бинарник (.tar.gz)</button>
+      <button class="help-sub-tab" data-sub="macos-arm-pkg">ARM — Пакет (.pkg)</button>
+      <button class="help-sub-tab" data-sub="macos-arm-bin">ARM — Бинарник (.tar.gz)</button>
+    </div>
+    <div class="help-sub-content" id="help-sub-content-macos">
+      ${_renderSubTabContent('macos', 'macos-intel-pkg')}
+    </div>
+  `,
+  'backend-source': `
+    <h3>1. Установите Python 3.10+</h3>
+    <ol>
+      <li>Скачайте Python с <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">официального сайта</a></li>
+      <li>При установке обязательно отметьте «Add Python to PATH»</li>
+      <li>Проверьте: <code>python --version</code></li>
+    </ol>
+    <h3>2. Получите исходный код</h3>
+    <ol>
+      <li><strong>Через Git:</strong> <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
+      <li><strong>Или ZIP:</strong> скачайте со <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+    </ol>
+    <h3>3. Запустите</h3>
+    <ol>
+      <li><code>cd flowlink-proxy</code></li>
+      <li>Создайте виртуальное окружение: <code>python -m venv venv</code></li>
+      <li>Активируйте: <code>source venv/bin/activate</code> (Linux/macOS) или <code>venv\\Scripts\\activate</code> (Windows)</li>
+      <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
+      <li>Запустите бэкенд: <code>python -m server</code></li>
+    </ol>
+    ${_PORTS_DEFAULT_TABLE}
+    ${_PORTS_TROUBLESHOOT}
   `,
 };
 
-/** @type {boolean} True, когда модалка открыта в режиме «Обновление». */
-let _isUpdateMode = false;
-/** @type {boolean} True, когда модалка открыта в режиме «Автозапуск — помощь». */
-let _isAutostartHelpMode = false;
-
-/** Список вкладок help-модалки (порядок отображения). */
-const _TABS = ['windows', 'linux', 'macos', 'source', 'port', 'ext'];
-
 /**
- * Открывает модальное окно помощи.
- * @param {string} [tab] — вкладка ('windows', 'linux', 'macos', 'source', 'port').
- *   Если не указана, открывается в режиме установки.
- * @param {boolean} [isUpdate] — режим обновления.
- * @param {boolean} [isAutostartHelp] — режим помощи по настройке автозапуска браузера.
+ * Контент для подвкладок Linux (вложенные в backend-linux).
+ * @type {Object<string, string>}
  */
-export function openHelpModal(tab, isUpdate, isAutostartHelp) {
-  _isUpdateMode = !!isUpdate;
-  _isAutostartHelpMode = !!isAutostartHelp;
-  const isWindows = (navigator.userAgentData?.platform || navigator.platform).includes('Win');
-  const defaultTab = isWindows ? 'windows' : 'linux';
-  const title = document.querySelector('#modal-help .modal-title');
-  if (!title) return;
-  if (isAutostartHelp) {
-    title.textContent = 'Автозапуск браузера';
-  } else if (isUpdate) {
-    title.textContent = 'Обновление';
-  } else {
-    title.textContent = 'Настройка FlowLink Proxy';
-  }
-  if (isAutostartHelp) {
-    _hideTabs();
-    _showAutostartHelpContent();
-  } else {
-    _showTabs();
-    switchHelpTab(tab || defaultTab);
-  }
-  showModal('modal-help');
-  _setupEmailCopyHandler();
-}
-
-/** Скрывает панель вкладок модалки помощи. */
-function _hideTabs() {
-  const tabsEl = document.getElementById('modal-tabs');
-  if (tabsEl) tabsEl.classList.add('hidden');
-}
-
-/** Показывает панель вкладок модалки помощи. */
-function _showTabs() {
-  const tabsEl = document.getElementById('modal-tabs');
-  if (tabsEl) tabsEl.classList.remove('hidden');
-}
-
-/** Показывает контент помощи по автозапуску (без вкладок). */
-function _showAutostartHelpContent() {
-  const container = document.getElementById('help-content');
-  if (!container) return;
-  container.innerHTML = HELP_TEXTS.autostartHelp;
-}
-
-/**
- * Копирует email в буфер обмена и показывает toast.
- * Использует shared/utils.js copyEmailToClipboard.
- * @param {string} email — адрес для копирования.
- */
-function _copyEmailToClipboard(email) {
-  copyEmailToClipboard(email, window.__flowlinkShowToast);
-}
-
-/** Флаг: обработчик делегирования уже установлен. */
-let _emailHandlerAttached = false;
-
-/**
- * Устанавливает делегированный обработчик клика по .help-email-copy
- * на контейнере #help-content. Вызывается один раз при первом открытии.
- */
-function _setupEmailCopyHandler() {
-  if (_emailHandlerAttached) return;
-  const container = document.getElementById('help-content');
-  if (!container) return;
-  container.addEventListener('click', (e) => {
-    const span = e.target.closest('.help-email-copy');
-    if (span) {
-      const email = span.dataset.email || span.textContent.trim();
-      _copyEmailToClipboard(email);
-    }
-  });
-  _emailHandlerAttached = true;
-}
-
-/**
- * Переключает вкладку в окне помощи.
- * @param {string} tab — имя вкладки ('windows', 'linux', 'macos', 'source', 'port').
- */
-export function switchHelpTab(tab) {
-  // Если открыт режим autostartHelp — вкладки не нужны
-  if (_isAutostartHelpMode) {
-    _showAutostartHelpContent();
-    return;
-  }
-
-  _TABS.forEach(t => {
-    const el = document.getElementById('tab-' + t);
-    if (el) el.classList.toggle('active', t === tab);
-  });
-
-  const container = document.getElementById('help-content');
-  if (!container) return;
-
-  if (_isUpdateMode) {
-    // В режиме обновления: windows → updateExe, linux/macos/source → updateSource, port → updateExt
-    const key = tab === 'windows' ? 'updateExe'
-      : tab === 'source' ? 'updateSource'
-      : 'updateExt';
-    const updateText = document.getElementById('update-text');
-    const rawTag = updateText
-      ? updateText.textContent.replace(/^Доступно обновление\s*/i, '').trim()
-      : '';
-    const tag = escapeHtml(rawTag);
-    const label = tab === 'windows' ? 'Windows (.exe)'
-      : tab === 'source' ? 'Исходный код'
-      : 'Расширение';
-    container.innerHTML = `<h3>${label}</h3>`
-      + HELP_TEXTS[key](tag);
-  } else {
-    const content = HELP_TEXTS[tab] || '';
-    container.innerHTML = content + _EMAIL_FOOTER;
-  }
-
-  // Если вкладка linux/macos/ext — вешаем обработчик на подвкладки
-  if (tab === 'linux' || tab === 'macos' || tab === 'ext') {
-    _setupSubTabHandler(tab);
-  }
-}
-
-/**
- * Контент для подвкладок Linux и macOS.
- * @type {Object<string, Object<string, string>>}
- */
-const _SUB_TEXTS = {
-  linux: {
-    'linux-bin': `
-      <h3>Бинарник (.tar.gz)</h3>
-      <ol>
-        <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-        <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-        <li>Запустите: <code>./flowlink-proxy</code></li>
-      </ol>
-      <h3>Установка расширения</h3>
-      <ol>
-        <li>Откройте <code>chrome://extensions</code></li>
-        <li>Включите «Режим разработчика»</li>
-        <li>Нажмите «Загрузить распакованное расширение»</li>
-        <li>Выберите папку <code>extension/</code></li>
-      </ol>
-    `,
-    'linux-deb': `
-      <h3>Пакет (.deb)</h3>
-      <ol>
-        <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.deb</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-        <li>Установите: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
-        <li>Запустите: <code>flowlink-proxy</code></li>
-      </ol>
-      <h3>Установка расширения</h3>
-      <ol>
-        <li>Откройте <code>chrome://extensions</code></li>
-        <li>Включите «Режим разработчика»</li>
-        <li>Нажмите «Загрузить распакованное расширение»</li>
-        <li>Выберите папку <code>extension/</code></li>
-      </ol>
-    `,
-    'linux-rpm': `
-      <h3>Пакет (.rpm)</h3>
-      <ol>
-        <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.rpm</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-        <li>Установите: <code>sudo rpm -i FlowLink-Proxy-*.rpm</code></li>
-        <li>Запустите: <code>flowlink-proxy</code></li>
-      </ol>
-      <h3>Установка расширения</h3>
-      <ol>
-        <li>Откройте <code>chrome://extensions</code></li>
-        <li>Включите «Режим разработчика»</li>
-        <li>Нажмите «Загрузить распакованное расширение»</li>
-        <li>Выберите папку <code>extension/</code></li>
-      </ol>
-    `,
-  },
-  macos: {
-    'macos-intel-bin': `
-      <h3>Intel — Бинарник (.tar.gz)</h3>
-      <ol>
-        <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-        <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-        <li>Запустите: <code>./flowlink-proxy</code></li>
-      </ol>
-      <h3>Установка расширения</h3>
-      <ol>
-        <li>Откройте <code>chrome://extensions</code></li>
-        <li>Включите «Режим разработчика»</li>
-        <li>Нажмите «Загрузить распакованное расширение»</li>
-        <li>Выберите папку <code>extension/</code></li>
-      </ol>
-    `,
-    'macos-intel-pkg': `
-      <h3>Intel — Пакет (.pkg)</h3>
-      <ol>
-        <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-        <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-        <li>Запустите: <code>flowlink-proxy</code></li>
-      </ol>
-      <h3>Установка расширения</h3>
-      <ol>
-        <li>Откройте <code>chrome://extensions</code></li>
-        <li>Включите «Режим разработчика»</li>
-        <li>Нажмите «Загрузить распакованное расширение»</li>
-        <li>Выберите папку <code>extension/</code></li>
-      </ol>
-    `,
-    'macos-arm-bin': `
-      <h3>ARM — Бинарник (.tar.gz)</h3>
-      <ol>
-        <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-        <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-        <li>Запустите: <code>./flowlink-proxy</code></li>
-      </ol>
-      <h3>Установка расширения</h3>
-      <ol>
-        <li>Откройте <code>chrome://extensions</code></li>
-        <li>Включите «Режим разработчика»</li>
-        <li>Нажмите «Загрузить распакованное расширение»</li>
-        <li>Выберите папку <code>extension/</code></li>
-      </ol>
-    `,
-    'macos-arm-pkg': `
-      <h3>ARM — Пакет (.pkg)</h3>
-      <ol>
-        <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-        <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-        <li>Запустите: <code>flowlink-proxy</code></li>
-      </ol>
-      <h3>Установка расширения</h3>
-      <ol>
-        <li>Откройте <code>chrome://extensions</code></li>
-        <li>Включите «Режим разработчика»</li>
-        <li>Нажмите «Загрузить распакованное расширение»</li>
-        <li>Выберите папку <code>extension/</code></li>
-      </ol>
-    `,
-  },
+const _LINUX_SUB_TEXTS = {
+  'linux-deb': `
+    <h3>Пакет (.deb)</h3>
+    <ol>
+      <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.deb</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Установите: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
+      <li>Запустите: <code>flowlink-proxy</code></li>
+    </ol>
+  `,
+  'linux-rpm': `
+    <h3>Пакет (.rpm)</h3>
+    <ol>
+      <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.rpm</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Установите: <code>sudo rpm -i FlowLink-Proxy-*.rpm</code></li>
+      <li>Запустите: <code>flowlink-proxy</code></li>
+    </ol>
+  `,
+  'linux-bin': `
+    <h3>Бинарник (.tar.gz)</h3>
+    <ol>
+      <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
+      <li>Запустите: <code>./flowlink-proxy</code></li>
+    </ol>
+  `,
 };
 
 /**
- * Контент для подвкладок расширения (ext-вкладка).
+ * Контент для подвкладок macOS (вложенные в backend-macos).
+ * @type {Object<string, string>}
+ */
+const _MACOS_SUB_TEXTS = {
+  'macos-intel-pkg': `
+    <h3>Intel — Пакет (.pkg)</h3>
+    <ol>
+      <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
+      <li>Запустите: <code>flowlink-proxy</code></li>
+    </ol>
+  `,
+  'macos-intel-bin': `
+    <h3>Intel — Бинарник (.tar.gz)</h3>
+    <ol>
+      <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
+      <li>Запустите: <code>./flowlink-proxy</code></li>
+    </ol>
+  `,
+  'macos-arm-pkg': `
+    <h3>ARM — Пакет (.pkg)</h3>
+    <ol>
+      <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
+      <li>Запустите: <code>flowlink-proxy</code></li>
+    </ol>
+  `,
+  'macos-arm-bin': `
+    <h3>ARM — Бинарник (.tar.gz)</h3>
+    <ol>
+      <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
+      <li>Запустите: <code>./flowlink-proxy</code></li>
+    </ol>
+  `,
+};
+
+/**
+ * Контент для подвкладок расширения (ext).
  * @type {Object<string, string>}
  */
 const _EXT_SUB_CONTENT = {
-  'ext-crx': `
-    <h3>Установка из CRX (GitHub Releases)</h3>
+  'ext-store': `
+    <h3>Chrome Web Store</h3>
+    <p>Расширение FlowLink Proxy будет опубликовано в Chrome Web Store после завершения проверки. Следите за обновлениями в <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>.</p>
+    <p>Пока вы можете установить расширение одним из способов ниже.</p>
+  `,
+  'ext-crx-auto': `
+    <h3>Автоустановка через бэкенд</h3>
     <ol>
       <li>Скачайте <code>flowlink-proxy.crx</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Положите файл рядом с бинарником бэкенда (или в папку с программой)</li>
@@ -512,17 +344,26 @@ const _EXT_SUB_CONTENT = {
       <strong>Примечание:</strong> CRX-расширение не требует режима разработчика и не показывает предупреждений при запуске браузера.
     </div>
   `,
-  'ext-store': `
-    <p>Когда расширение будет опубликовано в Chrome Web Store, информация будет дополнена.
-    Пока устанавливайте расширение из <strong>CRX</strong> (вкладка «Из CRX») или из исходного кода (вкладка «Из исходников»).</p>
+  'ext-crx': `
+    <h3>Установка CRX вручную</h3>
+    <ol>
+      <li>Скачайте <code>flowlink-proxy.crx</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>)</li>
+      <li>Перетащите CRX-файл на страницу расширений</li>
+      <li>Подтвердите установку</li>
+    </ol>
+    <div class="note">
+      <strong>Примечание:</strong> CRX-расширение не требует режима разработчика.
+    </div>
   `,
   'ext-source': `
-    <h3>Установка из исходников</h3>
+    <h3>Установка из исходного кода</h3>
     <ol>
+      <li>Клонируйте репозиторий: <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
       <li>Откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>)</li>
       <li>Включите «Режим разработчика»</li>
       <li>Нажмите «Загрузить распакованное расширение»</li>
-      <li>Выберите папку <code>extension/</code> из исходного кода проекта</li>
+      <li>Выберите папку <code>extension/</code> из клонированного репозитория</li>
     </ol>
     <div class="note">
       <strong>Примечание:</strong> Этот способ требует включённого режима разработчика. При каждом запуске браузера расширение нужно загружать заново (если не используется CRX).
@@ -530,55 +371,147 @@ const _EXT_SUB_CONTENT = {
   `,
 };
 
-/** Подключаем контент ext-подвкладок к общей структуре _SUB_TEXTS. */
-_SUB_TEXTS.ext = _EXT_SUB_CONTENT;
+/** @type {boolean} True, когда модалка открыта в режиме «Обновление». */
+let _isUpdateMode = false;
+/** @type {boolean} True, когда модалка открыта в режиме «Автозапуск — помощь». */
+let _isAutostartHelpMode = false;
+
+/** Список вкладок help-модалки (порядок отображения). */
+const _TABS = ['backend', 'port', 'ext'];
 
 /**
- * Возвращает HTML-контент для подвкладки.
- * @param {string} os — 'linux' или 'macos'
- * @param {string} subId — идентификатор подвкладки
- * @returns {string}
+ * Открывает модальное окно помощи.
+ * @param {string} [tab] — вкладка для открытия (по умолчанию 'backend').
+ * @param {boolean} [isUpdate] — режим обновления.
+ * @param {boolean} [isAutostartHelp] — режим помощи по автозапуску.
  */
-function _renderSubTabContent(os, subId) {
-  return _SUB_TEXTS[os] && _SUB_TEXTS[os][subId]
-    ? _SUB_TEXTS[os][subId]
-    : '<p>Контент не найден.</p>';
+export function openHelpModal(tab, isUpdate, isAutostartHelp) {
+  _isUpdateMode = !!isUpdate;
+  _isAutostartHelpMode = !!isAutostartHelp;
+  const title = document.querySelector('#modal-help .modal-title');
+  if (!title) return;
+  if (isAutostartHelp) {
+    title.textContent = 'Автозапуск браузера';
+  } else if (isUpdate) {
+    title.textContent = 'Обновление';
+  } else {
+    title.textContent = 'Настройка FlowLink Proxy';
+  }
+  showModal('modal-help');
+  switchHelpTab(tab || 'backend');
 }
 
 /**
- * Устанавливает обработчик переключения подвкладок для linux/macos.
- * @param {string} os — 'linux' или 'macos'
+ * Переключает вкладку помощи.
+ * @param {string} tab — имя вкладки ('backend', 'port', 'ext').
  */
-function _setupSubTabHandler(os) {
-  const container = document.getElementById('help-content');
-  if (!container) return;
-
-  // Удаляем старый обработчик, если был
-  const oldHandler = container._subTabHandler;
-  if (oldHandler) {
-    container.removeEventListener('click', oldHandler);
+export function switchHelpTab(tab) {
+  // Если открыт режим autostartHelp — показываем контент автозапуска
+  if (_isAutostartHelpMode) {
+    _showAutostartHelpContent();
+    return;
   }
 
-  const handler = (e) => {
-    const btn = e.target.closest('.help-sub-tab');
-    if (!btn) return;
-    const subId = btn.dataset.sub;
-    if (!subId || !subId.startsWith(os)) return;
+  // Если режим обновления — показываем контент обновления
+  if (_isUpdateMode) {
+    _showUpdateContent(tab);
+    return;
+  }
 
-    // Переключаем активный класс у кнопок
-    const parent = btn.closest('.help-sub-tabs');
-    if (parent) {
-      parent.querySelectorAll('.help-sub-tab').forEach(b => b.classList.remove('active'));
-    }
-    btn.classList.add('active');
+  // Переключаем активную вкладку
+  _TABS.forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.classList.toggle('active', t === tab);
+  });
 
-    // Обновляем контент
-    const contentEl = document.getElementById('help-sub-content-' + os);
-    if (contentEl) {
-      contentEl.innerHTML = _renderSubTabContent(os, subId);
-    }
-  };
+  const content = document.getElementById('help-content');
+  if (!content) return;
 
-  container.addEventListener('click', handler);
-  container._subTabHandler = handler;
+  const text = HELP_TEXTS[tab];
+  if (!text) return;
+
+  // Если текст — функция, вызываем её
+  content.innerHTML = typeof text === 'function' ? text() : text;
+
+  // Привязываем обработчики подвкладок
+  _setupSubTabHandler(tab);
+}
+
+/**
+ * Настраивает обработчики для подвкладок.
+ * @param {string} tab — имя основной вкладки.
+ */
+function _setupSubTabHandler(tab) {
+  const container = document.getElementById('help-sub-tabs-' + tab);
+  if (!container) return;
+
+  container.querySelectorAll('.help-sub-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.dataset.sub;
+      if (!sub) return;
+
+      // Переключаем активную подвкладку
+      container.querySelectorAll('.help-sub-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Рендерим контент подвкладки
+      const contentContainer = document.getElementById('help-sub-content-' + tab);
+      if (!contentContainer) return;
+      contentContainer.innerHTML = _renderSubTabContent(tab, sub);
+
+      // Если это backend-linux или backend-macos — настраиваем вложенные подвкладки
+      if (sub === 'backend-linux') {
+        _setupSubTabHandler('linux');
+      } else if (sub === 'backend-macos') {
+        _setupSubTabHandler('macos');
+      }
+    });
+  });
+}
+
+/**
+ * Возвращает HTML-контент для указанной подвкладки.
+ * @param {string} tab — имя основной вкладки ('backend', 'ext').
+ * @param {string} sub — имя подвкладки.
+ * @returns {string} HTML-контент.
+ */
+function _renderSubTabContent(tab, sub) {
+  if (tab === 'backend') {
+    const text = _BACKEND_SUB_TEXTS[sub];
+    if (!text) return '<p>Раздел в разработке.</p>';
+    return (typeof text === 'function' ? text() : text) + _EMAIL_FOOTER;
+  }
+  if (tab === 'ext') {
+    const text = _EXT_SUB_CONTENT[sub];
+    if (!text) return '<p>Раздел в разработке.</p>';
+    return text + _EMAIL_FOOTER;
+  }
+  // Вложенные подвкладки linux/macos
+  if (tab === 'linux') {
+    return _LINUX_SUB_TEXTS[sub] || '<p>Раздел в разработке.</p>';
+  }
+  if (tab === 'macos') {
+    return _MACOS_SUB_TEXTS[sub] || '<p>Раздел в разработке.</p>';
+  }
+  return '<p>Раздел в разработке.</p>';
+}
+
+/**
+ * Показывает контент помощи по автозапуску браузера.
+ */
+function _showAutostartHelpContent() {
+  const content = document.getElementById('help-content');
+  if (!content) return;
+  content.innerHTML = HELP_TEXTS.autostartHelp;
+}
+
+/**
+ * Показывает контент обновления.
+ * @param {string} tab — не используется, оставлено для совместимости.
+ */
+function _showUpdateContent(tab) {
+  const content = document.getElementById('help-content');
+  if (!content) return;
+  // Показываем универсальный контент обновления
+  content.innerHTML = HELP_TEXTS.updateExe('') + HELP_TEXTS.updateSource('') + HELP_TEXTS.updateExt('');
 }

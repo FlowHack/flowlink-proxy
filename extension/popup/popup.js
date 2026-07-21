@@ -516,7 +516,7 @@ function attachGlobalListeners() {
   document.getElementById('btn-update-close')?.addEventListener('click', () => {
     document.getElementById('update-banner').classList.add('hidden');
   });
-  document.getElementById('btn-update-help')?.addEventListener('click', () => openHelpModal('windows', true));
+  document.getElementById('btn-update-help')?.addEventListener('click', () => openHelpModal('backend', true));
 
   document.getElementById('btn-ping-all')?.addEventListener('click', () => handlePingAll(state, renderProxyList));
   document.getElementById('btn-add-proxy')?.addEventListener('click', () => {
@@ -531,7 +531,7 @@ function attachGlobalListeners() {
   });
 
   // Закрытие модалок
-  for (const id of ['btn-help-close', 'btn-help-close2', 'btn-proxy-cancel', 'btn-mask-cancel']) {
+  for (const id of ['btn-help-close', 'btn-proxy-cancel', 'btn-mask-cancel']) {
     document.getElementById(id)?.addEventListener('click', closeModal);
   }
   // Закрытие масок — дополнительно сбрасываем selectedProxyId
@@ -539,11 +539,9 @@ function attachGlobalListeners() {
     state.selectedProxyId = null;
     closeModal();
   });
-  document.getElementById('tab-windows')?.addEventListener('click', () => switchHelpTab('windows'));
-  document.getElementById('tab-linux')?.addEventListener('click', () => switchHelpTab('linux'));
-  document.getElementById('tab-macos')?.addEventListener('click', () => switchHelpTab('macos'));
-  document.getElementById('tab-source')?.addEventListener('click', () => switchHelpTab('source'));
+  document.getElementById('tab-backend')?.addEventListener('click', () => switchHelpTab('backend'));
   document.getElementById('tab-port')?.addEventListener('click', () => switchHelpTab('port'));
+  document.getElementById('tab-ext')?.addEventListener('click', () => switchHelpTab('ext'));
 
   // Переключение видимости пароля
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);
