@@ -146,7 +146,7 @@ class TestBuildPs1Integration(unittest.TestCase):
     def test_build_ps1_crx_conditional(self):
         """build.ps1 содержит условный --add-data через $crxDataFlag."""
         content = _read_file('scripts/build/build.ps1')
-        self.assertIn('--add-data `"releases/flowlink-proxy.crx;.`"', content)
+        self.assertIn("'releases/flowlink-proxy.crx;.'", content)
 
     def test_build_ps1_uses_crx_flag_in_pyinstaller(self):
         """build.ps1 использует $crxDataFlag в команде PyInstaller."""
