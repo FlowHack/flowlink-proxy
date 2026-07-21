@@ -1122,14 +1122,15 @@ body {
   border: none;
 }
 
-/* Кнопка действия в баннере ошибки — тёмная, при наведении серая */
+/* Кнопка действия в баннере ошибки — тёмная, при наведении заметно светлее */
 .banner-error .banner-action {
   background: var(--bg-input);
   color: var(--text-primary);
   border: 1px solid var(--border);
 }
 .banner-error .banner-action:hover {
-  background: var(--bg-surface-hover);
+  background: #2a2a4a;
+  border-color: var(--text-muted);
 }
 
 /* Кнопка помощи в баннере */

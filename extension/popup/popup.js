@@ -101,27 +101,36 @@ function updateConnectionUI(connected) {
  * чтобы найти бэкенд, запущенный на другом порту.
  */
 async function handleRetry() {
-  let ok = await quickPing();
+  // Показываем спиннер на кнопке
+  const btn = document.querySelector('#banner-connection-error .banner-action');
+  if (btn) btn.classList.add('btn-loading');
 
-  // Если текущий порт не отвечает — пробуем найти бэкенд на другом порту
-  if (!ok) {
-    console.log(
-      '[FlowLink Proxy] Повторная попытка: текущий порт недоступен, сканирую...',
-    );
-    await discoverPort();
-    // После смены порта — проверяем снова
-    ok = await quickPing();
-  }
+  try {
+    let ok = await quickPing();
 
-  if (ok) {
-    stopPolling();
-    _pollInterval = POLL_INTERVAL;
-    await loadAndRender();
-    await checkBackendVersion();
-    await checkForUpdates(false);
-    if (state.connected) startPolling();
-  } else {
-    showError(true);
+    // Если текущий порт не отвечает — пробуем найти бэкенд на другом порту
+    if (!ok) {
+      console.log(
+        '[FlowLink Proxy] Повторная попытка: текущий порт недоступен, сканирую...',
+      );
+      await discoverPort();
+      // После смены порта — проверяем снова
+      ok = await quickPing();
+    }
+
+    if (ok) {
+      stopPolling();
+      _pollInterval = POLL_INTERVAL;
+      await loadAndRender();
+      await checkBackendVersion();
+      await checkForUpdates(false);
+      if (state.connected) startPolling();
+    } else {
+      showError(true);
+    }
+  } finally {
+    // Убираем спиннер в любом случае
+    if (btn) btn.classList.remove('btn-loading');
   }
 }
 
@@ -180,7 +189,7 @@ function renderBanner(type, message, options = {}) {
 
   const actionBtn = banner.querySelector('.banner-action');
   if (actionBtn && actionCallback) {
-    actionBtn.addEventListener('click', actionCallback, { once: true });
+    actionBtn.addEventListener('click', actionCallback);
   }
   const helpBtn = banner.querySelector('.banner-help');
   if (helpBtn && helpCallback) {
