@@ -27,6 +27,7 @@ logger = logging.getLogger('flowlink.tray.popup')
 
 
 class PopupColors:  # pylint: disable=too-few-public-methods
+    # Data-класс констант цветов — публичные методы не нужны
     """Цвета popup-меню (совпадают с popup.css расширения)."""
     BG = '#0d0d1a'
     SURFACE = '#1a1a2e'

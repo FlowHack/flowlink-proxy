@@ -104,6 +104,11 @@ def clear_all_data() -> int:
             except OSError as e:
                 logger.error('Не удалось удалить %s: %s', filepath, e)
 
+    # Переоткрываем логгер, чтобы освободить файловый дескриптор
+    # Ленивый импорт для избежания циклической зависимости
+    from server.logging_config import reopen_logging  # pylint: disable=import-outside-toplevel
+    reopen_logging()
+
     # Удаляем директорию логов целиком
     logs_dir = os.path.join(data_dir, 'logs')
     if os.path.isdir(logs_dir):
@@ -136,6 +141,11 @@ def clear_logs_only() -> int:
     data_dir = get_data_dir()
     logs_dir = os.path.join(data_dir, 'logs')
     removed = 0
+
+    # Переоткрываем логгер, чтобы освободить файловый дескриптор
+    # Ленивый импорт для избежания циклической зависимости
+    from server.logging_config import reopen_logging  # pylint: disable=import-outside-toplevel
+    reopen_logging()
 
     if os.path.isdir(logs_dir):
         try:

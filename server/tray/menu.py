@@ -297,13 +297,8 @@ def _exit(
 ) -> None:
     """Выполняет выход из приложения."""
     log.info('Tray: выбран Выход')
-    try:
-        stop_fn()
-    except (OSError, RuntimeError) as e:
-        log.error(
-            'Tray: ошибка при остановке трея: %s',
-            e, exc_info=True,
-        )
+
+    # Сначала останавливаем сервер, потом трей
     if callbacks.get('stop'):
         try:
             callbacks['stop']()
@@ -312,6 +307,17 @@ def _exit(
                 'Tray: ошибка при остановке сервера: %s',
                 e, exc_info=True,
             )
+
+    try:
+        stop_fn()
+    except (OSError, RuntimeError) as e:
+        log.error(
+            'Tray: ошибка при остановке трея: %s',
+            e, exc_info=True,
+        )
+
+    # Гарантированный выход, если предыдущие шаги не завершили процесс
+    os._exit(0)
 
 
 # ─── Фабрики замыканий ───

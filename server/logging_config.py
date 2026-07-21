@@ -12,6 +12,77 @@ import sys
 from server.utils import get_data_dir
 
 
+def reopen_logging() -> None:
+    """
+    Переоткрывает файловый хендлер логгера.
+
+    Закрывает старый RotatingFileHandler, удаляет его из корневого логгера
+    и создаёт новый с теми же параметрами. Нужно для безопасной очистки
+    логов — без этого файл лога занят и не может быть удалён.
+    """
+    root = logging.getLogger()
+    log_file = None
+    old_handler = None
+
+    # Ищем существующий RotatingFileHandler
+    for handler in root.handlers[:]:
+        if isinstance(handler, logging.handlers.RotatingFileHandler):
+            old_handler = handler
+            log_file = handler.baseFilename  # type: ignore[attr-defined]
+            break
+
+    if old_handler is None:
+        logger = logging.getLogger('flowlink')
+        logger.warning(
+            'reopen_logging: RotatingFileHandler не найден, '
+            'переоткрытие не требуется',
+        )
+        return
+
+    log_file = old_handler.baseFilename
+    if log_file is None:
+        logger = logging.getLogger('flowlink')
+        logger.warning(
+            'reopen_logging: baseFilename равен None, '
+            'переоткрытие невозможно',
+        )
+        return
+
+    # Закрываем и удаляем старый хендлер
+    try:
+        old_handler.close()
+    except OSError as e:
+        logger = logging.getLogger('flowlink')
+        logger.warning(
+            'reopen_logging: ошибка при закрытии хендлера: %s', e,
+        )
+    root.removeHandler(old_handler)
+
+    # Создаём новый хендлер с теми же параметрами
+    try:
+        log_dir = os.path.dirname(log_file)
+        os.makedirs(log_dir, exist_ok=True)
+        fmt = logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+        )
+        new_handler = logging.handlers.RotatingFileHandler(
+            log_file, maxBytes=5_242_880, backupCount=3, encoding='utf-8',
+        )
+        new_handler.setLevel(logging.DEBUG)
+        new_handler.setFormatter(fmt)
+        root.addHandler(new_handler)
+        logger = logging.getLogger('flowlink')
+        logger.info(
+            'Логгер переоткрыт: %s', log_file,
+        )
+    except OSError as e:
+        logger = logging.getLogger('flowlink')
+        logger.error(
+            'reopen_logging: не удалось создать новый хендлер: %s', e,
+        )
+
+
 def setup_logging(debug: bool = False) -> None:
     """Настраивает корневой логгер: консоль (INFO/DEBUG) + файл с ротацией (DEBUG)."""
     level = logging.DEBUG if debug else logging.INFO

@@ -177,13 +177,16 @@ class Win32Tray:
                     'Tray Win32: не удалось отправить WM_DESTROY: %s',
                     e,
                 )
-        # Если процесс не завершился за 1 секунду — принудительный выход
+        # Если процесс не завершился за 3 секунды — принудительный выход
         if self._tk_root:
             try:
-                self._tk_root.after(1000, os._exit, 0)
+                self._tk_root.after(3000, os._exit, 0)
             except tk.TclError:
                 # Если tkinter уже недоступен — выходим немедленно
                 os._exit(0)
+        else:
+            # Если tk_root нет — выходим немедленно
+            os._exit(0)
 
     def refresh_menu(self):
         """Обновляет popup-меню (вызывается при изменении конфига)."""
@@ -287,12 +290,15 @@ class Win32Tray:
             logger.error(
                 'Tray Win32: системная ошибка в mainloop: %s', e,
             )
-        except BaseException as e:
+        except (KeyboardInterrupt, SystemExit):  # pylint: disable=try-except-raise
+            # Пробрасываем наверх — эти исключения не должны
+            # глотаться в mainloop
+            raise
+        except RuntimeError as e:
             logger.error(
                 'Tray Win32: критическая ошибка mainloop: %s',
                 e, exc_info=True,
             )
-            raise
         finally:
             self._tk_root_valid = False
             logger.debug(
@@ -613,7 +619,6 @@ class Win32Tray:
         Это безопасная альтернатива after(0, ...) из Win32 callback'а,
         которая вызывала SEH-исключение в Tcl/Tk DLL.
         """
-        logger.debug('Tray Win32: _poll_popup_flag вход, _pending_popup=%s', self._pending_popup)
         if self._pending_popup:
             self._pending_popup = False
             self._safe_show_popup()
