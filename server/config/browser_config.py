@@ -72,8 +72,12 @@ def _detect_windows() -> list[tuple[str, str]]:
         ]
         for root, subpath in reg_paths:
             try:
-                with winreg.OpenKey(root, subpath) as key:  # type: ignore[reportAttributeAccessIssue]
-                    val, _ = winreg.QueryValueEx(key, '')  # type: ignore[reportAttributeAccessIssue]
+                with winreg.OpenKey(  # type: ignore[reportAttributeAccessIssue]
+                    root, subpath,
+                ) as key:
+                    val, _ = winreg.QueryValueEx(  # type: ignore[reportAttributeAccessIssue]
+                        key, '',
+                    )
                     if val and os.path.isfile(val):
                         name = 'Chrome' if 'chrome' in val.lower() else 'Edge'
                         candidates.append((name, val))

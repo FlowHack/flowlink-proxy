@@ -43,6 +43,10 @@ Info "Обновление pip..."
 & $python -m pip install --upgrade pip -q
 
 Info "Установка зависимостей..."
+& $pip install -q pysocks
+if ($LASTEXITCODE -ne 0) {
+    Warn "Не удалось установить pysocks — SOCKS-поддержка pip может не работать"
+}
 & $pip install -q -r "server/requirements.txt"
 if ($LASTEXITCODE -ne 0) {
     if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }

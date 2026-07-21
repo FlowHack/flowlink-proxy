@@ -145,7 +145,8 @@ class TestFlowLinkPopupInit(unittest.TestCase):
         """set_tk_root устанавливает _root."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         sentinel = object()
-        popup.set_tk_root(sentinel)  # type: ignore[reportArgumentType]  # тест проверяет что set_tk_root принимает любой объект
+        # тест проверяет что set_tk_root принимает любой объект
+        popup.set_tk_root(sentinel)  # type: ignore[reportArgumentType]
         # _root — internal tkinter: проверка что set_tk_root работает
         self.assertIs(popup._root, sentinel)  # pylint: disable=protected-access
 

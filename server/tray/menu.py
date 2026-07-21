@@ -8,7 +8,7 @@ Linux, macOS и Win32 трей-модулями.
 from __future__ import annotations
 
 import types
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 import logging
 import os
@@ -106,7 +106,10 @@ def _create_fallback_icon(pil_image: types.ModuleType) -> Any:
     return img.resize(_DEFAULT_ICON_SIZE, pil_image.Resampling.LANCZOS)
 
 
-def get_autostart_state(callbacks: Dict[str, Any], logger_name: str = 'flowlink.tray') -> bool:
+def get_autostart_state(
+    callbacks: Dict[str, Any],
+    logger_name: str = 'flowlink.tray',
+) -> bool:
     """
     Безопасно читает текущее состояние автозапуска.
 
@@ -128,11 +131,15 @@ def get_autostart_state(callbacks: Dict[str, Any], logger_name: str = 'flowlink.
         return False
 
 
-def safe_open_folder(path: str, label: str, log: logging.Logger) -> None:
+def safe_open_folder(
+    path: str, label: str, log: logging.Logger,
+) -> None:
     """Безопасно открывает папку в файловом менеджере."""
     try:
         os.makedirs(path, exist_ok=True)
-        webbrowser.open(f'file://{os.path.normpath(path)}')
+        webbrowser.open(
+            f'file://{os.path.normpath(path)}',
+        )
     except OSError as exc:
         log.error(
             '%s: не удалось открыть %s (%s): %s',
@@ -140,7 +147,9 @@ def safe_open_folder(path: str, label: str, log: logging.Logger) -> None:
         )
 
 
-def _get_system_autostart_state(callbacks: Dict[str, Any], logger_name: str) -> bool:
+def _get_system_autostart_state(
+    callbacks: Dict[str, Any], logger_name: str,
+) -> bool:
     """Безопасно читает текущее состояние системного автозапуска."""
     if not callbacks.get('system_autostart_getter'):
         return False
@@ -148,12 +157,183 @@ def _get_system_autostart_state(callbacks: Dict[str, Any], logger_name: str) -> 
         return callbacks['system_autostart_getter']()
     except (OSError, TypeError, AttributeError) as e:
         logging.getLogger(logger_name).error(
-            '%s: ошибка чтения system_autostart: %s', logger_name, e,
+            '%s: ошибка чтения system_autostart: %s',
+            logger_name, e,
         )
         return False
 
 
-def build_menu_items(callbacks: Dict[str, Any], stop_fn: Callable[[], None], logger_name: str = 'flowlink.tray') -> List[Dict[str, Any]]:
+# ─── Вспомогательные функции для построения меню ───
+
+
+def _open_logs(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """Открывает папку с логами в файловом менеджере."""
+    log.info('Tray: открытие папки логов')
+    if callbacks.get('log_dir_getter'):
+        try:
+            log_dir = callbacks['log_dir_getter']()
+        except (OSError, TypeError) as exc:
+            log.error(
+                'Tray: log_dir_getter() ошибка: %s', exc,
+            )
+            return
+        if log_dir:
+            safe_open_folder(log_dir, 'логи', log)
+
+
+def _clear_logs(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """Очищает папку с логами."""
+    log.info('Tray: очистка логов')
+    if callbacks.get('clear_logs'):
+        try:
+            callbacks['clear_logs']()
+        except OSError as exc:
+            log.error(
+                'Tray: ошибка очистки логов: %s', exc,
+            )
+
+
+def _open_data(
+    _callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """Открывает папку с данными в файловом менеджере."""
+    log.info('Tray: открытие папки данных')
+    try:
+        data_dir = get_data_dir()
+    except OSError as exc:
+        log.error(
+            'Tray: get_data_dir() ошибка: %s', exc,
+        )
+        return
+    safe_open_folder(data_dir, 'данные', log)
+
+
+def _clear_data(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """Очищает папку с данными."""
+    log.info('Tray: очистка всех данных')
+    if callbacks.get('clear_data'):
+        try:
+            callbacks['clear_data']()
+        except OSError as exc:
+            log.error(
+                'Tray: ошибка очистки данных: %s', exc,
+            )
+
+
+def _toggle_autostart(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+    current_value: bool,
+) -> None:
+    """Переключает автозапуск браузера."""
+    new_val = not current_value
+    log.debug(
+        'Tray: _toggle_autostart вызван, new_val=%s',
+        new_val,
+    )
+    log.info(
+        'Tray: автозапуск браузера → %s',
+        'включён' if new_val else 'выключен',
+    )
+    if callbacks.get('autostart_setter'):
+        try:
+            callbacks['autostart_setter'](new_val)
+        except OSError as exc:
+            log.error(
+                'Tray: ошибка записи autostart: %s',
+                exc,
+            )
+    else:
+        log.warning(
+            'Tray: callback autostart_setter '
+            'не зарегистрирован',
+        )
+
+
+def _toggle_system_autostart(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+    current_value: bool,
+) -> None:
+    """Переключает автозапуск с системой."""
+    new_val = not current_value
+    log.debug(
+        'Tray: _toggle_system_autostart вызван, '
+        'new_val=%s', new_val,
+    )
+    log.info(
+        'Tray: автозапуск с системой → %s',
+        'включён' if new_val else 'выключен',
+    )
+    if callbacks.get('system_autostart_setter'):
+        try:
+            callbacks['system_autostart_setter'](new_val)
+        except OSError as exc:
+            log.error(
+                'Tray: ошибка записи system_autostart: %s',
+                exc,
+            )
+    else:
+        log.warning(
+            'Tray: callback system_autostart_setter '
+            'не зарегистрирован',
+        )
+
+
+def _exit(
+    stop_fn: Callable[[], None],
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """Выполняет выход из приложения."""
+    log.info('Tray: выбран Выход')
+    try:
+        stop_fn()
+    except (OSError, RuntimeError) as e:
+        log.error(
+            'Tray: ошибка при остановке трея: %s',
+            e, exc_info=True,
+        )
+    if callbacks.get('stop'):
+        try:
+            callbacks['stop']()
+        except (OSError, RuntimeError) as e:
+            log.error(
+                'Tray: ошибка при остановке сервера: %s',
+                e, exc_info=True,
+            )
+
+
+# ─── Фабрики замыканий ───
+
+
+def _make_action(
+    func: Callable[..., None],
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+    **extra: Any,
+) -> Callable[[], None]:
+    """Создаёт замыкание callable→() для пункта меню."""
+    def _wrapper() -> None:
+        func(callbacks, log, **extra)
+    return _wrapper
+
+
+def build_menu_items(
+    callbacks: Dict[str, Any],
+    stop_fn: Callable[[], None],
+    logger_name: str = 'flowlink.tray',
+) -> List[Dict[str, Any]]:
     """
     Строит список пунктов меню для popup.
 
@@ -175,8 +355,10 @@ def build_menu_items(callbacks: Dict[str, Any], stop_fn: Callable[[], None], log
             stop: Callable — остановка сервера.
             autostart_getter: Callable → bool — чтение настройки.
             autostart_setter: Callable(bool) — запись настройки.
-            system_autostart_getter: Callable → bool — чтение системного автозапуска.
-            system_autostart_setter: Callable(bool) — запись системного автозапуска.
+            system_autostart_getter: Callable → bool — чтение
+                системного автозапуска.
+            system_autostart_setter: Callable(bool) — запись
+                системного автозапуска.
             log_dir_getter: Callable → str — путь к папке логов.
             data_dir_getter: Callable → str — путь к папке данных.
             clear_logs: Callable — очистка логов.
@@ -189,123 +371,74 @@ def build_menu_items(callbacks: Dict[str, Any], stop_fn: Callable[[], None], log
         Список словарей с описанием пунктов меню.
     """
     log = logging.getLogger(logger_name)
-    autostart_enabled = get_autostart_state(callbacks, logger_name)
-    system_autostart_enabled = _get_system_autostart_state(callbacks, logger_name)
-
-    def _safe_open_folder(path: str, label: str) -> None:
-        """Безопасно открывает папку в файловом менеджере."""
-        safe_open_folder(path, label, log)
-
-    def _open_logs() -> None:
-        log.info('Tray: открытие папки логов')
-        if callbacks.get('log_dir_getter'):
-            try:
-                log_dir = callbacks['log_dir_getter']()
-            except (OSError, TypeError) as exc:
-                log.error(
-                    'Tray: log_dir_getter() ошибка: %s', exc,
-                )
-                return
-            if log_dir:
-                _safe_open_folder(log_dir, 'логи')
-
-    def _clear_logs() -> None:
-        log.info('Tray: очистка логов')
-        if callbacks.get('clear_logs'):
-            try:
-                callbacks['clear_logs']()
-            except OSError as exc:
-                log.error('Tray: ошибка очистки логов: %s', exc)
-
-    def _open_data() -> None:
-        log.info('Tray: открытие папки данных')
-        try:
-            data_dir = get_data_dir()
-        except OSError as exc:
-            log.error('Tray: get_data_dir() ошибка: %s', exc)
-            return
-        _safe_open_folder(data_dir, 'данные')
-
-    def _clear_data() -> None:
-        log.info('Tray: очистка всех данных')
-        if callbacks.get('clear_data'):
-            try:
-                callbacks['clear_data']()
-            except OSError as exc:
-                log.error(
-                    'Tray: ошибка очистки данных: %s', exc,
-                )
-
-    def _toggle_autostart() -> None:
-        new_val = not autostart_enabled
-        log.info(
-            'Tray: автозапуск браузера → %s',
-            'включён' if new_val else 'выключен',
-        )
-        if callbacks.get('autostart_setter'):
-            try:
-                callbacks['autostart_setter'](new_val)
-            except OSError as exc:
-                log.error(
-                    'Tray: ошибка записи autostart: %s', exc,
-                )
-
-    def _toggle_system_autostart() -> None:
-        new_val = not system_autostart_enabled
-        log.info(
-            'Tray: автозапуск с системой → %s',
-            'включён' if new_val else 'выключен',
-        )
-        if callbacks.get('system_autostart_setter'):
-            try:
-                callbacks['system_autostart_setter'](new_val)
-            except OSError as exc:
-                log.error(
-                    'Tray: ошибка записи system_autostart: %s', exc,
-                )
-
-    def _exit() -> None:
-        log.info('Tray: выбран Выход')
-        stop_fn()
-        if callbacks.get('stop'):
-            callbacks['stop']()
+    autostart = get_autostart_state(callbacks, logger_name)
+    sys_autostart = _get_system_autostart_state(
+        callbacks, logger_name,
+    )
 
     return [
         {
-            'type': 'item', 'text': 'Посмотреть логи',
-            'icon': '\U0001f4dc', 'command': _open_logs,
+            'type': 'item',
+            'text': 'Посмотреть логи',
+            'icon': '\U0001f4dc',
+            'command': _make_action(
+                _open_logs, callbacks, log,
+            ),
         },
         {
-            'type': 'item', 'text': 'Очистить логи',
-            'icon': '\U0001f5d1\ufe0f', 'command': _clear_logs,
+            'type': 'item',
+            'text': 'Очистить логи',
+            'icon': '\U0001f5d1',
+            'command': _make_action(
+                _clear_logs, callbacks, log,
+            ),
         },
         {
-            'type': 'item', 'text': 'Посмотреть данные',
-            'icon': '\U0001f4c2', 'command': _open_data,
+            'type': 'item',
+            'text': 'Посмотреть данные',
+            'icon': '\U0001f4c2',
+            'command': _make_action(
+                _open_data, callbacks, log,
+            ),
         },
         {
-            'type': 'item', 'text': 'Очистить данные',
-            'icon': '\u26a0\ufe0f', 'command': _clear_data,
+            'type': 'item',
+            'text': 'Очистить данные',
+            'icon': '\u26a0\ufe0f',
+            'command': _make_action(
+                _clear_data, callbacks, log,
+            ),
         },
         {'type': 'separator'},
         {
             'type': 'check',
             'text': 'Автозапуск браузера',
             'icon': '\U0001f310',
-            'checked': autostart_enabled,
-            'command': _toggle_autostart,
+            'checked': autostart,
+            'command': _make_action(
+                _toggle_autostart, callbacks, log,
+                current_value=autostart,
+            ),
         },
         {
             'type': 'check',
             'text': 'Запуск с системой',
             'icon': '\U0001f50a',
-            'checked': system_autostart_enabled,
-            'command': _toggle_system_autostart,
+            'checked': sys_autostart,
+            'command': _make_action(
+                _toggle_system_autostart,
+                callbacks, log,
+                current_value=sys_autostart,
+            ),
         },
         {'type': 'separator'},
         {
-            'type': 'item', 'text': 'Выход',
-            'icon': '\u274c', 'color': '#e74c3c',
-            'command': _exit,
+            'type': 'item',
+            'text': 'Выход',
+            'icon': '\u274c',
+            'color': '#e74c3c',
+            'command': lambda: _exit(
+                stop_fn, callbacks, log,
+            ),
         },
     ]

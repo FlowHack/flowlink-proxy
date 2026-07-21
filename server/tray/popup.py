@@ -77,6 +77,12 @@ class FlowLinkPopup:
                 pass
             self._popup = None
 
+    def get_popup_hwnd(self) -> int:
+        """Возвращает HWND popup-окна для Win32 API."""
+        if self._popup and self._popup.winfo_exists():
+            return self._popup.winfo_id()
+        return 0
+
     def thread_safe(self, func: Callable[[], None]) -> None:
         """
         Безопасно выполняет функцию в потоке tkinter.
@@ -100,7 +106,7 @@ class FlowLinkPopup:
                     logger.debug(
                         'Popup: ошибка tkinter в callback: %s', e,
                     )
-                except Exception as e:  # pylint: disable=broad-exception-caught
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.error(
                         'Popup: ошибка в callback из очереди: %s',
                         e, exc_info=True,
@@ -115,7 +121,12 @@ class FlowLinkPopup:
                     'Popup: не удалось запланировать _poll_queue',
                 )
 
-    def show(self, x: Optional[int] = None, y: Optional[int] = None, items: Optional[List[Dict[str, Any]]] = None) -> None:
+    def show(
+        self,
+        x: Optional[int] = None,
+        y: Optional[int] = None,
+        items: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
         """
         Показывает popup-меню в указанной позиции.
 
@@ -124,7 +135,19 @@ class FlowLinkPopup:
             y: Координата Y (экранная). Если None — над курсором.
             items: Список элементов меню (см. _build_items).
         """
-        logger.debug('Popup: show() вызван, x=%s, y=%s', x, y)
+        self._show_popup_impl(x, y, items)
+
+    def _show_popup_impl(
+        self,
+        x: Optional[int],
+        y: Optional[int],
+        items: Optional[List[Dict[str, Any]]],
+    ) -> None:
+        """Внутренняя логика показа popup-меню."""
+        logger.debug(
+            'Popup: show() вход x=%s y=%s items=%s',
+            x, y, len(items) if items else 0,
+        )
         try:
             logger.debug('Popup: show() — ожидание _build_lock')
             with self._build_lock:
@@ -132,7 +155,7 @@ class FlowLinkPopup:
                 self.dismiss()
                 logger.debug('Popup: show() — dismiss() завершён')
                 self._create_popup(x, y, items or [])
-                logger.debug('Popup: show() — _create_popup() завершён')
+                logger.debug('Popup: show() _create_popup завершён')
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter при показе: %s', e,
@@ -141,7 +164,7 @@ class FlowLinkPopup:
             logger.error(
                 'Popup: некорректные аргументы: %s', e,
             )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (OSError, RuntimeError) as e:
             logger.error(
                 'Popup: непредвиденная ошибка при показе: %s',
                 e, exc_info=True,
@@ -149,30 +172,44 @@ class FlowLinkPopup:
 
     def dismiss(self) -> None:
         """Закрывает popup-меню, если оно открыто."""
+        logger.debug('Popup: dismiss() вход')
         self._polling_active = False
-        if self._popup:
-            try:
-                self._popup.grab_release()
-            except tk.TclError:
-                logger.debug('grab_release: окно уже уничтожено')
-            except RuntimeError as e:
-                logger.debug(
-                    'grab_release: runtime ошибка: %s', e,
-                )
-            try:
-                self._popup.destroy()
-            except tk.TclError:
-                logger.debug('destroy: окно уже уничтожено')
-            except RuntimeError as e:
-                logger.debug(
-                    'destroy: runtime ошибка: %s', e,
-                )
+        try:
+            if self._popup is not None:
+                try:
+                    if self._popup.winfo_exists():
+                        try:
+                            self._popup.grab_release()
+                        except tk.TclError as e:
+                            logger.debug('Popup: dismiss() — TclError при grab_release: %s', e)
+                except tk.TclError:
+                    logger.debug('Popup: dismiss() — окно уже уничтожено, пропускаю grab_release')
+                try:
+                    if self._popup.winfo_exists():
+                        self._popup.destroy()
+                except tk.TclError:
+                    logger.debug('Popup: dismiss() — окно уже уничтожено, пропускаю destroy')
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.error('Popup: dismiss() — критическая ошибка: %s', e, exc_info=True)
+        finally:
             self._popup = None
+            logger.debug('Popup: dismiss() выход, _popup=None')
 
-    def _create_popup(self, x: Optional[int], y: Optional[int], items: List[Dict[str, Any]]) -> None:
+    def _create_popup(
+        self,
+        x: Optional[int],
+        y: Optional[int],
+        items: List[Dict[str, Any]],
+    ) -> None:
         """Создаёт и отображает popup-окно."""
+        logger.debug(
+            'Popup: _create_popup() вход x=%s y=%s items=%s',
+            x, y, len(items),
+        )
         if not self._root:
-            logger.error('Tk root не установлен — popup невозможен')
+            logger.error(
+                'Tk root не установлен — popup невозможен',
+            )
             return
 
         try:
@@ -184,19 +221,36 @@ class FlowLinkPopup:
             return
         except RuntimeError as e:
             logger.error(
-                'Popup: runtime ошибка при создании Toplevel: %s', e,
+                'Popup: runtime ошибка при создании '
+                'Toplevel: %s', e,
             )
             return
+
+        logger.debug('Popup: _create_popup() Toplevel создан')
 
         try:
             self._popup.overrideredirect(True)
             self._popup.attributes('-topmost', True)
             self._popup.configure(bg=PopupColors.BG)
+            self._popup.focus_force()
+            self._popup.grab_set()
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка настройки окна: %s', e,
             )
             self._safe_destroy()
+            return
+
+        self._configure_popup(x, y, items)
+
+    def _configure_popup(
+        self,
+        x: Optional[int],
+        y: Optional[int],
+        items: List[Dict[str, Any]],
+    ) -> None:
+        """Позиционирует окно, строит содержимое, запускает анимацию."""
+        if not self._popup or not self._root:
             return
 
         # Ширина popup
@@ -206,9 +260,15 @@ class FlowLinkPopup:
 
         # Позиционирование
         if x is None:
-            x = self._root.winfo_pointerx() - width // 2
+            x = (
+                self._root.winfo_pointerx()
+                - width // 2
+            )
         if y is None:
-            y = self._root.winfo_pointery() - height - 8
+            y = (
+                self._root.winfo_pointery()
+                - height - 8
+            )
 
         # Не выходит за экран
         try:
@@ -216,14 +276,17 @@ class FlowLinkPopup:
             sh = self._popup.winfo_screenheight()
         except tk.TclError as e:
             logger.warning(
-                'Popup: не удалось получить размер экрана: %s', e,
+                'Popup: не удалось получить размер '
+                'экрана: %s', e,
             )
             sw, sh = 1920, 1080
         x = max(0, min(x, sw - width - 4))
         y = max(0, min(y, sh - height - 4))
 
         try:
-            self._popup.geometry(f'{width}x{height}+{x}+{y}')
+            self._popup.geometry(
+                f'{width}x{height}+{x}+{y}',
+            )
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка установки geometry: %s', e,
@@ -231,35 +294,54 @@ class FlowLinkPopup:
             self._safe_destroy()
             return
 
+        logger.debug(
+            'Popup: _configure_popup() geometry '
+            '%sx%s+%s+%s',
+            width, height, x, y,
+        )
+
         # Строим содержимое
         try:
             self._build_items(items)
         except (TypeError, ValueError) as e:
             logger.error(
-                'Popup: ошибка построения элементов: %s', e,
+                'Popup: ошибка построения элементов: %s',
+                e,
             )
         except tk.TclError as e:
             logger.error(
-                'Popup: ошибка tkinter при построении: %s', e,
+                'Popup: ошибка tkinter при построении: '
+                '%s', e,
             )
+
+        logger.debug(
+            'Popup: _configure_popup() '
+            '_build_items завершён',
+        )
 
         # Автозакрытие при потере фокуса
         try:
-            self._popup.bind('<FocusOut>', lambda _e: self.dismiss())  # type: ignore[reportArgumentType]
-            def _safe_grab_set() -> None:
-                """Безопасный grab_set — ловит TclError если окно уже закрыто."""
-                if self._popup:
-                    try:
-                        self._popup.grab_set()
-                    except tk.TclError as e:
-                        logger.debug(
-                            'Popup: grab_set failed (окно закрыто?): %s', e,
-                        )
-            self._popup.after(50, _safe_grab_set)
+            def _bind_focus_out() -> None:
+                if (
+                    self._popup
+                    and self._popup.winfo_exists()
+                ):
+                    self._popup.bind(
+                        '<FocusOut>',
+                        lambda _e: self.dismiss(),
+                    )
+
+            self._popup.after(100, _bind_focus_out)
         except tk.TclError as e:
             logger.warning(
-                'Popup: не удалось установить grab: %s', e,
+                'Popup: не удалось установить '
+                'grab: %s', e,
             )
+
+        logger.debug(
+            'Popup: _configure_popup() '
+            'grab_set выполнен',
+        )
 
         # Плавное появление
         self._fade_in()
@@ -287,7 +369,9 @@ class FlowLinkPopup:
 
         try:
             # Верхний padding
-            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')  # type: ignore[reportCallIssue]
+            tk.Frame(  # type: ignore[reportCallIssue]
+                self._popup, bg=PopupColors.BG, height=4,
+            ).pack(fill='x')
 
             for item in items:
                 item_type = item.get('type', 'item')
@@ -312,7 +396,9 @@ class FlowLinkPopup:
                     self._add_header(item.get('text', ''))
 
             # Нижний padding
-            tk.Frame(self._popup, bg=PopupColors.BG, height=4).pack(fill='x')  # type: ignore[reportCallIssue]
+            tk.Frame(  # type: ignore[reportCallIssue]
+                self._popup, bg=PopupColors.BG, height=4,
+            ).pack(fill='x')
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter при построении: %s', e,
@@ -336,11 +422,19 @@ class FlowLinkPopup:
         )
         lbl.pack(fill='x')
 
-    def _add_menu_item(self, text: str, icon: str = '', command: Optional[Callable[[], None]] = None, color: Optional[str] = None) -> None:
+    def _add_menu_item(
+        self,
+        text: str,
+        icon: str = '',
+        command: Optional[Callable[[], None]] = None,
+        color: Optional[str] = None,
+    ) -> None:
         """Добавляет пункт меню."""
         try:
-            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')  # type: ignore[reportCallIssue]
-            frame.pack(fill='x', padx=4)
+            frame = tk.Frame(  # type: ignore[reportCallIssue]
+                self._popup, bg=PopupColors.BG, cursor='hand2',
+            )
+            frame.pack(fill='x', padx=4, pady=(0, 6))
 
             # Иконка
             if icon:
@@ -353,7 +447,7 @@ class FlowLinkPopup:
                     width=2,
                     anchor='center',
                 )
-                icon_lbl.pack(side='left', padx=(4, 0))
+                icon_lbl.pack(side='left', padx=(4, 4))
 
             # Текст
             fg = color or PopupColors.TEXT
@@ -368,19 +462,42 @@ class FlowLinkPopup:
             text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=6)
 
             # Hover + клик
-            def on_enter(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+            def on_enter(
+                _event: tk.Event[tk.Tk],
+                fr: tk.Frame = frame,
+            ) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
-                fr.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
+                    child.configure(
+                        bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
+                    )
+                fr.configure(
+                    bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
+                )
 
-            def on_leave(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+            def on_leave(
+                _event: tk.Event[tk.Tk],
+                fr: tk.Frame = frame,
+            ) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.BG)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
+                    child.configure(
+                        bg=PopupColors.BG,  # type: ignore[reportCallIssue]
+                    )
                 fr.configure(bg=PopupColors.BG)
 
-            def on_click(_event: tk.Event[tk.Tk], cmd: Optional[Callable[[], None]] = command) -> None:
+            def on_click(
+                _event: tk.Event[tk.Tk],
+                cmd: Optional[Callable[[], None]] = command,
+            ) -> None:
+                logger.info('Popup: клик по пункту меню')
                 if cmd:
-                    cmd()
+                    try:
+                        cmd()
+                    except (OSError, ValueError, RuntimeError) as e:
+                        logger.error(
+                            'Popup: ошибка при выполнении '
+                            'команды: %s',
+                            e, exc_info=True,
+                        )
                 self.dismiss()
 
             for widget in [frame] + frame.winfo_children():
@@ -396,11 +513,19 @@ class FlowLinkPopup:
                 'Popup: ошибка данных в _add_menu_item: %s', e,
             )
 
-    def _add_check_item(self, text: str, icon: str = '', checked: bool = False, command: Optional[Callable[[], None]] = None) -> None:
+    def _add_check_item(
+        self,
+        text: str,
+        icon: str = '',
+        checked: bool = False,
+        command: Optional[Callable[[], None]] = None,
+    ) -> None:
         """Добавляет пункт с чекбоксом."""
         try:
-            frame = tk.Frame(self._popup, bg=PopupColors.BG, cursor='hand2')  # type: ignore[reportCallIssue]
-            frame.pack(fill='x', padx=4)
+            frame = tk.Frame(  # type: ignore[reportCallIssue]
+                self._popup, bg=PopupColors.BG, cursor='hand2',
+            )
+            frame.pack(fill='x', padx=4, pady=(0, 6))
 
             # Иконка
             if icon:
@@ -413,7 +538,7 @@ class FlowLinkPopup:
                     width=2,
                     anchor='center',
                 )
-                icon_lbl.pack(side='left', padx=(4, 0))
+                icon_lbl.pack(side='left', padx=(4, 4))
 
             # Текст
             text_lbl = tk.Label(
@@ -440,19 +565,42 @@ class FlowLinkPopup:
             check_lbl.pack(side='right', padx=(0, 8))
 
             # Hover + клик
-            def on_enter(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+            def on_enter(
+                _event: tk.Event[tk.Tk],
+                fr: tk.Frame = frame,
+            ) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
-                fr.configure(bg=PopupColors.SURFACE_HOVER)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
+                    child.configure(
+                        bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
+                    )
+                fr.configure(
+                    bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
+                )
 
-            def on_leave(_event: tk.Event[tk.Tk], fr: tk.Frame = frame) -> None:
+            def on_leave(
+                _event: tk.Event[tk.Tk],
+                fr: tk.Frame = frame,
+            ) -> None:
                 for child in fr.winfo_children():
-                    child.configure(bg=PopupColors.BG)  # type: ignore[reportCallIssue]  # tkinter stubs не знают о bg
+                    child.configure(
+                        bg=PopupColors.BG,  # type: ignore[reportCallIssue]
+                    )
                 fr.configure(bg=PopupColors.BG)
 
-            def on_click(_event: tk.Event[tk.Tk], cmd: Optional[Callable[[], None]] = command) -> None:
+            def on_click(
+                _event: tk.Event[tk.Tk],
+                cmd: Optional[Callable[[], None]] = command,
+            ) -> None:
+                logger.info('Popup: клик по пункту с чекбоксом')
                 if cmd:
-                    cmd()
+                    try:
+                        cmd()
+                    except (OSError, ValueError, RuntimeError) as e:
+                        logger.error(
+                            'Popup: ошибка при выполнении '
+                            'команды: %s',
+                            e, exc_info=True,
+                        )
                 self.dismiss()
 
             for widget in [frame] + frame.winfo_children():
@@ -471,7 +619,9 @@ class FlowLinkPopup:
     def _add_separator(self) -> None:
         """Добавляет разделитель."""
         try:
-            frame = tk.Frame(self._popup, bg=PopupColors.BG, height=10)  # type: ignore[reportCallIssue]
+            frame = tk.Frame(  # type: ignore[reportCallIssue]
+                self._popup, bg=PopupColors.BG, height=10,
+            )
             frame.pack(fill='x')
             frame.pack_propagate(False)
             tk.Frame(frame, bg=PopupColors.BORDER, height=1).pack(  # type: ignore[reportCallIssue]
@@ -490,6 +640,7 @@ class FlowLinkPopup:
         с шагом 0.1 и интервалом 15мс. Если окно было закрыто
         во время анимации — корректно завершается (TclError).
         """
+        logger.debug('Popup: _fade_in() alpha=%s', alpha)
         if not self._popup:
             return
         try:

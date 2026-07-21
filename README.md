@@ -25,6 +25,32 @@ SOCKS5 с паролем       Прямое соединение
 
 ---
 
+## Технологический стек
+
+| Категория | Технологии |
+|---|---|
+| **Языки** | Python 3.10+, JavaScript (ES Modules), Shell, PowerShell |
+| **Бэкенд** | asyncio, HTTP CONNECT-прокси, SOCKS5-клиент (чистый struct/asyncio), SSE-шина событий |
+| **Шифрование** | AES-256-GCM + PBKDF2-HMAC-SHA256 (cryptography) |
+| **Системный трей** | tkinter (кастомное тёмное меню), pystray, Win32 ctypes |
+| **Расширение** | Chrome Extension Manifest V3, Service Worker, EventSource (SSE) |
+| **Сборка** | PyInstaller (standalone), Inno Setup (Windows), dpkg-deb / rpmbuild (Linux), pkgbuild (macOS) |
+| **CI/CD** | GitHub Actions (lint + typecheck + pytest; multios сборка + релизы по тегам) |
+| **Качество** | pytest, pylint >= 9.0, pyright (type-checking) |
+| **Платформы** | Windows 10+, Linux x64, macOS (Intel + Apple Silicon) |
+
+Ключевые особенности:
+- **Плагинная архитектура протоколов** — `ProxyProtocol` ABC + фабрика; добавление нового протокола = новый класс + регистрация
+- **Mask Router** — wildcard-маски конвертируются в precompiled regex, кешируются, O(n) по активным правилам
+- **SSRF-защита** — резолв IP, блокировка private/loopback/link-local диапазонов
+- **Пароли в AES-256-GCM** — authenticated encryption, PBKDF2 (600k итераций)
+- **Состояние в памяти** — `isEnabled` не пишется на диск; SSE push при реконнекте расширения
+- **Multi-platform tray** — цепочка fallback'ов (Win32 → pystray+tkinter → pystray+native)
+- **Connection teardown** — при изменении конфига активные туннели принудительно закрываются
+- **Dev mode** — hot-reload, mock SOCKS5-сервер, генерация тестовых данных
+
+---
+
 ## Быстрый старт
 
 ### 1. Скачайте и запустите бэкенд

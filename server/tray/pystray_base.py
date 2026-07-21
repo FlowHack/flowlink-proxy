@@ -6,18 +6,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pystray  # type: ignore[reportMissingImports]
-
 import logging
 import threading
 import tkinter as tk
+from typing import Any, Dict, TYPE_CHECKING
 
 from server.tray.popup import FlowLinkPopup
 from server.tray.menu import load_icon, build_menu_items
+
+if TYPE_CHECKING:
+    import pystray  # type: ignore[reportMissingImports]
 
 
 class PystrayTray:

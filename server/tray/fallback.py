@@ -8,18 +8,27 @@ Fallback-бэкенд трей через pystray с нативным меню.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
-from typing import TYPE_CHECKING
+import logging
+import threading
 import types
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+)
+from typing import TYPE_CHECKING
+
+from server.tray.menu import (
+    load_icon,
+    get_autostart_state,
+    safe_open_folder,
+)
+from server.utils import get_data_dir
 
 if TYPE_CHECKING:
     import pystray  # type: ignore[reportMissingImports]
-
-import logging
-import threading
-
-from server.tray.menu import load_icon, get_autostart_state, safe_open_folder
-from server.utils import get_data_dir
 
 logger = logging.getLogger('flowlink.tray.fallback')
 

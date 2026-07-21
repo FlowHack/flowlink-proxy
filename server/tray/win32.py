@@ -32,39 +32,13 @@ import os
 import threading
 import tkinter as tk
 
+
 from server.tray.popup import FlowLinkPopup
 from server.tray.menu import build_menu_items
 
 logger = logging.getLogger('flowlink.tray.win32')
 
-# ───── Crash-safe диагностика ─────
-_CRASH_LOG_PATH: str | None = None
-
-
-def _get_crash_log_path() -> str:
-    """Возвращает путь к crash-логу (ленивая инициализация)."""
-    global _CRASH_LOG_PATH  # noqa: PLW0603  # pylint: disable=global-statement
-    if _CRASH_LOG_PATH is None:
-        from server.utils import get_data_dir  # pylint: disable=import-outside-toplevel
-        _CRASH_LOG_PATH = os.path.join(get_data_dir(), 'tray_crash.log')
-    return _CRASH_LOG_PATH
-
-
-def _crash_log(message: str) -> None:
-    """
-    Пишет timestamp + сообщение в tray_crash.log.
-    Использует open() с flush=True — гарантированная запись на диск
-    даже при крахе Tcl/Tk. Не использует logger.
-    """
-    import datetime  # pylint: disable=import-outside-toplevel
-    try:
-        path = _get_crash_log_path()
-        ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        with open(path, 'a', encoding='utf-8') as f:
-            f.write(f'[{ts}] {message}\n')
-            f.flush()
-    except Exception:  # pylint: disable=broad-exception-caught
-        pass  # Ничего не поделать — пишем молча
+# ───── Crash-safe диагностика удалена ─────
 
 # ───── Константы Win32 ─────
 WM_APP = 0x8000
@@ -174,6 +148,9 @@ class Win32Tray:
         self._taskbar_msg_id = 0
         self._fallback_icon_path = None
         self._popup_open = False
+        self._pending_popup = False
+        self._popup_timer_id = None
+        self._tk_root_valid = False
 
     def start(self):
         """Запускает трей-иконку в отдельном потоке."""
@@ -185,6 +162,13 @@ class Win32Tray:
     def stop(self):
         """Останавливает трей и закрывает окно."""
         self._shutting_down = True
+        # Отменяем таймер проверки флага popup
+        if self._popup_timer_id and self._tk_root:
+            try:
+                self._tk_root.after_cancel(self._popup_timer_id)
+            except tk.TclError:
+                pass
+            self._popup_timer_id = None
         if self._hwnd:
             try:
                 _user32.PostMessageW(self._hwnd, WM_DESTROY, 0, 0)
@@ -193,6 +177,13 @@ class Win32Tray:
                     'Tray Win32: не удалось отправить WM_DESTROY: %s',
                     e,
                 )
+        # Если процесс не завершился за 1 секунду — принудительный выход
+        if self._tk_root:
+            try:
+                self._tk_root.after(1000, os._exit, 0)
+            except tk.TclError:
+                # Если tkinter уже недоступен — выходим немедленно
+                os._exit(0)
 
     def refresh_menu(self):
         """Обновляет popup-меню (вызывается при изменении конфига)."""
@@ -236,6 +227,7 @@ class Win32Tray:
             return False
 
         self._popup.set_tk_root(self._tk_root)
+        self._tk_root_valid = True
         return True
 
     def _init_tray_icon(self) -> bool:
@@ -271,6 +263,19 @@ class Win32Tray:
     def _run_mainloop(self) -> None:
         """Запускает tkinter mainloop с обработкой ошибок."""
         self._icon_ready.set()
+        if self._tk_root is None:
+            logger.error('Tray Win32: tk_root не установлен')
+            return
+        # Запускаем таймер проверки флага popup
+        try:
+            self._popup_timer_id = self._tk_root.after(
+                50, self._poll_popup_flag,
+            )
+        except tk.TclError as e:
+            logger.warning(
+                'Tray Win32: не удалось запустить '
+                '_poll_popup_flag: %s', e,
+            )
         logger.debug('Tray Win32: запуск mainloop...')
         try:
             self._tk_root.mainloop()
@@ -283,12 +288,17 @@ class Win32Tray:
                 'Tray Win32: системная ошибка в mainloop: %s', e,
             )
         except BaseException as e:
-            _crash_log(f'_run_tk: BaseException в mainloop: {e}')
             logger.error(
                 'Tray Win32: критическая ошибка mainloop: %s',
                 e, exc_info=True,
             )
             raise
+        finally:
+            self._tk_root_valid = False
+            logger.debug(
+                'Tray Win32: mainloop завершён, '
+                '_tk_root_valid=False',
+            )
 
     def _run_tk(self):
         """
@@ -320,7 +330,7 @@ class Win32Tray:
             logger.error(
                 'Tray Win32: некорректный тип аргумента: %s', e,
             )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (OSError, tk.TclError, RuntimeError) as e:
             logger.error(
                 'Tray Win32: непредвиденная ошибка в потоке трей: %s',
                 e, exc_info=True,
@@ -461,7 +471,6 @@ class Win32Tray:
             NIM_SETVERSION, ctypes.byref(nid),
         )
         if not ok:
-            _crash_log('NIM_SETVERSION не удался (NOTIFYICON_VERSION_4)')
             logger.warning(
                 'Tray Win32: NIM_SETVERSION не удался '
                 '(NOTIFYICON_VERSION_4) — события мыши '
@@ -536,7 +545,7 @@ class Win32Tray:
                     self._fallback_icon_path,
                 )
             return hicon
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (OSError, AttributeError) as e:
             logger.warning(
                 'Tray Win32: ошибка создания дефолтной иконки: %s',
                 e,
@@ -595,6 +604,30 @@ class Win32Tray:
         _user32.GetCursorPos(ctypes.byref(pt))
         return pt.x, pt.y
 
+    def _poll_popup_flag(self) -> None:
+        """
+        Tkinter-таймер, проверяющий флаг _pending_popup.
+
+        Вызывается из mainloop каждые 50ms. Если флаг установлен —
+        сбрасывает его и вызывает _safe_show_popup.
+        Это безопасная альтернатива after(0, ...) из Win32 callback'а,
+        которая вызывала SEH-исключение в Tcl/Tk DLL.
+        """
+        logger.debug('Tray Win32: _poll_popup_flag вход, _pending_popup=%s', self._pending_popup)
+        if self._pending_popup:
+            self._pending_popup = False
+            self._safe_show_popup()
+        if not self._shutting_down and self._tk_root is not None:
+            try:
+                self._popup_timer_id = self._tk_root.after(
+                    50, self._poll_popup_flag,
+                )
+            except (tk.TclError, RuntimeError, OSError) as e:
+                logger.debug(
+                    'Tray Win32: _poll_popup_flag ошибка '
+                    'при планировании таймера: %s', e,
+                )
+
     def _safe_show_popup(self) -> None:
         """
         Безопасная обёртка для _show_popup.
@@ -603,41 +636,27 @@ class Win32Tray:
         tkinter mainloop. Даже если _show_popup выбросит
         исключение, которое не поймано — этот метод его поймает.
         """
-        _crash_log('_safe_show_popup: вход')
-        reason = None
+        logger.debug('Tray Win32: _safe_show_popup вход')
+        # Проверяем флаг вместо winfo_exists() — безопаснее
         if self._popup_open:
-            reason = 'popup уже открыт'
-        elif not self._tk_root:
-            reason = 'tk_root не установлен'
-        else:
-            try:
-                if not self._tk_root.winfo_exists():
-                    reason = 'tk_root уничтожен'
-            except tk.TclError:
-                reason = 'tk_root недоступен'
-
-        if reason:
-            logger.debug('Tray Win32: пропускаю _safe_show_popup — %s', reason)
+            logger.debug('Tray Win32: пропускаю _safe_show_popup — popup уже открыт')
+            return
+        if not self._tk_root_valid:
+            logger.debug('Tray Win32: пропускаю _safe_show_popup — tk_root невалиден')
             return
 
         self._popup_open = True
         try:
-            # Всегда вызываем dismiss() — он сам проверяет существование окна
-            self._popup.dismiss()
+            if self._popup is not None:
+                self._popup.dismiss()
             self._show_popup()
-        except tk.TclError as e:
-            logger.error('Tray Win32: _safe_show_popup — TclError: %s', e)
-        except (KeyError, TypeError, ValueError) as e:
-            logger.error('Tray Win32: _safe_show_popup — ошибка данных: %s', e)
-        except OSError as e:
-            logger.error('Tray Win32: _safe_show_popup — системная ошибка: %s', e)
-        except BaseException as e:  # pylint: disable=broad-exception-caught
-            logger.error('Tray Win32: _safe_show_popup — критическая '
-                         'ошибка: %s', e, exc_info=True)
-            # НЕ пробрасываем — tkinter mainloop крашнет окно
-            return
+        except (tk.TclError, KeyError, TypeError, ValueError,
+                OSError, RuntimeError) as e:
+            logger.error('Tray Win32: _safe_show_popup — ошибка: '
+                         '%s', e, exc_info=True)
         finally:
             self._popup_open = False
+            logger.debug('Tray Win32: _safe_show_popup выход, _popup_open=False')
 
     def _show_popup(self):
         """
@@ -646,7 +665,6 @@ class Win32Tray:
         Ловит все исключения — callback не должен крашить
         mainloop.
         """
-        _crash_log('_show_popup: вход')
         logger.debug('Tray Win32: _show_popup вызван')
         try:
             rect = self._get_icon_rect()
@@ -670,59 +688,91 @@ class Win32Tray:
 
             if self._tk_root:
                 logger.debug('Tray Win32: _show_popup — вызов popup.show()')
-                _crash_log(f'_show_popup: вызов popup.show() x={x} y={y} items={len(items)}')
+                logger.error(
+                    '_show_popup: вызов popup.show() '
+                    'x=%s y=%s items=%s',
+                    x, y, len(items), exc_info=True,
+                )
                 self._popup.show(x=x, y=y, items=items)
                 logger.debug('Tray Win32: _show_popup — popup.show() завершён')
+                logger.error('_show_popup: popup.show() завершён успешно', exc_info=True)
+                # Устанавливаем popup-окно как foreground.
+                # НЕ используем self._hwnd (message-only окно) —
+                # SetForegroundWindow на HWND_MESSAGE вызывает краш.
+                try:
+                    popup_hwnd = self._popup.get_popup_hwnd()
+                    if popup_hwnd:
+                        hwnd_popup = ctypes.c_void_p(popup_hwnd)
+                        _user32.SetForegroundWindow(hwnd_popup)
+                        _user32.BringWindowToTop(hwnd_popup)
+                        logger.error(
+                            '_show_popup: SetForegroundWindow/'
+                            'BringWindowToTop выполнены',
+                            exc_info=True,
+                        )
+                except (OSError, AttributeError, tk.TclError, ValueError) as e:
+                    logger.debug(
+                        'Tray Win32: не удалось установить foreground '
+                        'popup-окна: %s', e,
+                    )
             else:
                 logger.warning('Tray Win32: _show_popup — tk_root is None')
-        except tk.TclError as e:
-            logger.warning(
-                'Tray Win32: ошибка tkinter в _show_popup: %s', e,
-            )
-        except (KeyError, TypeError, ValueError) as e:
+        except (tk.TclError, KeyError, TypeError, ValueError,
+                OSError, RuntimeError) as e:
             logger.error(
-                'Tray Win32: ошибка данных меню: %s', e,
-            )
-        except OSError as e:
-            logger.error(
-                'Tray Win32: системная ошибка в _show_popup: %s', e,
-            )
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(
-                'Tray Win32: непредвиденная ошибка в _show_popup: %s',
-                e, exc_info=True,
+                '_show_popup: ошибка: %s: %s',
+                type(e).__name__, e, exc_info=True,
             )
 
     def _handle_tray_callback(self, event):
         """Обрабатывает событие трей (правый/левый клик)."""
+        logger.error('_handle_tray_callback: event=0x%X', event, exc_info=True)
+        # При двойном клике левой кнопкой не открываем popup
+        if event == WM_LBUTTONDBLCLK:
+            logger.error(
+                '_handle_tray_callback: WM_LBUTTONDBLCLK — игнорирую', exc_info=True,
+            )
+            return 0
         if event not in (WM_RBUTTONUP, WM_RBUTTONDBLCLK,
                          WM_LBUTTONDBLCLK, WM_LBUTTONUP):
+            logger.error(
+                '_handle_tray_callback: возврат None '
+                '— неизвестное событие 0x%X',
+                event, exc_info=True,
+            )
             return None
-        if not self._tk_root:
+        # ВАЖНО: не вызываем self._tk_root.winfo_exists() или любые
+        # другие Tcl/Tk функции из Win32 callback'а — это реентерабельный
+        # вход в Tcl/Tk интерпретатор, который вызывает SEH-исключение
+        # (access violation) на некоторых версиях Windows.
+        # Вместо этого используем флаг _tk_root_valid, который
+        # устанавливается из mainloop-потока.
+        if not self._tk_root_valid:
+            logger.error('_handle_tray_callback: возврат 0 — tk_root невалиден', exc_info=True)
             return 0
-        try:
-            if not self._tk_root.winfo_exists():
-                logger.debug(
-                    'Tray Win32: tk_root уничтожен, пропускаю popup',
-                )
-                return 0
-        except tk.TclError:
-            logger.debug(
-                'Tray Win32: tk_root недоступен, пропускаю popup',
-            )
+        # Не открываем popup, если он уже открыт
+        if self._popup_open:
+            logger.error('_handle_tray_callback: возврат 0 — popup уже открыт', exc_info=True)
             return 0
-        _crash_log(
-            f'_wnd_proc: событие 0x{event:X}, вызов _safe_show_popup',
+        logger.error(
+            '_handle_tray_callback: событие 0x%X, планирую _safe_show_popup',
+            event, exc_info=True,
         )
-        try:
-            self._tk_root.after(
-                0, self._safe_show_popup,
-            )  # type: ignore[reportOptionalMemberAccess]
-        except (tk.TclError, RuntimeError) as e:
-            _crash_log(f'_wnd_proc: after() failed: {e}')
-            logger.debug(
-                'Tray Win32: after() failed: %s', e,
-            )
+        # НЕ вызываем SetForegroundWindow на self._hwnd — это message-only
+        # окно (HWND_MESSAGE), и SetForegroundWindow на нём вызывает
+        # SEH-исключение (access violation) на некоторых версиях Windows.
+        # Вместо этого SetForegroundWindow вызывается на самом popup-окне
+        # внутри _show_popup, после его создания.
+        #
+        # НЕ используем after(0, ...) для вызова _safe_show_popup —
+        # вызов after() изнутри Win32 callback'а (_wnd_proc) рекурсивно
+        # входит в Tcl/Tk интерпретатор, что вызывает SEH-исключение
+        # (access violation) в Tcl/Tk DLL.
+        # Вместо этого устанавливаем флаг _pending_popup, который
+        # проверяется tkinter-таймером _poll_popup_flag() в нормальном
+        # контексте mainloop.
+        self._pending_popup = True
+        logger.error('_handle_tray_callback: _pending_popup=True, возврат 0', exc_info=True)
         return 0
 
     def _handle_wm_destroy(self):
@@ -731,13 +781,26 @@ class Win32Tray:
             logger.debug(
                 'Tray Win32: WM_DESTROY (shutdown), удаление иконки',
             )
-            self._remove_icon()
+            try:
+                self._remove_icon()
+            except (OSError, RuntimeError) as e:
+                logger.error(
+                    'Tray Win32: ошибка удаления иконки: %s', e,
+                )
             _user32.PostQuitMessage(0)
             return 0
         logger.warning(
-            'Tray Win32: WM_DESTROY получен без '
-            'shutdown-флага, игнорируется',
+            'Tray Win32: WM_DESTROY получен без shutdown-флага, '
+            'пересоздаю иконку',
         )
+        # Пересоздаём иконку — окно было уничтожено внешне
+        try:
+            self._add_icon()
+        except (OSError, RuntimeError) as e:
+            logger.error(
+                'Tray Win32: не удалось пересоздать иконку: %s',
+                e, exc_info=True,
+            )
         return 0
 
     def _handle_taskbar_created(self):
@@ -760,6 +823,7 @@ class Win32Tray:
         Вызывается Windows в контексте потока, создавшего окно.
         НЕ должен пробрасывать исключения — иначе краш mainloop.
         """
+        logger.error('_wnd_proc: msg=0x%X wparam=%s lparam=%s', msg, wparam, lparam, exc_info=True)
         logger.debug(
             'Tray Win32: _wnd_proc вызван msg=0x%X wparam=%s lparam=%s',
             msg, wparam, lparam,
@@ -773,18 +837,11 @@ class Win32Tray:
                 return self._handle_wm_destroy()
             elif self._taskbar_msg_id and msg == self._taskbar_msg_id:
                 return self._handle_taskbar_created()
-        except AttributeError as e:
+        except (AttributeError, OSError, tk.TclError,
+                RuntimeError) as e:
             logger.error(
-                'Tray Win32: _wnd_proc — атрибут не найден: %s', e,
-            )
-        except RuntimeError as e:
-            logger.error(
-                'Tray Win32: _wnd_proc — runtime ошибка: %s', e,
-            )
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(
-                'Tray Win32: _wnd_proc — непредвиденная ошибка: %s',
-                e, exc_info=True,
+                '_wnd_proc: ошибка: %s: %s',
+                type(e).__name__, e, exc_info=True,
             )
 
         return _user32.DefWindowProcW(hwnd, msg, wparam, lparam)

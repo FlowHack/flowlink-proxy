@@ -43,7 +43,11 @@ class BaseServer(ABC):
         self._server: asyncio.AbstractServer | None = None
 
     @abstractmethod
-    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def _handle_client(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
         """Обрабатывает одно входящее подключение. Должен быть переопределён в подклассе."""
         raise NotImplementedError
 

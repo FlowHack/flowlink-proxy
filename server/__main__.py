@@ -94,6 +94,24 @@ async def _file_watcher(root: str, poll_interval: float = 1.0) -> None:
                 os._exit(0)
 
 
+def _handle_tray_error(
+    exc: Exception, error_label: str,
+) -> None:
+    """Обработка ошибки запуска трей: critical в standalone, warning иначе."""
+    if getattr(sys, 'frozen', False):
+        logger.critical(
+            'Не удалось запустить трей (%s): %s',
+            error_label, exc,
+            exc_info=isinstance(exc, Exception),
+        )
+        sys.exit(1)
+    logger.warning(
+        'Не удалось запустить трей (%s): %s',
+        error_label, exc,
+        exc_info=isinstance(exc, Exception),
+    )
+
+
 def _start_tray_icon(  # pylint: disable=too-many-locals
     loop: asyncio.AbstractEventLoop,
     stop_event: asyncio.Event,
@@ -121,7 +139,10 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
         elif args.dev:
             logger.info('Трей-иконка отключена в dev-режиме')
         else:
-            logger.info('Трей-иконка доступна только в standalone-сборке')
+            logger.info(
+                'Трей-иконка доступна только '
+                'в standalone-сборке',
+            )
         return None
 
     logs_dir = os.path.join(get_data_dir(), 'logs')
@@ -157,104 +178,54 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
     def _clear_data() -> None:
         clear_all_data()
 
+    callbacks = {
+        'stop': _on_stop,
+        'autostart_getter': _autostart_getter,
+        'autostart_setter': _autostart_setter,
+        'system_autostart_getter': _system_autostart_getter,
+        'system_autostart_setter': _system_autostart_setter,
+        'log_dir_getter': _log_dir_getter,
+        'data_dir_getter': _data_dir_getter,
+        'clear_logs': _clear_logs,
+        'clear_data': _clear_data,
+        'test_fallback_icon': args.test_fallback_icon,
+    }
+    if not _HAS_TRAY:
+        logger.warning('Модуль трея недоступен')
+        return None
+
+    return _try_start_tray(callbacks, args.no_tkinter)
+
+
+def _try_start_tray(
+    callbacks: dict, no_tkinter: bool,
+):
+    """Запуск start_tray с обработкой ошибок."""
+    _labels: dict[type, str] = {
+        ImportError: 'импорт',
+        OSError: 'системная ошибка',
+        RuntimeError: 'runtime ошибка',
+        ValueError: 'некорректные данные',
+        TypeError: 'некорректные данные',
+        AttributeError: 'атрибут не найден',
+    }
     try:
-        callbacks = {
-            'stop': _on_stop,
-            'autostart_getter': _autostart_getter,
-            'autostart_setter': _autostart_setter,
-            'system_autostart_getter': _system_autostart_getter,
-            'system_autostart_setter': _system_autostart_setter,
-            'log_dir_getter': _log_dir_getter,
-            'data_dir_getter': _data_dir_getter,
-            'clear_logs': _clear_logs,
-            'clear_data': _clear_data,
-            'test_fallback_icon': args.test_fallback_icon,
-        }
-        if not _HAS_TRAY:
-            logger.warning('Модуль трея недоступен')
-            return None
-        # _HAS_TRAY=True гарантирует, что start_tray импортирован
+        # _HAS_TRAY=True гарантирует импорт start_tray
         assert start_tray is not None  # type: ignore[reportPossiblyUnbound]
-        icon = start_tray(  # type: ignore[reportPossiblyUnbound]  # assert выше доказывает доступность
-            callbacks, no_tkinter=args.no_tkinter,
+        icon = start_tray(  # type: ignore[reportPossiblyUnbound]
+            callbacks, no_tkinter=no_tkinter,
         )
         if icon:
             logger.info('Иконка в трее запущена')
         else:
-            if getattr(sys, 'frozen', False):
-                logger.critical(
-                    'Трей-иконка не запущена в standalone-сборке. '
-                    'Приложение не может работать без трея. '
-                    'Убедитесь, что icons/icon.ico находится '
-                    'рядом с бинарником.',
-                )
-                sys.exit(1)
-            logger.warning(
-                'Трей-иконка не запущена (start_tray вернул None). '
-                'Приложение продолжает работу без трея.'
+            _handle_tray_error(
+                RuntimeError('start_tray вернул None'),
+                'запуск',
             )
         return icon
-    except ImportError as e:
-        if getattr(sys, 'frozen', False):
-            logger.critical(
-                'Не удалось запустить трей (импорт): %s', e,
-            )
-            sys.exit(1)
-        logger.warning(
-            'Не удалось запустить трей (импорт): %s', e,
-        )
-        return None
-    except OSError as e:
-        if getattr(sys, 'frozen', False):
-            logger.critical(
-                'Не удалось запустить трей (системная ошибка): %s', e,
-            )
-            sys.exit(1)
-        logger.warning(
-            'Не удалось запустить трей (системная ошибка): %s', e,
-        )
-        return None
-    except RuntimeError as e:
-        if getattr(sys, 'frozen', False):
-            logger.critical(
-                'Не удалось запустить трей (runtime ошибка): %s', e,
-            )
-            sys.exit(1)
-        logger.warning(
-            'Не удалось запустить трей (runtime ошибка): %s', e,
-        )
-        return None
-    except (ValueError, TypeError) as e:
-        if getattr(sys, 'frozen', False):
-            logger.critical(
-                'Не удалось запустить трей (некорректные данные): %s', e,
-            )
-            sys.exit(1)
-        logger.warning(
-            'Не удалось запустить трей (некорректные данные): %s', e,
-        )
-        return None
-    except AttributeError as e:
-        if getattr(sys, 'frozen', False):
-            logger.critical(
-                'Не удалось запустить трей (атрибут не найден): %s', e,
-            )
-            sys.exit(1)
-        logger.warning(
-            'Не удалось запустить трей (атрибут не найден): %s', e,
-        )
-        return None
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        if getattr(sys, 'frozen', False):
-            logger.critical(
-                'Не удалось запустить трей (непредвиденная ошибка): %s',
-                e, exc_info=True,
-            )
-            sys.exit(1)
-        logger.warning(
-            'Не удалось запустить трей (непредвиденная ошибка): %s',
-            e, exc_info=True,
-        )
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        label = _labels.get(type(exc), 'непредвиденная ошибка')
+        _handle_tray_error(exc, label)
         return None
 
 

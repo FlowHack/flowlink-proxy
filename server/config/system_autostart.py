@@ -106,8 +106,13 @@ def _check_windows() -> bool:
         # winreg доступен только на Windows
         import winreg  # pylint: disable=import-outside-toplevel
         _get_executable_info()
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _WINDOWS_KEY) as key:  # type: ignore[reportAttributeAccessIssue]
-            winreg.QueryValueEx(key, _APP_NAME)  # type: ignore[reportAttributeAccessIssue]
+        key_path = winreg.HKEY_CURRENT_USER  # type: ignore[reportAttributeAccessIssue]
+        with winreg.OpenKey(  # type: ignore[reportAttributeAccessIssue]
+            key_path, _WINDOWS_KEY,
+        ) as key:
+            winreg.QueryValueEx(  # type: ignore[reportAttributeAccessIssue]
+                key, _APP_NAME,
+            )
             return True
     except (ImportError, OSError):
         return False
@@ -126,7 +131,11 @@ def _set_windows(enabled: bool) -> bool:
             0, winreg.KEY_SET_VALUE,  # type: ignore[reportAttributeAccessIssue]
         ) as key:
             if enabled:
-                winreg.SetValueEx(key, _APP_NAME, 0, winreg.REG_SZ, cmd)  # type: ignore[reportAttributeAccessIssue]
+                val_args = (
+                    key, _APP_NAME, 0,
+                    winreg.REG_SZ, cmd,  # type: ignore[reportAttributeAccessIssue]
+                )
+                winreg.SetValueEx(*val_args)  # type: ignore[reportAttributeAccessIssue]
                 logger.info('Автозапуск Windows включён: %s', cmd)
             else:
                 try:

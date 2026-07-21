@@ -153,16 +153,15 @@ def _start_pystray_with_tkinter(callbacks: Dict[str, Any]) -> Optional[Any]:
         return None
 
 
-def _start_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
+def _init_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
     """
-    Запуск трей через Win32 ctypes на Windows.
+    Импорт, создание, запуск и ожидание Win32Tray.
 
     Ловит:
-    - ImportError: модуль win32.py не найден (не собран PyInstaller)
-    - OSError: системные ошибки
-    - RuntimeError: runtime ошибки
-    - AttributeError: трей-объект не имеет _hwnd/_icon_ready
+    - ImportError: модуль win32.py не найден
+    - OSError/RuntimeError: системные ошибки
     - ValueError/TypeError: некорректные аргументы
+    - AttributeError: отсутствует _icon_ready
     """
     try:
         # Ленивый импорт: платформо-зависимый бэкенд
@@ -173,27 +172,16 @@ def _start_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
 
     try:
         tray = Win32Tray(callbacks)
-    except (TypeError, ValueError) as e:
+        tray.start()
+    except (TypeError, ValueError, OSError, RuntimeError) as e:
         logger.error(
-            'Win32: ошибка создания Win32Tray: %s', e,
+            'Win32: ошибка создания/запуска: %s', e,
         )
         return None
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error(
             'Win32: непредвиденная ошибка при создании '
-            'Win32Tray: %s', e, exc_info=True,
-        )
-        return None
-
-    try:
-        tray.start()
-    except (OSError, RuntimeError) as e:
-        logger.error('Win32: ошибка запуска потока трей: %s', e)
-        return None
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error(
-            'Win32: непредвиденная ошибка при запуске '
-            'потока: %s', e, exc_info=True,
+            'или запуске: %s', e, exc_info=True,
         )
         return None
 
@@ -208,9 +196,23 @@ def _start_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
 
     if not ready:
         logger.warning(
-            'Win32: поток трей не завершил инициализацию '
-            'за 2 сек',
+            'Win32: поток трей не завершил '
+            'инициализацию за 2 сек',
         )
+        return None
+
+    return tray
+
+
+def _start_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
+    """
+    Запуск трей через Win32 ctypes на Windows.
+
+    Использует _init_win32_tray для импорта, создания и запуска.
+    Затем проверяет hwnd.
+    """
+    tray = _init_win32_tray(callbacks)
+    if tray is None:
         return None
 
     try:
@@ -220,9 +222,10 @@ def _start_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
         logger.error(
             'Win32: tray не имеет _hwnd: %s', e,
         )
-        return None
 
-    logger.warning('Win32: hwnd не установлен, fallback на pystray')
+    logger.warning(
+        'Win32: hwnd не установлен, fallback на pystray',
+    )
     return None
 
 

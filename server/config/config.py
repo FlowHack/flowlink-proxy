@@ -18,7 +18,10 @@ from server.config import repo as config_repo
 from server.config.repo import load_raw, save_raw
 
 try:
-    from cryptography.exceptions import CryptographyException  # type: ignore[reportAttributeAccessIssue]  # cryptography — runtime зависимость
+    # cryptography — runtime зависимость
+    from cryptography.exceptions import (  # type: ignore[reportAttributeAccessIssue]
+        CryptographyException,  # type: ignore[reportAttributeAccessIssue]
+    )
 except ImportError:
     CryptographyException = Exception  # type: ignore[misc]  # fallback для сред без cryptography
 
