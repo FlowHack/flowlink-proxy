@@ -55,6 +55,7 @@ from server.utils import (
     clear_logs_only,
     clear_all_data,
     get_data_dir,
+    get_crx_path,
 )
 
 logger = logging.getLogger('flowlink')
@@ -189,6 +190,16 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
         'clear_logs': _clear_logs,
         'clear_data': _clear_data,
         'test_fallback_icon': args.test_fallback_icon,
+        'ext_enabled_getter': _autostart.get_ext_enabled,
+        'ext_enabled_setter': _autostart.set_ext_enabled,
+        'browser_path_getter': _browser_config.get_browser_path,
+        'browser_path_saver': _browser_config.save_browser_path,
+        'browser_detector': _browser_config.auto_detect_browsers,
+        'browser_launcher': lambda: _browser_config.launch_browser(
+            _browser_config.get_browser_path(),
+            proxy_port=args.proxy_port,
+            ext_path=get_crx_path() if _autostart.get_ext_enabled() else None,
+        ),
     }
     if not _HAS_TRAY:
         logger.warning('Модуль трея недоступен')

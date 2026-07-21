@@ -120,3 +120,64 @@ def set_autostart_browser(value: bool) -> None:
             'Изменение не будет применено при следующем запуске.', path, e,
         )
         raise
+
+
+# ─── Загрузка расширения при запуске браузера ───
+
+
+_KEY_EXT_ENABLED = 'ext_enabled'
+_DEFAULT_EXT_ENABLED = False
+
+
+def get_ext_enabled() -> bool:
+    """
+    Возвращает, включена ли загрузка расширения при запуске браузера.
+
+    Returns:
+        True если расширение должно загружаться, иначе False.
+    """
+    path = SETTINGS_FILE
+    if not os.path.isfile(path):
+        return _DEFAULT_EXT_ENABLED
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            settings = parse_settings(f.read())
+        val = settings.get(_KEY_EXT_ENABLED, str(_DEFAULT_EXT_ENABLED)).lower()
+        return val in ('true', '1', 'yes', 'on')
+    except OSError as e:
+        logger.warning('Не удалось прочитать ext_enabled: %s', e)
+        return _DEFAULT_EXT_ENABLED
+
+
+def set_ext_enabled(value: bool) -> None:
+    """
+    Устанавливает флаг загрузки расширения.
+
+    Args:
+        value: True — загружать расширение, False — не загружать.
+
+    Raises:
+        OSError: Не удалось записать файл настроек.
+    """
+    path = SETTINGS_FILE
+    existing = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                existing = parse_settings(f.read())
+        except OSError as e:
+            logger.warning('Не удалось прочитать %s перед записью: %s', path, e)
+
+    existing[_KEY_EXT_ENABLED] = str(value).lower()
+    content = format_settings(existing)
+
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        logger.info(
+            'Загрузка расширения при запуске браузера: %s',
+            'включена' if value else 'выключена',
+        )
+    except OSError as e:
+        logger.error('Не удалось записать ext_enabled: %s', e)
+        raise

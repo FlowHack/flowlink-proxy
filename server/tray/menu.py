@@ -290,6 +290,109 @@ def _toggle_system_autostart(
         )
 
 
+def _toggle_ext_enabled(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+    current_value: bool,
+) -> None:
+    """
+    Переключает флаг загрузки расширения при запуске браузера.
+
+    Args:
+        callbacks: Словарь коллбэков.
+        log: Логгер.
+        current_value: Текущее значение флага.
+    """
+    new_val = not current_value
+    try:
+        setter = callbacks.get('ext_enabled_setter')
+        if setter:
+            setter(new_val)
+            log.info(
+                'Запуск с расширением: %s',
+                'включён' if new_val else 'выключен',
+            )
+    except OSError as e:
+        log.error('Не удалось переключить загрузку расширения: %s', e)
+
+
+def _select_browser(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """
+    Открывает диалог выбора браузера.
+
+    Args:
+        callbacks: Словарь коллбэков.
+        log: Логгер.
+    """
+    try:
+        import tkinter as tk  # pylint: disable=import-outside-toplevel
+        from tkinter import filedialog, messagebox  # pylint: disable=import-outside-toplevel
+
+        detector = callbacks.get('browser_detector')
+        detected = detector() if detector else []
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+
+        if detected:
+            msg = 'Найденные браузеры:\n'
+            for b in detected:
+                msg += f"  {b['name']}: {b['path']}\n"
+            msg += '\nВыберите нужный в диалоге или укажите путь вручную.'
+            messagebox.showinfo('Обнаружение браузеров', msg)
+
+        path = filedialog.askopenfilename(
+            title='Выберите исполняемый файл браузера',
+            filetypes=[
+                ('Исполняемые файлы', '*.exe *.app *.AppImage'),
+                ('Все файлы', '*'),
+            ],
+        )
+        root.destroy()
+
+        if path:
+            from server.config import browser_config as _bc  # pylint: disable=import-outside-toplevel
+            validation = _bc.validate_browser_path_detailed(path)
+            if validation['valid']:
+                saver = callbacks.get('browser_path_saver')
+                if saver:
+                    saver(path)
+                    log.info('Путь браузера изменён: %s', path)
+            else:
+                log.warning(
+                    'Некорректный путь браузера: %s',
+                    validation['error'],
+                )
+    except ImportError:
+        log.error('tkinter недоступен для диалога выбора файла')
+
+
+def _launch_browser_now(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """
+    Запускает браузер с расширением (если включено).
+
+    Args:
+        callbacks: Словарь коллбэков.
+        log: Логгер.
+    """
+    launcher = callbacks.get('browser_launcher')
+    if launcher:
+        success = launcher()
+        if success:
+            log.info('Браузер запущен')
+        else:
+            log.error('Не удалось запустить браузер')
+    else:
+        log.warning('Функция запуска браузера не зарегистрирована')
+
+
 def _exit(
     stop_fn: Callable[[], None],
     callbacks: Dict[str, Any],
@@ -365,6 +468,12 @@ def build_menu_items(
                 системного автозапуска.
             system_autostart_setter: Callable(bool) — запись
                 системного автозапуска.
+            ext_enabled_getter: Callable → bool — чтение настройки расширения.
+            ext_enabled_setter: Callable(bool) — запись настройки расширения.
+            browser_path_getter: Callable → str — чтение пути к браузеру.
+            browser_path_saver: Callable(str) — сохранение пути к браузеру.
+            browser_detector: Callable → list[dict] — обнаружение браузеров.
+            browser_launcher: Callable → bool — запуск браузера.
             log_dir_getter: Callable → str — путь к папке логов.
             data_dir_getter: Callable → str — путь к папке данных.
             clear_logs: Callable — очистка логов.
@@ -435,6 +544,35 @@ def build_menu_items(
                 _toggle_system_autostart,
                 callbacks, log,
                 current_value=sys_autostart,
+            ),
+        },
+        {'type': 'separator'},
+        {
+            'type': 'check',
+            'text': 'Запуск с расширением',
+            'icon': '\U0001f4e6',
+            'checked': callbacks.get('ext_enabled_getter', lambda: False)(),
+            'command': _make_action(
+                _toggle_ext_enabled, callbacks, log,
+                current_value=callbacks.get(
+                    'ext_enabled_getter', lambda: False,
+                )(),
+            ),
+        },
+        {
+            'type': 'item',
+            'text': 'Выбрать браузер...',
+            'icon': '\U0001f4c1',
+            'command': _make_action(
+                _select_browser, callbacks, log,
+            ),
+        },
+        {
+            'type': 'item',
+            'text': 'Запустить браузер',
+            'icon': '\U0001f310',
+            'command': _make_action(
+                _launch_browser_now, callbacks, log,
             ),
         },
         {'type': 'separator'},

@@ -21,6 +21,34 @@ _PORT_MIN = 1
 _PORT_MAX = 65535
 
 
+def get_crx_path() -> str | None:
+    """
+    Возвращает путь к CRX-файлу расширения FlowLink Proxy.
+
+    Порядок поиска:
+    1. Рядом с бинарником (PyInstaller — CRX добавлен через --add-data)
+    2. В resource_dir (для отладки из исходников)
+    3. В data_dir (пользователь скопировал вручную)
+
+    Returns:
+        Путь к CRX-файлу или None, если файл не найден.
+    """
+    candidates = []
+
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        candidates.append(os.path.join(exe_dir, 'flowlink-proxy.crx'))
+
+    candidates.append(os.path.join(get_resource_dir(), 'flowlink-proxy.crx'))
+    candidates.append(os.path.join(get_data_dir(), 'flowlink-proxy.crx'))
+
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+
+    return None
+
+
 def get_data_dir() -> str:
     """
     Возвращает базовую директорию для хранения данных приложения.

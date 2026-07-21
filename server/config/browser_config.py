@@ -253,13 +253,18 @@ def _check_path_exists(path: str) -> str | None:
     return None
 
 
-def launch_browser(browser_path: str, proxy_port: int = 8080) -> bool:
+def launch_browser(
+    browser_path: str,
+    proxy_port: int = 8080,
+    ext_path: str | None = None,
+) -> bool:
     """
-    Запускает браузер с флагом --proxy-server.
+    Запускает браузер с флагом --proxy-server и опционально с расширением.
 
     Args:
         browser_path: Путь к исполняемому файлу браузера.
         proxy_port: Порт HTTP-прокси (по умолчанию 8080).
+        ext_path: Путь к CRX-файлу расширения (опционально).
 
     Returns:
         True если браузер успешно запущен, False при ошибке.
@@ -272,10 +277,15 @@ def launch_browser(browser_path: str, proxy_port: int = 8080) -> bool:
         return False
 
     proxy_arg = f'--proxy-server=127.0.0.1:{proxy_port}'
+    args = [browser_path, proxy_arg]
+
+    if ext_path and os.path.isfile(ext_path):
+        args.append(f'--load-extension={ext_path}')
+        logger.debug('Расширение будет загружено из: %s', ext_path)
 
     try:
         kwargs: dict = {
-            'args': [browser_path, proxy_arg],
+            'args': args,
             'stdout': subprocess.DEVNULL,
             'stderr': subprocess.DEVNULL,
         }

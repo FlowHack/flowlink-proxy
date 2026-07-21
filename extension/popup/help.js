@@ -233,6 +233,16 @@ const HELP_TEXTS = {
     </ul>
     ${_EMAIL_FOOTER}
   `,
+  ext: () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-ext">
+      <button class="help-sub-tab active" data-sub="ext-crx">Из CRX</button>
+      <button class="help-sub-tab" data-sub="ext-store">Chrome Web Store</button>
+      <button class="help-sub-tab" data-sub="ext-source">Из исходников</button>
+    </div>
+    <div class="help-sub-content" id="help-sub-content-ext">
+      ${_renderSubTabContent('ext', 'ext-crx')}
+    </div>
+  `,
 };
 
 /** @type {boolean} True, когда модалка открыта в режиме «Обновление». */
@@ -241,7 +251,7 @@ let _isUpdateMode = false;
 let _isAutostartHelpMode = false;
 
 /** Список вкладок help-модалки (порядок отображения). */
-const _TABS = ['windows', 'linux', 'macos', 'source', 'port'];
+const _TABS = ['windows', 'linux', 'macos', 'source', 'port', 'ext'];
 
 /**
  * Открывает модальное окно помощи.
@@ -363,8 +373,8 @@ export function switchHelpTab(tab) {
     container.innerHTML = content + _EMAIL_FOOTER;
   }
 
-  // Если вкладка linux/macos — вешаем обработчик на подвкладки
-  if (tab === 'linux' || tab === 'macos') {
+  // Если вкладка linux/macos/ext — вешаем обработчик на подвкладки
+  if (tab === 'linux' || tab === 'macos' || tab === 'ext') {
     _setupSubTabHandler(tab);
   }
 }
@@ -484,6 +494,44 @@ const _SUB_TEXTS = {
     `,
   },
 };
+
+/**
+ * Контент для подвкладок расширения (ext-вкладка).
+ * @type {Object<string, string>}
+ */
+const _EXT_SUB_CONTENT = {
+  'ext-crx': `
+    <h3>Установка из CRX (GitHub Releases)</h3>
+    <ol>
+      <li>Скачайте <code>flowlink-proxy.crx</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Положите файл рядом с бинарником бэкенда (или в папку с программой)</li>
+      <li>Запустите бэкенд — он автоматически найдёт CRX и сможет запустить браузер с расширением</li>
+      <li>В меню системного трея включите «Запуск с расширением» и нажмите «Запустить браузер»</li>
+    </ol>
+    <div class="note">
+      <strong>Примечание:</strong> CRX-расширение не требует режима разработчика и не показывает предупреждений при запуске браузера.
+    </div>
+  `,
+  'ext-store': `
+    <p>Когда расширение будет опубликовано в Chrome Web Store, информация будет дополнена.
+    Пока устанавливайте расширение из <strong>CRX</strong> (вкладка «Из CRX») или из исходного кода (вкладка «Из исходников»).</p>
+  `,
+  'ext-source': `
+    <h3>Установка из исходников</h3>
+    <ol>
+      <li>Откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>)</li>
+      <li>Включите «Режим разработчика»</li>
+      <li>Нажмите «Загрузить распакованное расширение»</li>
+      <li>Выберите папку <code>extension/</code> из исходного кода проекта</li>
+    </ol>
+    <div class="note">
+      <strong>Примечание:</strong> Этот способ требует включённого режима разработчика. При каждом запуске браузера расширение нужно загружать заново (если не используется CRX).
+    </div>
+  `,
+};
+
+/** Подключаем контент ext-подвкладок к общей структуре _SUB_TEXTS. */
+_SUB_TEXTS.ext = _EXT_SUB_CONTENT;
 
 /**
  * Возвращает HTML-контент для подвкладки.

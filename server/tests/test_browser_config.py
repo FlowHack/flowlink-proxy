@@ -15,6 +15,7 @@ from server.config.browser_config import (
     get_browser_config,
     get_browser_path,
     save_browser_path,
+    launch_browser,
 )
 
 
@@ -193,5 +194,56 @@ class TestGetBrowserConfig(_TempSettingsMixin):
         self.assertIn('parallelLaunch', config)
 
 
-if __name__ == '__main__':
-    unittest.main()
+class TestLaunchBrowser(unittest.TestCase):
+    """Тесты запуска браузера с флагом --proxy-server и --load-extension."""
+
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_without_extension(self, _mock_validate, mock_popen):
+        """Запуск браузера без расширения — только --proxy-server."""
+        result = launch_browser('/usr/bin/chrome', proxy_port=9090)
+        self.assertTrue(result)
+        args = mock_popen.call_args[1]['args']
+        self.assertEqual(args[0], '/usr/bin/chrome')
+        self.assertIn('--proxy-server=127.0.0.1:9090', args)
+        # Не должно быть --load-extension
+        self.assertFalse(any('--load-extension' in a for a in args))
+
+    @patch('server.config.browser_config.os.path.isfile', return_value=True)
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_with_extension(self, _mock_validate, mock_popen, _mock_isfile):
+        """Запуск браузера с расширением — добавляется --load-extension."""
+        result = launch_browser(
+            '/usr/bin/chrome', proxy_port=8080,
+            ext_path='/tmp/flowlink.crx',
+        )
+        self.assertTrue(result)
+        args = mock_popen.call_args[1]['args']
+        self.assertIn('--load-extension=/tmp/flowlink.crx', args)
+
+    @patch('server.config.browser_config.os.path.isfile', return_value=False)
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_with_nonexistent_extension(self, _mock_validate, mock_popen, _mock_isfile):
+        """Если CRX-файл не существует, --load-extension не добавляется."""
+        result = launch_browser(
+            '/usr/bin/chrome', proxy_port=8080,
+            ext_path='/tmp/nonexistent.crx',
+        )
+        self.assertTrue(result)
+        args = mock_popen.call_args[1]['args']
+        self.assertFalse(any('--load-extension' in a for a in args))
+
+    @patch('server.config.browser_config.validate_browser_path', return_value=False)
+    def test_launch_invalid_path(self, _mock_validate):
+        """Невалидный путь возвращает False."""
+        result = launch_browser('/nonexistent/browser')
+        self.assertFalse(result)
+
+    @patch('server.config.browser_config.subprocess.Popen', side_effect=OSError('permission denied'))
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_os_error(self, _mock_validate, _mock_popen):
+        """Ошибка запуска subprocess возвращает False."""
+        result = launch_browser('/usr/bin/chrome')
+        self.assertFalse(result)
