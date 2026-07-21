@@ -173,7 +173,7 @@ function showError(visible) {
     const retryBtn = document.getElementById('btn-retry');
     if (retryBtn) retryBtn.onclick = handleRetry;
     document.getElementById('btn-help-setup')?.addEventListener(
-      'click', () => openHelpModal(null, false, true), { once: true },
+      'click', () => openHelpModal('port'), { once: true },
     );
   }
 }
@@ -356,7 +356,7 @@ function attachGlobalListeners() {
   attachModalOverlayClose();
   document.addEventListener('click', (e) => {
     // Открыть модалку помощи
-    if (e.target.id === 'btn-help') openHelpModal();
+    if (e.target.id === 'btn-help') openHelpModal('port');
     // Удаление прокси
     if (e.target.classList.contains('btn-delete')) {
       const proxyId = e.target.dataset.proxyId;
@@ -472,7 +472,7 @@ function attachGlobalListeners() {
   });
   // Кнопка помощи для отсутствующего браузера
   document.getElementById('btn-browser-help')?.addEventListener('click', () => {
-    openHelpModal(null, false, false, true);
+    openHelpModal(null, false, true);
   });
   // Закрытие модалок
   for (const id of ['btn-help-close', 'btn-help-close2', 'btn-proxy-cancel', 'btn-mask-cancel']) {
@@ -484,8 +484,10 @@ function attachGlobalListeners() {
     closeModal();
   });
   document.getElementById('tab-windows')?.addEventListener('click', () => switchHelpTab('windows'));
+  document.getElementById('tab-linux')?.addEventListener('click', () => switchHelpTab('linux'));
+  document.getElementById('tab-macos')?.addEventListener('click', () => switchHelpTab('macos'));
   document.getElementById('tab-source')?.addEventListener('click', () => switchHelpTab('source'));
-  document.getElementById('tab-ext')?.addEventListener('click', () => switchHelpTab('ext'));
+  document.getElementById('tab-port')?.addEventListener('click', () => switchHelpTab('port'));
 
   // Переключение видимости пароля
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);

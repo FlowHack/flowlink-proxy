@@ -31,7 +31,7 @@ const _PORTS_DEFAULT_TABLE = `
       </tr>
     </table>`;
 
-/** Блок troubleshooting по портам (используется в windows/source). */
+/** Блок troubleshooting по портам (используется в windows/linux/macos/source). */
 const _PORTS_TROUBLESHOOT = `
     <h3>Проблемы с портами</h3>
     <p>Если вы меняли порты через <code>--proxy-port</code> или <code>--api-port</code>:</p>
@@ -62,7 +62,8 @@ const _PORTS_TROUBLESHOOT = `
 /**
  * Тексты помощи для разных режимов.
  * Ключи:
- *   windows/source/ext — установка (заголовок «Настройка FlowLink Proxy»).
+ *   windows/linux/macos/source — установка (заголовок «Настройка FlowLink Proxy»).
+ *   port — настройка порта и диагностика.
  *   updateExe/updateSource/updateExt — обновление (заголовок «Обновление»).
  *   autostartHelp — помощь по настройке автозапуска браузера.
  */
@@ -104,7 +105,67 @@ const HELP_TEXTS = {
     }
     ${_PORTS_DEFAULT_TABLE}
     ${_PORTS_TROUBLESHOOT}
-    ${_EMAIL_FOOTER}
+  `,
+  linux: `
+    <h3>1. Установите Python 3.10+</h3>
+    <ol>
+      <li><strong>Debian/Ubuntu:</strong> <code>sudo apt install python3 python3-venv python3-pip</code></li>
+      <li><strong>Fedora:</strong> <code>sudo dnf install python3 python3-virtualenv python3-pip</code></li>
+      <li><strong>Arch:</strong> <code>sudo pacman -S python python-virtualenv python-pip</code></li>
+      <li>Проверьте: <code>python3 --version</code></li>
+    </ol>
+    <h3>2. Получите исходный код</h3>
+    <ol>
+      <li><strong>Через Git:</strong> <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
+      <li><strong>Или ZIP:</strong> скачайте со <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+    </ol>
+    <h3>3. Запустите</h3>
+    <ol>
+      <li><code>cd flowlink-proxy</code></li>
+      <li>Создайте виртуальное окружение: <code>python3 -m venv venv</code></li>
+      <li>Активируйте: <code>source venv/bin/activate</code></li>
+      <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
+      <li>Запустите бэкенд: <code>python3 -m server</code></li>
+    </ol>
+    <h3>Установка расширения</h3>
+    <ol>
+      <li>Откройте <code>chrome://extensions</code></li>
+      <li>Включите «Режим разработчика»</li>
+      <li>Нажмите «Загрузить распакованное расширение»</li>
+      <li>Выберите папку <code>extension/</code></li>
+    </ol>
+    ${_PORTS_DEFAULT_TABLE}
+    ${_PORTS_TROUBLESHOOT}
+  `,
+  macos: `
+    <h3>1. Установите Python 3.10+</h3>
+    <ol>
+      <li><strong>Homebrew:</strong> <code>brew install python@3.12</code></li>
+      <li><strong>Или:</strong> скачайте с <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">официального сайта</a></li>
+      <li>Проверьте: <code>python3 --version</code></li>
+    </ol>
+    <h3>2. Получите исходный код</h3>
+    <ol>
+      <li><strong>Через Git:</strong> <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
+      <li><strong>Или ZIP:</strong> скачайте со <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+    </ol>
+    <h3>3. Запустите</h3>
+    <ol>
+      <li><code>cd flowlink-proxy</code></li>
+      <li>Создайте виртуальное окружение: <code>python3 -m venv venv</code></li>
+      <li>Активируйте: <code>source venv/bin/activate</code></li>
+      <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
+      <li>Запустите бэкенд: <code>python3 -m server</code></li>
+    </ol>
+    <h3>Установка расширения</h3>
+    <ol>
+      <li>Откройте <code>chrome://extensions</code></li>
+      <li>Включите «Режим разработчика»</li>
+      <li>Нажмите «Загрузить распакованное расширение»</li>
+      <li>Выберите папку <code>extension/</code></li>
+    </ol>
+    ${_PORTS_DEFAULT_TABLE}
+    ${_PORTS_TROUBLESHOOT}
   `,
   source: `
     <h3>1. Установите Python 3.10+</h3>
@@ -122,7 +183,7 @@ const HELP_TEXTS = {
     <ol>
       <li><code>cd flowlink-proxy</code></li>
       <li>Создайте виртуальное окружение: <code>python -m venv venv</code></li>
-      <li>Активируйте: <code>source venv/bin/activate</code> (Linux/macOS) или <code>venv\Scripts\activate</code> (Windows)</li>
+      <li>Активируйте: <code>source venv/bin/activate</code> (Linux/macOS) или <code>venv\\Scripts\\activate</code> (Windows)</li>
       <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
       <li>Запустите бэкенд: <code>python -m server</code></li>
     </ol>
@@ -130,45 +191,40 @@ const HELP_TEXTS = {
     <p>Откройте <code>chrome://extensions</code> → «Режим разработчика» → «Загрузить распакованное расширение» → папка <code>extension/</code>.</p>
     ${_PORTS_DEFAULT_TABLE}
     ${_PORTS_TROUBLESHOOT}
-    ${_EMAIL_FOOTER}
   `,
-  ext: `
-    <h3>Нет подключения к бэкенду</h3>
-      <p>Расширение не может связаться с бэкендом FlowLink Proxy.</p>
-      <p><strong>Убедитесь, что бэкенд запущен.</strong> Если нет — откройте вкладку «Windows (.exe)» или «Исходный код» для инструкций по установке и запуску.</p>
+  port: `
+    <h3>Настройка порта</h3>
 
-      <div class="help-section" id="help-port">
-        <h4>🔌 Настройка порта</h4>
-        <p>Бэкенд по умолчанию слушает порт <strong>8081</strong>. Расширение автоматически сканирует порты с 8080 по 8090 для поиска бэкенда.</p>
-        <h5>Автоматическое обнаружение</h5>
-        <p>При нажатии «Повторить» расширение проверит текущий порт, а затем просканирует диапазон 8080–8090. Если бэкенд найден на другом порту, расширение подключится к нему автоматически.</p>
-        <h5>Ручная настройка порта</h5>
-        <ol>
-          <li>Нажмите кнопку ⚙ внизу popup.</li>
-          <li>В поле «Порт API» укажите номер порта, на котором запущен бэкенд.</li>
-          <li>Нажмите «Сохранить».</li>
-          <li>Расширение переподключится к новому порту.</li>
-        </ol>
-        <p><strong>Важно:</strong> Если вы меняете порт в расширении, убедитесь, что бэкенд запущен на том же порту. Порт бэкенда можно изменить через аргумент командной строки: <code>--port 9090</code>.</p>
-      </div>
+    <div class="help-section" id="help-port">
+      <h4>🔌 Автоматическое обнаружение</h4>
+      <p>Бэкенд по умолчанию слушает порт <strong>8081</strong>. Расширение автоматически сканирует порты с 8080 по 8090 для поиска бэкенда.</p>
+      <p>При нажатии «Повторить» расширение проверит текущий порт, а затем просканирует диапазон 8080–8090. Если бэкенд найден на другом порту, расширение подключится к нему автоматически.</p>
+    </div>
 
-      <div class="help-section" id="help-diagnose">
-        <h4>🩺 Диагностика</h4>
-        <p>Если ни один из вариантов не помог, попробуйте следующее:</p>
-        <ul>
-          <li>Проверьте, запущен ли процесс бэкенда (в диспетчере задач или <code>ps aux | grep flowlink</code>).</li>
-          <li>Проверьте логи бэкенда на наличие ошибок (правый клик на иконке в трее → «Посмотреть логи»).</li>
-          <li>Перезапустите бэкенд.</li>
-          <li>Перезапустите браузер.</li>
-          <li>Временно отключите антивирус или файрволл для проверки.</li>
-        </ul>
-      </div>
+    <div class="help-section" id="help-port-manual">
+      <h4>⚙ Ручная настройка порта</h4>
+      <ol>
+        <li>Нажмите кнопку ⚙ внизу popup.</li>
+        <li>В поле «Порт API» укажите номер порта, на котором запущен бэкенд.</li>
+        <li>Нажмите «Сохранить».</li>
+        <li>Расширение переподключится к новому порту.</li>
+      </ol>
+      <p><strong>Важно:</strong> Если вы меняете порт в расширении, убедитесь, что бэкенд запущен на том же порту. Порт бэкенда можно изменить через аргумент командной строки: <code>--api-port 9090</code>.</p>
+    </div>
 
-      <div class="help-section" id="help-unresolved">
-        <h4>❓ Не удалось решить проблему?</h4>
-        <p>Напишите на <span class="help-email-copy" data-email="${_EMAIL}" title="Нажмите, чтобы скопировать">${_EMAIL}</span> — поможем.</p>
-        <p>Опишите вашу проблему и приложите логи бэкенда (правый клик на иконке в трее → «Посмотреть логи»).</p>
-      </div>
+    ${_PORTS_DEFAULT_TABLE}
+
+    <div class="help-section" id="help-diagnose">
+      <h4>🩺 Диагностика</h4>
+      <p>Если ни один из вариантов не помог, попробуйте следующее:</p>
+      <ul>
+        <li>Проверьте, запущен ли процесс бэкенда (в диспетчере задач или <code>ps aux | grep flowlink</code>).</li>
+        <li>Проверьте логи бэкенда на наличие ошибок (правый клик на иконке в трее → «Посмотреть логи»).</li>
+        <li>Перезапустите бэкенд.</li>
+        <li>Перезапустите браузер.</li>
+        <li>Временно отключите антивирус или файрволл для проверки.</li>
+      </ul>
+    </div>
   `,
   updateExe: (tag) => `
     <h3>Установщик</h3>
@@ -236,38 +292,33 @@ let _isUpdateMode = false;
 /** @type {boolean} True, когда модалка открыта в режиме «Автозапуск — помощь». */
 let _isAutostartHelpMode = false;
 
+/** Список вкладок help-модалки (порядок отображения). */
+const _TABS = ['windows', 'linux', 'macos', 'source', 'port'];
+
 /**
  * Открывает модальное окно помощи.
- * @param {string} [tab] — вкладка ('windows', 'source', 'ext').
+ * @param {string} [tab] — вкладка ('windows', 'linux', 'macos', 'source', 'port').
  *   Если не указана, открывается в режиме установки.
  * @param {boolean} [isUpdate] — режим обновления.
- * @param {boolean} [isTroubleshoot] — режим устранения проблем (вызывается из error-state).
- * @param {boolean} [isAutostartHelp] — режим помощи по отсутствию скриптов запуска.
+ * @param {boolean} [isAutostartHelp] — режим помощи по настройке автозапуска браузера.
  */
-export function openHelpModal(tab, isUpdate, isTroubleshoot, isAutostartHelp) {
+export function openHelpModal(tab, isUpdate, isAutostartHelp) {
   _isUpdateMode = !!isUpdate;
   _isAutostartHelpMode = !!isAutostartHelp;
   const isWindows = (navigator.userAgentData?.platform || navigator.platform).includes('Win');
-  const defaultTab = isWindows ? 'windows' : 'source';
+  const defaultTab = isWindows ? 'windows' : 'linux';
   const title = document.querySelector('#modal-help .modal-title');
   if (!title) return;
   if (isAutostartHelp) {
     title.textContent = 'Автозапуск браузера';
   } else if (isUpdate) {
     title.textContent = 'Обновление';
-  } else if (isTroubleshoot) {
-    title.textContent = 'Подключение к бэкенду';
   } else {
     title.textContent = 'Настройка FlowLink Proxy';
   }
-  // При вызове из error-state — показываем ext-контент напрямую (без вкладок)
-  // При вызове из autostart-help — показываем контент напрямую (без вкладок)
   if (isAutostartHelp) {
     _hideTabs();
     _showAutostartHelpContent();
-  } else if (isTroubleshoot) {
-    _hideTabs();
-    _showTroubleshootContent();
   } else {
     _showTabs();
     switchHelpTab(tab || defaultTab);
@@ -293,13 +344,6 @@ function _showAutostartHelpContent() {
   const container = document.getElementById('help-content');
   if (!container) return;
   container.innerHTML = HELP_TEXTS.autostartHelp;
-}
-
-/** Показывает контент troubleshooting — только ext-раздел, без вкладок. */
-function _showTroubleshootContent() {
-  const container = document.getElementById('help-content');
-  if (!container) return;
-  container.innerHTML = HELP_TEXTS.ext;
 }
 
 /**
@@ -334,7 +378,7 @@ function _setupEmailCopyHandler() {
 
 /**
  * Переключает вкладку в окне помощи.
- * @param {string} tab — имя вкладки ('windows', 'source', 'ext').
+ * @param {string} tab — имя вкладки ('windows', 'linux', 'macos', 'source', 'port').
  */
 export function switchHelpTab(tab) {
   // Если открыт режим autostartHelp — вкладки не нужны
@@ -343,16 +387,16 @@ export function switchHelpTab(tab) {
     return;
   }
 
-  const tabs = ['windows', 'source', 'ext'];
-  tabs.forEach(t => {
+  _TABS.forEach(t => {
     const el = document.getElementById('tab-' + t);
-    if (el) el.classList.toggle('tab-active', t === tab);
+    if (el) el.classList.toggle('active', t === tab);
   });
 
   const container = document.getElementById('help-content');
   if (!container) return;
 
   if (_isUpdateMode) {
+    // В режиме обновления: windows → updateExe, linux/macos/source → updateSource, port → updateExt
     const key = tab === 'windows' ? 'updateExe'
       : tab === 'source' ? 'updateSource'
       : 'updateExt';
@@ -361,9 +405,13 @@ export function switchHelpTab(tab) {
       ? updateText.textContent.replace(/^Доступно обновление\s*/i, '').trim()
       : '';
     const tag = escapeHtml(rawTag);
-    container.innerHTML = `<h3>${tab === 'windows' ? 'Windows (.exe)' : tab === 'source' ? 'Исходный код' : 'Расширение'}</h3>`
+    const label = tab === 'windows' ? 'Windows (.exe)'
+      : tab === 'source' ? 'Исходный код'
+      : 'Расширение';
+    container.innerHTML = `<h3>${label}</h3>`
       + HELP_TEXTS[key](tag);
   } else {
-    container.innerHTML = HELP_TEXTS[tab];
+    const content = HELP_TEXTS[tab] || '';
+    container.innerHTML = content + _EMAIL_FOOTER;
   }
 }

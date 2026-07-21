@@ -286,7 +286,7 @@ function _renderBrowserBanner() {
       actionText: 'Помощь',
       actionCallback: () => {
         import('./help.js').then(({ openHelpModal }) => {
-          openHelpModal(null, false, false, true);
+          openHelpModal(null, false, true);
         });
       },
     });
