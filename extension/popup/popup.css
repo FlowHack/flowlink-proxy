@@ -395,7 +395,7 @@ body {
 }
 
 .modal-wide {
-  width: 520px;
+  width: 600px;
 }
 
 .modal-header {
@@ -467,7 +467,7 @@ body {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-primary);
-  max-height: 50vh;
+  max-height: 65vh;
   overflow-y: auto;
 }
 
@@ -533,6 +533,7 @@ body {
   display: flex;
   gap: 4px;
   margin-bottom: 8px;
+  justify-content: center;
 }
 
 .help-sub-tab {

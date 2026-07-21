@@ -218,13 +218,11 @@ const _BACKEND_SUB_TEXTS = {
   `,
   'backend-macos': () => `
     <div class="help-sub-tabs" id="help-sub-tabs-macos">
-      <button class="help-sub-tab active" data-sub="macos-intel-pkg">Intel — Пакет (.pkg)</button>
-      <button class="help-sub-tab" data-sub="macos-intel-bin">Intel — Бинарник (.tar.gz)</button>
-      <button class="help-sub-tab" data-sub="macos-arm-pkg">ARM — Пакет (.pkg)</button>
-      <button class="help-sub-tab" data-sub="macos-arm-bin">ARM — Бинарник (.tar.gz)</button>
+      <button class="help-sub-tab active" data-sub="macos-intel">Intel</button>
+      <button class="help-sub-tab" data-sub="macos-arm">ARM</button>
     </div>
     <div class="help-sub-content" id="help-sub-content-macos">
-      ${_renderSubTabContent('macos', 'macos-intel-pkg')}
+      ${_renderSubTabContent('macos', 'macos-intel')}
     </div>
   `,
   'backend-source': `
@@ -288,6 +286,24 @@ const _LINUX_SUB_TEXTS = {
  * @type {Object<string, string>}
  */
 const _MACOS_SUB_TEXTS = {
+  'macos-intel': () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-macos-intel">
+      <button class="help-sub-tab active" data-sub="macos-intel-pkg">Пакет (.pkg)</button>
+      <button class="help-sub-tab" data-sub="macos-intel-bin">Бинарник (.tar.gz)</button>
+    </div>
+    <div class="help-sub-content" id="help-sub-content-macos-intel">
+      ${_renderSubTabContent('macos-intel', 'macos-intel-pkg')}
+    </div>
+  `,
+  'macos-arm': () => `
+    <div class="help-sub-tabs" id="help-sub-tabs-macos-arm">
+      <button class="help-sub-tab active" data-sub="macos-arm-pkg">Пакет (.pkg)</button>
+      <button class="help-sub-tab" data-sub="macos-arm-bin">Бинарник (.tar.gz)</button>
+    </div>
+    <div class="help-sub-content" id="help-sub-content-macos-arm">
+      ${_renderSubTabContent('macos-arm', 'macos-arm-pkg')}
+    </div>
+  `,
   'macos-intel-pkg': `
     <h3>Intel — Пакет (.pkg)</h3>
     <ol>
@@ -464,6 +480,10 @@ function _setupSubTabHandler(tab) {
         _setupSubTabHandler('linux');
       } else if (sub === 'backend-macos') {
         _setupSubTabHandler('macos');
+      } else if (sub === 'macos-intel') {
+        _setupSubTabHandler('macos-intel');
+      } else if (sub === 'macos-arm') {
+        _setupSubTabHandler('macos-arm');
       }
     });
   });
@@ -491,7 +511,15 @@ function _renderSubTabContent(tab, sub) {
     return _LINUX_SUB_TEXTS[sub] || '<p>Раздел в разработке.</p>';
   }
   if (tab === 'macos') {
-    return _MACOS_SUB_TEXTS[sub] || '<p>Раздел в разработке.</p>';
+    const text = _MACOS_SUB_TEXTS[sub];
+    if (!text) return '<p>Раздел в разработке.</p>';
+    return typeof text === 'function' ? text() : text;
+  }
+  // Под-подвкладки macOS (macos-intel/macos-arm)
+  if (tab === 'macos-intel' || tab === 'macos-arm') {
+    const text = _MACOS_SUB_TEXTS[sub];
+    if (!text) return '<p>Раздел в разработке.</p>';
+    return text;
   }
   return '<p>Раздел в разработке.</p>';
 }
