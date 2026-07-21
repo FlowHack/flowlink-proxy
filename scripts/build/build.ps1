@@ -111,6 +111,9 @@ with zipfile.ZipFile('$tmpZipNix', 'w', zipfile.ZIP_DEFLATED) as zf:
     $npxCheck = Get-Command "npx" -ErrorAction SilentlyContinue
     if (-not $npxCheck) {
         Warn "npx не найден. Установите Node.js (npm) для сборки CRX."
+        Warn "  Windows: https://nodejs.org (скачайте LTS, установите)"
+        Warn "  Linux:   sudo apt install nodejs npm  (или аналог для вашего пакетного менеджера)"
+        Warn "  macOS:   brew install node"
         $crxDataFlag = ""
     } else {
         $crxCmd = "npx -p crx3-utils crx3-new `"$crxKeyPath`" < `"$tmpZip`" > `"$crxOutput`""

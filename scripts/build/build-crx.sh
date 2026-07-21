@@ -49,6 +49,9 @@ with zipfile.ZipFile('/tmp/extension.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
 mkdir -p "$PROJECT_DIR/releases"
 if ! command -v npx &>/dev/null; then
     echo "[!] npx не найден. Установите Node.js (npm) для сборки CRX."
+    echo "    Windows: https://nodejs.org (скачайте LTS, установите)"
+    echo "    Linux:   sudo apt install nodejs npm  (или аналог для вашего пакетного менеджера)"
+    echo "    macOS:   brew install node"
     exit 1
 fi
 npx -p crx3-utils crx3-new "$KEY_FILE" < /tmp/extension.zip > "$PROJECT_DIR/releases/flowlink-proxy.crx"
