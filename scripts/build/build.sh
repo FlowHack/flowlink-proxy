@@ -92,7 +92,14 @@ info "Версия: $VERSION"
 CRX_DATA=""
 if [ -f "$SCRIPT_DIR/crx-private-key.pem" ]; then
     info "Сборка CRX расширения..."
-    bash "$SCRIPT_DIR/build-crx.sh"
+    if ! command -v npx &>/dev/null; then
+        warn "npx не найден. Установите Node.js (npm) для сборки CRX."
+        warn "  Windows: https://nodejs.org (скачайте LTS, установите)"
+        warn "  Linux:   sudo apt install nodejs npm  (или аналог для вашего пакетного менеджера)"
+        warn "  macOS:   brew install node"
+    else
+        bash "$SCRIPT_DIR/build-crx.sh"
+    fi
     if [ -f "$PROJECT_DIR/releases/flowlink-proxy.crx" ]; then
         CRX_DATA="--add-data releases/flowlink-proxy.crx${DATA_SEP}."
         info "CRX собран: releases/flowlink-proxy.crx"
