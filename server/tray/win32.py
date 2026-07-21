@@ -693,14 +693,8 @@ class Win32Tray:
 
             if self._tk_root:
                 logger.debug('Tray Win32: _show_popup — вызов popup.show()')
-                logger.error(
-                    '_show_popup: вызов popup.show() '
-                    'x=%s y=%s items=%s',
-                    x, y, len(items), exc_info=True,
-                )
                 self._popup.show(x=x, y=y, items=items)
                 logger.debug('Tray Win32: _show_popup — popup.show() завершён')
-                logger.error('_show_popup: popup.show() завершён успешно', exc_info=True)
                 # Устанавливаем popup-окно как foreground.
                 # НЕ используем self._hwnd (message-only окно) —
                 # SetForegroundWindow на HWND_MESSAGE вызывает краш.
