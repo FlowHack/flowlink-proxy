@@ -156,22 +156,6 @@ body {
   cursor: not-allowed;
 }
 
-/* ───── Ошибка соединения ───── */
-.error-state {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  background: rgba(231, 76, 60, 0.15);
-  border-bottom: 1px solid var(--accent-red);
-  font-size: 13px;
-  color: var(--accent-red);
-}
-
-.error-state.hidden {
-  display: none;
-}
-
 /* ───── Список прокси ───── */
 .proxy-list {
   flex: 1;
@@ -1084,6 +1068,18 @@ body {
   opacity: 1;
 }
 
+.toast-error {
+  background: var(--accent-red);
+}
+
+.toast-warning {
+  background: var(--accent-orange);
+}
+
+.toast-info {
+  background: #3498db;
+}
+
 /* ───── Единые баннеры (renderBanner) ───── */
 .banner {
   display: flex;
@@ -1195,38 +1191,6 @@ body {
 
 .autostart-banner-settings .btn-small:hover {
   opacity: 0.85;
-}
-
-/* ───── Баннер: браузер не выбран (в шапке) ───── */
-.autostart-banner-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 12px;
-  background: #5a1a1a;
-  border-bottom: 1px solid #8a2a2a;
-  font-size: 12px;
-  color: #ff6b6b;
-  gap: 8px;
-}
-.autostart-banner-header.hidden {
-  display: none;
-}
-.autostart-banner-header .autostart-banner-text {
-  flex: 1;
-}
-.autostart-banner-header .btn-small {
-  background: #8a2a2a;
-  color: #ff6b6b;
-  border: 1px solid #aa3a3a;
-  padding: 2px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.autostart-banner-header .btn-small:hover {
-  background: #aa3a3a;
 }
 
 /* ───── Выбор браузера и путь (внутри settings-row) ───── */

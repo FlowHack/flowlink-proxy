@@ -265,21 +265,25 @@ function _renderBrowserSelector() {
 
 /**
  * Отрисовывает баннер предупреждения, если браузер не выбран.
- * Использует renderBanner из popup.js если доступен, иначе — HTML-элемент.
+ * Использует renderBanner из popup.js.
  * @private
  */
 function _renderBrowserBanner() {
   const renderBanner = window.__flowlinkRenderBanner;
 
+  // Если нет соединения с бэкендом — не показываем баннер (не можем знать, выбран ли браузер)
+  if (!window.__flowlinkConnected) {
+    const banner = document.getElementById('banner-warning-app');
+    if (banner) banner.classList.add('hidden');
+    return;
+  }
+
   if (_state.browserPath) {
-    // Браузер выбран — скрываем оба варианта баннера
-    if (renderBanner) {
-      const newBanner = document.getElementById('banner-warning-app');
-      if (newBanner) newBanner.classList.add('hidden');
-    }
-    document.getElementById('browser-not-found-banner')?.classList.add('hidden');
+    // Браузер выбран — скрываем баннер
+    const banner = document.getElementById('banner-warning-app');
+    if (banner) banner.classList.add('hidden');
   } else if (renderBanner) {
-    // Бэкенд доступен, но браузер не выбран — показываем баннер через renderBanner
+    // Браузер не выбран — показываем баннер через renderBanner
     renderBanner('warning', 'Браузер не выбран. Автозапуск недоступен.', {
       containerId: 'app',
       bannerId: 'banner-warning-app',
@@ -290,11 +294,6 @@ function _renderBrowserBanner() {
         });
       },
     });
-    // Скрываем старый HTML-баннер (renderBanner его заменил)
-    document.getElementById('browser-not-found-banner')?.classList.add('hidden');
-  } else {
-    // Fallback: используем старый HTML-элемент
-    document.getElementById('browser-not-found-banner')?.classList.remove('hidden');
   }
 }
 

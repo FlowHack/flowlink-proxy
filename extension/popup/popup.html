@@ -16,11 +16,6 @@
       </label>
     </header>
 
-    <div id="browser-not-found-banner" class="autostart-banner-header">
-      <span class="autostart-banner-text">Браузер не выбран. Автозапуск недоступен.</span>
-      <button id="btn-browser-help" class="btn-small">Помощь</button>
-    </div>
-
     <div id="update-banner" class="update-banner hidden">
       <span id="update-text"></span>
       <a id="btn-update-download" class="btn-small" target="_blank" rel="noopener">Скачать</a>
@@ -34,7 +29,7 @@
       <button id="btn-ping-all" class="btn-small">Пинг</button>
     </div>
 
-    <!-- error-state заменён на динамический renderBanner('error', ...) в popup.js -->
+    <!-- Баннеры ошибок и предупреждений создаются динамически через renderBanner() -->
 
     <div id="proxy-list" class="proxy-list">
       <div class="empty-state">Нет добавленных прокси</div>

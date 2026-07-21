@@ -31,13 +31,37 @@ const state = {
 // Экспортируем только сброс selectedProxyId для modal.js (без exposure паролей)
 window.__flowlinkResetSelectedProxy = () => { state.selectedProxyId = null; };
 
-/** Показывает toast-уведомление на 2 секунды. */
-export function showToast(msg) {
+/**
+ * Показывает всплывающее уведомление (toast) с поддержкой разных типов.
+ * @param {'error'|'warning'|'info'} type — тип уведомления (цвет).
+ * @param {string} message — текст сообщения.
+ * @param {object} [options] — опции.
+ * @param {number} [options.duration=3000] — время показа в мс (0 = не скрывать).
+ */
+export function showNotification(type, message, options = {}) {
+  const { duration = 3000 } = options;
   const el = document.getElementById('toast');
   if (!el) return;
-  el.textContent = msg;
+
+  // Убираем старые классы типов
+  el.classList.remove('toast-error', 'toast-warning', 'toast-info');
+  // Добавляем класс типа
+  el.classList.add(`toast-${type}`);
+
+  el.textContent = message;
   el.classList.add('visible');
-  setTimeout(() => el.classList.remove('visible'), 2000);
+
+  // Очищаем предыдущий таймер
+  if (el._hideTimer) clearTimeout(el._hideTimer);
+
+  if (duration > 0) {
+    el._hideTimer = setTimeout(() => el.classList.remove('visible'), duration);
+  }
+}
+
+/** Показывает toast-уведомление на 2 секунды (алиас для обратной совместимости). */
+export function showToast(msg) {
+  showNotification('error', msg, { duration: 2000 });
 }
 
 // Глобальный доступ для help.js (избегает циклического импорта)
@@ -158,23 +182,31 @@ function renderBanner(type, message, options = {}) {
 // Глобальный доступ к renderBanner для autostart.js (избегает циклического импорта)
 window.__flowlinkRenderBanner = renderBanner;
 
-/** Показывает/скрывает error-state и блокирует кнопки. */
+/** Флаг соединения с бэкендом — глобальный для autostart.js и других модулей. */
+window.__flowlinkConnected = false;
+
+/** Показывает/скрывает баннер ошибки соединения и блокирует кнопки. */
 function showError(visible) {
-  const errorState = document.getElementById('error-state');
-  if (!errorState) return;
-  errorState.classList.toggle('hidden', !visible);
-  document.getElementById('status-bar')?.classList.toggle('hidden', visible);
+  window.__flowlinkConnected = !visible;
   updateConnectionUI(!visible);
+
   if (visible) {
-    // При ошибке соединения — скрываем баннеры браузера и блок настроек (нет бэкенда = нет данных)
+    // Показываем баннер ошибки соединения через renderBanner
+    renderBanner('error', 'Нет соединения с бэкендом. Проверьте, запущен ли FlowLink Proxy.', {
+      bannerId: 'banner-connection-error',
+      actionText: 'Повторить',
+      actionCallback: handleRetry,
+    });
+    // Скрываем всё, что требует бэкенд (нет данных — нет смысла показывать)
     document.getElementById('browser-not-found-banner')?.classList.add('hidden');
     document.getElementById('banner-warning-app')?.classList.add('hidden');
     document.getElementById('browser-settings-block')?.classList.add('hidden');
-    const retryBtn = document.getElementById('btn-retry');
-    if (retryBtn) retryBtn.onclick = handleRetry;
-    document.getElementById('btn-help-setup')?.addEventListener(
-      'click', () => openHelpModal('port'), { once: true },
-    );
+    document.getElementById('status-bar')?.classList.add('hidden');
+  } else {
+    // Скрываем баннер ошибки
+    const banner = document.getElementById('banner-connection-error');
+    if (banner) banner.classList.add('hidden');
+    document.getElementById('status-bar')?.classList.remove('hidden');
   }
 }
 
@@ -185,6 +217,7 @@ async function loadAndRender() {
     state.proxies = config.proxies || [];
     state.masks = config.masks || [];
     state.enabled = config.isEnabled !== undefined ? config.isEnabled : true;
+    window.__flowlinkConnected = true;
     showError(false);
     render(state);
     renderAutostartToggle();
@@ -220,7 +253,7 @@ async function handleGlobalToggle(checkbox) {
     render(state);
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения:', e);
-    showToast('Не удалось переключить состояние. Проверьте соединение с бэкендом.');
+    showNotification('error', 'Не удалось переключить состояние. Проверьте соединение с бэкендом.');
     chrome.storage.local.set({ extEnabled: !enabled });
     checkbox.checked = !enabled;
   } finally {
@@ -461,19 +494,16 @@ function attachGlobalListeners() {
 
   document.getElementById('btn-ping-all')?.addEventListener('click', () => handlePingAll(state, renderProxyList));
   document.getElementById('btn-add-proxy')?.addEventListener('click', () => {
-    if (!state.connected) { showToast('Нет соединения с бэкендом'); return; }
+    if (!state.connected) { showNotification('error', 'Нет соединения с бэкендом'); return; }
     openAddProxyModal();
   });
   document.getElementById('btn-add-mask')?.addEventListener('click', () => openAddMaskModal(state));
   document.getElementById('btn-clear-masks')?.addEventListener('click', () => handleClearMasks(loadAndRender));
   document.getElementById('btn-settings-toggle')?.addEventListener('click', () => {
-    if (!state.connected) { showToast('Нет соединения с бэкендом'); return; }
+    if (!state.connected) { showNotification('error', 'Нет соединения с бэкендом'); return; }
     document.getElementById('settings-block').classList.toggle('hidden');
   });
-  // Кнопка помощи для отсутствующего браузера
-  document.getElementById('btn-browser-help')?.addEventListener('click', () => {
-    openHelpModal(null, false, true);
-  });
+
   // Закрытие модалок
   for (const id of ['btn-help-close', 'btn-help-close2', 'btn-proxy-cancel', 'btn-mask-cancel']) {
     document.getElementById(id)?.addEventListener('click', closeModal);
