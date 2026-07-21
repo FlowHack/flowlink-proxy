@@ -82,8 +82,17 @@ if (Test-Path $crxKeyPath) {
     $tmpZipNix = $tmpZip.Replace('\', '/')
     $crxKeyNix = $crxKeyPath.Replace('\', '/')
     
-    # Добавление публичного ключа в manifest.json
-    & $python -c @"
+    # Проверка наличия openssl
+    $opensslCheck = Get-Command "openssl" -ErrorAction SilentlyContinue
+    if (-not $opensslCheck) {
+        Warn "openssl не найден. Установите OpenSSL для сборки CRX."
+        Warn "  Windows: https://slproweb.com/products/Win32OpenSSL.html (скачайте Light версию)"
+        Warn "  Linux:   sudo apt install openssl  (или аналог для вашего пакетного менеджера)"
+        Warn "  macOS:   brew install openssl"
+        $crxDataFlag = ""
+    } else {
+        # Добавление публичного ключа в manifest.json
+        & $python -c @"
 import json, subprocess, base64
 with open('$tmpDirNix/manifest.json') as f:
     m = json.load(f)
@@ -93,6 +102,7 @@ m['key'] = base64.b64encode(r.stdout).decode('ascii')
 with open('$tmpDirNix/manifest.json', 'w') as f:
     json.dump(m, f, indent=2)
 "@
+    }
     
     # Создание ZIP
     & $python -c @"

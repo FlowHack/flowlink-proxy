@@ -22,6 +22,15 @@ fi
 TMP_DIR=$(mktemp -d)
 cp -r "$PROJECT_DIR/extension"/* "$TMP_DIR/"
 
+# Проверка наличия openssl
+if ! command -v openssl &>/dev/null; then
+    echo "[!] openssl не найден. Установите OpenSSL для сборки CRX."
+    echo "    Windows: https://slproweb.com/products/Win32OpenSSL.html (скачайте Light версию)"
+    echo "    Linux:   sudo apt install openssl  (или аналог для вашего пакетного менеджера)"
+    echo "    macOS:   brew install openssl"
+    exit 1
+fi
+
 # Добавление key в manifest.json
 python3 -c "
 import json, subprocess, base64
