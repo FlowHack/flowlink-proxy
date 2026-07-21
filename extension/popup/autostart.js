@@ -72,16 +72,16 @@ export async function loadAutostartStatus() {
  * Вызывается из render() popup.js.
  */
 export function renderAutostartToggle() {
-  // Тоггл автозапуска браузера
-  const toggle = document.getElementById('autostart-browser-input');
-  if (toggle) {
-    toggle.checked = _state.autostartBrowser;
+  // Чекбокс автозапуска браузера
+  const autostartCheckbox = document.getElementById('browser-autostart-toggle');
+  if (autostartCheckbox) {
+    autostartCheckbox.checked = _state.autostartBrowser;
   }
 
-  // Тоггл системного автозапуска
-  const sysToggle = document.getElementById('system-autostart-input');
-  if (sysToggle) {
-    sysToggle.checked = _state.systemAutostart;
+  // Поля выбора браузера и пути — показываем только если автозапуск включён
+  const autostartFields = document.getElementById('browser-autostart-fields');
+  if (autostartFields) {
+    autostartFields.classList.toggle('hidden', !_state.autostartBrowser);
   }
 
   // Выпадающий список браузеров
@@ -96,93 +96,14 @@ export function renderAutostartToggle() {
   // Очистка ошибок валидации
   _clearBrowserPathError();
 
+  // Чекбокс системного автозапуска
+  const systemCheckbox = document.getElementById('system-autostart-toggle');
+  if (systemCheckbox) {
+    systemCheckbox.checked = _state.systemAutostart;
+  }
+
   // Баннер «браузер не выбран»
   _renderBrowserBanner();
-}
-
-/**
- * Обрабатывает переключение тоггла автозапуска браузера.
- * @param {HTMLInputElement} checkbox — элемент-тоггл.
- * @param {Function} showToast — функция показа toast-уведомления.
- */
-export async function handleAutostartToggle(checkbox, showToast) {
-  if (!checkbox) return;
-  const value = checkbox.checked;
-  const prevValue = !value;
-
-  checkbox.disabled = true;
-
-  try {
-    const result = await apiPost('/autostart-browser', {
-      autostartBrowser: value,
-    });
-    if (result.error) {
-      throw new Error(result.error);
-    }
-    _state.autostartBrowser = result.autostartBrowser !== undefined
-      ? result.autostartBrowser : value;
-    checkbox.checked = _state.autostartBrowser;
-    if (showToast) {
-      showToast(
-        _state.autostartBrowser
-          ? 'Автозапуск браузера включён'
-          : 'Автозапуск браузера выключен',
-      );
-    }
-  } catch (e) {
-    console.error('[FlowLink Proxy] Ошибка переключения autostart_browser:', e);
-    checkbox.checked = prevValue;
-    if (showToast) {
-      showToast(
-        'Не удалось изменить настройку. '
-        + 'Проверьте соединение с бэкендом. '
-        + 'Подробности — в разделе «Помощь».',
-      );
-    }
-  } finally {
-    checkbox.disabled = false;
-  }
-}
-
-/**
- * Обрабатывает переключение системного автозапуска.
- * @param {HTMLInputElement} checkbox — элемент-тоггл.
- * @param {Function} showToast — функция показа toast-уведомления.
- */
-export async function handleSystemAutostartToggle(checkbox, showToast) {
-  if (!checkbox) return;
-  const value = checkbox.checked;
-  const prevValue = !value;
-
-  checkbox.disabled = true;
-
-  try {
-    const result = await apiPost('/system-autostart', { enabled: value });
-    if (result.error) {
-      throw new Error(result.error);
-    }
-    _state.systemAutostart = result.enabled !== undefined
-      ? result.enabled : value;
-    checkbox.checked = _state.systemAutostart;
-    if (showToast) {
-      showToast(
-        _state.systemAutostart
-          ? 'Автозапуск с системой включён'
-          : 'Автозапуск с системой выключен',
-      );
-    }
-  } catch (e) {
-    console.error('[FlowLink Proxy] Ошибка переключения system_autostart:', e);
-    checkbox.checked = prevValue;
-    if (showToast) {
-      showToast(
-        'Не удалось изменить настройку автозапуска системы. '
-        + 'Проверьте соединение с бэкендом.',
-      );
-    }
-  } finally {
-    checkbox.disabled = false;
-  }
 }
 
 /**
@@ -344,16 +265,36 @@ function _renderBrowserSelector() {
 
 /**
  * Отрисовывает баннер предупреждения, если браузер не выбран.
+ * Использует renderBanner из popup.js если доступен, иначе — HTML-элемент.
  * @private
  */
 function _renderBrowserBanner() {
-  const banner = document.getElementById('browser-not-found-banner');
-  if (!banner) return;
+  const renderBanner = window.__flowlinkRenderBanner;
 
   if (_state.browserPath) {
-    banner.classList.add('hidden');
+    // Браузер выбран — скрываем оба варианта баннера
+    if (renderBanner) {
+      const newBanner = document.getElementById('banner-warning-app');
+      if (newBanner) newBanner.classList.add('hidden');
+    }
+    document.getElementById('browser-not-found-banner')?.classList.add('hidden');
+  } else if (renderBanner) {
+    // Бэкенд доступен, но браузер не выбран — показываем баннер через renderBanner
+    renderBanner('warning', 'Браузер не выбран. Автозапуск недоступен.', {
+      containerId: 'app',
+      bannerId: 'banner-warning-app',
+      actionText: 'Помощь',
+      actionCallback: () => {
+        import('./help.js').then(({ openHelpModal }) => {
+          openHelpModal(null, false, false, true);
+        });
+      },
+    });
+    // Скрываем старый HTML-баннер (renderBanner его заменил)
+    document.getElementById('browser-not-found-banner')?.classList.add('hidden');
   } else {
-    banner.classList.remove('hidden');
+    // Fallback: используем старый HTML-элемент
+    document.getElementById('browser-not-found-banner')?.classList.remove('hidden');
   }
 }
 

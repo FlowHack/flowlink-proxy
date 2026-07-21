@@ -90,22 +90,7 @@
       </ol>
     </div>
 
-    <div class="step">
-      <span class="step-num">4</span>
-      <strong>Настройте прокси в Chrome:</strong>
-      <ul>
-        <li>Откройте настройки прокси ОС или используйте флаг <code>--proxy-server=127.0.0.1:8080</code></li>
-      </ul>
-    </div>
-
-    <div class="step">
-      <span class="step-num">5</span>
-      <strong>Подключите расширение к серверу:</strong>
-      <ul>
-        <li>Нажмите на иконку расширения в панели инструментов</li>
-        <li>Расширение автоматически найдёт сервер</li>
-      </ul>
-    </div>
+    <p>Подробная справка по настройке доступна в расширении: нажмите на иконку FlowLink Proxy → «Помощь».</p>
 
     <div class="note">
       <strong>Примечание:</strong> Возможно, потребуется VPN или прокси для доступа к GitHub (для пользователей в России).
@@ -116,5 +101,17 @@
       &middot; Поддержка: <a href="mailto:flowlink.proxy@atomicmail.io">flowlink.proxy@atomicmail.io</a>
     </div>
   </div>
+  <script>
+    /* Подставляет актуальный URL релизов из shared/constants.js вместо хардкода */
+    fetch(chrome.runtime.getURL('shared/constants.js'))
+      .then(function(r) { return r.text(); })
+      .then(function(code) {
+        var match = code.match(/GITHUB_RELEASES_URL\s*=\s*'([^']+)'/);
+        if (match) {
+          document.querySelectorAll('a[href*="github.com/FlowHack/flowlink-proxy/releases"]')
+            .forEach(function(a) { a.href = match[1]; });
+        }
+      });
+  </script>
 </body>
 </html>

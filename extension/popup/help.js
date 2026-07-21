@@ -64,7 +64,7 @@ const _PORTS_TROUBLESHOOT = `
  * Ключи:
  *   windows/source/ext — установка (заголовок «Настройка FlowLink Proxy»).
  *   updateExe/updateSource/updateExt — обновление (заголовок «Обновление»).
- *   autostartHelp — отсутствие скриптов запуска (режим помощи по автозапуску).
+ *   autostartHelp — помощь по настройке автозапуска браузера.
  */
 const HELP_TEXTS = {
   windows: `
@@ -82,7 +82,7 @@ const HELP_TEXTS = {
           <li>Программу в <code>C:\\Program Files\\FlowLink Proxy\\</code></li>
           <li>Ярлык в меню «Пуск» и на рабочем столе</li>
           <li>Автозапуск бэкенда при входе в Windows</li>
-          <li><code>FlowLink Proxy.bat</code> — запускает бэкенд и браузер с прокси</li>
+          <li>Ярлык для запуска бэкенда</li>
         </ul>
       </li>
     </ol>
@@ -121,7 +121,10 @@ const HELP_TEXTS = {
     <h3>3. Запустите</h3>
     <ol>
       <li><code>cd flowlink-proxy</code></li>
-      <li><code>./scripts/setup/setup-and-run-linux.sh</code> (Linux) или <code>./scripts/setup/setup-and-run-macos.sh</code> (macOS) — скрипт создаст venv, установит зависимости и запустит сервер</li>
+      <li>Создайте виртуальное окружение: <code>python -m venv venv</code></li>
+      <li>Активируйте: <code>source venv/bin/activate</code> (Linux/macOS) или <code>venv\Scripts\activate</code> (Windows)</li>
+      <li>Установите зависимости: <code>pip install -r requirements.txt</code></li>
+      <li>Запустите бэкенд: <code>python -m server</code></li>
     </ol>
     <h3>Установка расширения</h3>
     <p>Откройте <code>chrome://extensions</code> → «Режим разработчика» → «Загрузить распакованное расширение» → папка <code>extension/</code>.</p>
@@ -130,36 +133,42 @@ const HELP_TEXTS = {
     ${_EMAIL_FOOTER}
   `,
   ext: `
-    <p>Расширение уже установлено — вы пользуетесь им прямо сейчас.</p>
-    <p>Для его работы нужен запущенный бэкенд FlowLink Proxy.</p>
-    ${EXTENSION_STORE_URL
-      ? `<p>Страница расширения: <a href="${escapeHtml(EXTENSION_STORE_URL)}" target="_blank" rel="noopener">открыть в магазине</a></p>`
-      : ''
-    }
-    <h3>Устранение проблем с подключением</h3>
-    <p>Если расширение не может подключиться к бэкенду (красная панель «Нет связи с бэкендом»):</p>
-    <ol>
-      <li><strong>Убедитесь, что бэкенд запущен.</strong>
-        <ul>
-          <li>Windows: нажмите «FlowLink Proxy» в меню «Пуск»</li>
-          <li>Linux/macOS: <code>./scripts/setup/setup-and-run-linux.sh</code></li>
-        </ul>
-      </li>
-      <li><strong>Нажмите «Повторить»</strong> — расширение автоматически проверит соединение.</li>
-      <li><strong>Автообнаружение порта.</strong> Если бэкенд запущен на нестандартном порту (например, <code>--api-port 9091</code>), расширение автоматически найдёт его при открытии — сканирует порты 8080–8090.</li>
-      <li><strong>Ручная настройка порта.</strong> Если бэкенд на порту за пределами 8080–8090:
-        <ol type="a">
-          <li>Нажмите ⚙ (шестерёнка внизу)</li>
-          <li>Введите порт API (должен совпадать с <code>--api-port</code> на бэкенде)</li>
-          <li>Нажмите «Сохранить»</li>
+    <h3>Нет подключения к бэкенду</h3>
+      <p>Расширение не может связаться с бэкендом FlowLink Proxy.</p>
+      <p><strong>Убедитесь, что бэкенд запущен.</strong> Если нет — откройте вкладку «Windows (.exe)» или «Исходный код» для инструкций по установке и запуску.</p>
+
+      <div class="help-section" id="help-port">
+        <h4>🔌 Настройка порта</h4>
+        <p>Бэкенд по умолчанию слушает порт <strong>8081</strong>. Расширение автоматически сканирует порты с 8080 по 8090 для поиска бэкенда.</p>
+        <h5>Автоматическое обнаружение</h5>
+        <p>При нажатии «Повторить» расширение проверит текущий порт, а затем просканирует диапазон 8080–8090. Если бэкенд найден на другом порту, расширение подключится к нему автоматически.</p>
+        <h5>Ручная настройка порта</h5>
+        <ol>
+          <li>Нажмите кнопку ⚙ внизу popup.</li>
+          <li>В поле «Порт API» укажите номер порта, на котором запущен бэкенд.</li>
+          <li>Нажмите «Сохранить».</li>
+          <li>Расширение переподключится к новому порту.</li>
         </ol>
-      </li>
-      <li><strong>Проверьте порт в терминале.</strong> Запустите бэкенд с <code>--debug</code> и посмотрите в логах какой порт используется:
-        <br><code>python -m server --debug --api-port 9091</code>
-      </li>
-    </ol>
-    ${_PORTS_DEFAULT_TABLE}
-    ${_EMAIL_FOOTER}
+        <p><strong>Важно:</strong> Если вы меняете порт в расширении, убедитесь, что бэкенд запущен на том же порту. Порт бэкенда можно изменить через аргумент командной строки: <code>--port 9090</code>.</p>
+      </div>
+
+      <div class="help-section" id="help-diagnose">
+        <h4>🩺 Диагностика</h4>
+        <p>Если ни один из вариантов не помог, попробуйте следующее:</p>
+        <ul>
+          <li>Проверьте, запущен ли процесс бэкенда (в диспетчере задач или <code>ps aux | grep flowlink</code>).</li>
+          <li>Проверьте логи бэкенда на наличие ошибок (правый клик на иконке в трее → «Посмотреть логи»).</li>
+          <li>Перезапустите бэкенд.</li>
+          <li>Перезапустите браузер.</li>
+          <li>Временно отключите антивирус или файрволл для проверки.</li>
+        </ul>
+      </div>
+
+      <div class="help-section" id="help-unresolved">
+        <h4>❓ Не удалось решить проблему?</h4>
+        <p>Напишите на <span class="help-email-copy" data-email="${_EMAIL}" title="Нажмите, чтобы скопировать">${_EMAIL}</span> — поможем.</p>
+        <p>Опишите вашу проблему и приложите логи бэкенда (правый клик на иконке в трее → «Посмотреть логи»).</p>
+      </div>
   `,
   updateExe: (tag) => `
     <h3>Установщик</h3>
@@ -180,7 +189,7 @@ const HELP_TEXTS = {
     <ol>
       <li><strong>Через Git:</strong> <code>git pull</code></li>
       <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
-      <li>Остановите старый процесс, перезапустите: <code>./scripts/setup/setup-and-run-linux.sh</code></li>
+      <li>Остановите старый процесс, перезапустите: <code>python -m server</code></li>
     </ol>
     ${_EMAIL_FOOTER}
   `,
@@ -201,37 +210,23 @@ const HELP_TEXTS = {
     ${_EMAIL_FOOTER}
   `,
   autostartHelp: `
-    <h3>Скрипты запуска не найдены</h3>
-    <p>Расширение не нашло файлы запуска (<code>FlowLink Proxy.bat</code>, <code>FlowLink Proxy.sh</code> или <code>setup-and-run-linux.sh</code>) рядом с бэкендом.</p>
-    <p>Это означает, что автозапуск браузера вместе с бэкендом невозможен.</p>
-    <h3>Как исправить</h3>
-    <p>Скопируйте скрипт запуска в ту же папку, где находится <code>FlowLink Proxy.exe</code> (или бинарник):</p>
-
-    <h3>Windows (.exe)</h3>
+    <h3>Автозапуск браузера</h3>
+    <p>FlowLink Proxy может автоматически запускать браузер при старте бэкенда.</p>
+    <h4>Как настроить</h4>
     <ol>
-      <li>Перейдите на страницу <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
-      <li>Скачайте последний релиз и распакуйте</li>
-      <li>Убедитесь, что <code>FlowLink Proxy.bat</code> лежит в одной папке с <code>FlowLink Proxy.exe</code></li>
-      <li>Запустите бэкенд через <code>FlowLink Proxy.bat</code></li>
+      <li>Откройте настройки расширения (кнопка ⚙ внизу popup).</li>
+      <li>Включите тумблер «Автозапуск браузера».</li>
+      <li>Выберите браузер из списка обнаруженных или укажите путь вручную.</li>
+      <li>Бэкенд автоматически запустит выбранный браузер при старте.</li>
     </ol>
-
-    <h3>Linux / macOS (бинарник)</h3>
-    <ol>
-      <li>Перейдите на страницу <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
-      <li>Скачайте архив для вашей ОС и распакуйте</li>
-      <li>Скопируйте <code>FlowLink Proxy.sh</code> в ту же папку, что и бинарник</li>
-      <li>Дайте права на исполнение: <code>chmod +x "FlowLink Proxy.sh"</code></li>
-      <li>Запустите: <code>./"FlowLink Proxy.sh"</code></li>
-    </ol>
-
-    <h3>Исходный код (Python)</h3>
-    <ol>
-      <li>Скачайте исходный код: <code>git clone https://github.com/FlowHack/flowlink-proxy.git</code></li>
-      <li>Убедитесь, что скрипт <code>scripts/setup/setup-and-run-linux.sh</code> на месте</li>
-      <li>Запустите: <code>./scripts/setup/setup-and-run-linux.sh</code></li>
-    </ol>
-
-    <p>После размещения скрипта запуска рядом с бэкендом, перезапустите бэкенд и заново откройте расширение — тоггл автозапуска браузера станет доступен.</p>
+    <h4>Как это работает</h4>
+    <p>При запуске бэкенд проверяет настройки автозапуска. Если автозапуск включён и браузер выбран, бэкенд запускает браузер с необходимыми параметрами прокси. Вам не нужно запускать браузер вручную или использовать дополнительные скрипты.</p>
+    <h4>Если браузер не запускается</h4>
+    <ul>
+      <li>Убедитесь, что в настройках расширения выбран браузер и указан корректный путь.</li>
+      <li>Проверьте, что бэкенд запущен (зелёный индикатор в popup).</li>
+      <li>Попробуйте перезапустить бэкенд.</li>
+    </ul>
     ${_EMAIL_FOOTER}
   `,
 };
@@ -252,7 +247,7 @@ let _isAutostartHelpMode = false;
 export function openHelpModal(tab, isUpdate, isTroubleshoot, isAutostartHelp) {
   _isUpdateMode = !!isUpdate;
   _isAutostartHelpMode = !!isAutostartHelp;
-  const isWindows = navigator.platform.includes('Win');
+  const isWindows = (navigator.userAgentData?.platform || navigator.platform).includes('Win');
   const defaultTab = isWindows ? 'windows' : 'source';
   const title = document.querySelector('#modal-help .modal-title');
   if (!title) return;
@@ -265,14 +260,17 @@ export function openHelpModal(tab, isUpdate, isTroubleshoot, isAutostartHelp) {
   } else {
     title.textContent = 'Настройка FlowLink Proxy';
   }
-  // При вызове из error-state — открываем вкладку «Расширение» (там troubleshooting)
+  // При вызове из error-state — показываем ext-контент напрямую (без вкладок)
   // При вызове из autostart-help — показываем контент напрямую (без вкладок)
   if (isAutostartHelp) {
     _hideTabs();
     _showAutostartHelpContent();
+  } else if (isTroubleshoot) {
+    _hideTabs();
+    _showTroubleshootContent();
   } else {
     _showTabs();
-    switchHelpTab(isTroubleshoot ? 'ext' : (tab || defaultTab));
+    switchHelpTab(tab || defaultTab);
   }
   showModal('modal-help');
   _setupEmailCopyHandler();
@@ -295,6 +293,13 @@ function _showAutostartHelpContent() {
   const container = document.getElementById('help-content');
   if (!container) return;
   container.innerHTML = HELP_TEXTS.autostartHelp;
+}
+
+/** Показывает контент troubleshooting — только ext-раздел, без вкладок. */
+function _showTroubleshootContent() {
+  const container = document.getElementById('help-content');
+  if (!container) return;
+  container.innerHTML = HELP_TEXTS.ext;
 }
 
 /**
@@ -352,8 +357,9 @@ export function switchHelpTab(tab) {
       : tab === 'source' ? 'updateSource'
       : 'updateExt';
     const updateText = document.getElementById('update-text');
-    const rawTag = updateText ? updateText.textContent
-      .replace('Доступно обновление ', '') : '';
+    const rawTag = updateText
+      ? updateText.textContent.replace(/^Доступно обновление\s*/i, '').trim()
+      : '';
     const tag = escapeHtml(rawTag);
     container.innerHTML = `<h3>${tab === 'windows' ? 'Windows (.exe)' : tab === 'source' ? 'Исходный код' : 'Расширение'}</h3>`
       + HELP_TEXTS[key](tag);

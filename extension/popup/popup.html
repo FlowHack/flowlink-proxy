@@ -16,6 +16,11 @@
       </label>
     </header>
 
+    <div id="browser-not-found-banner" class="autostart-banner-header">
+      <span class="autostart-banner-text">Браузер не выбран. Автозапуск недоступен.</span>
+      <button id="btn-browser-help" class="btn-small">Помощь</button>
+    </div>
+
     <div id="update-banner" class="update-banner hidden">
       <span id="update-text"></span>
       <a id="btn-update-download" class="btn-small" target="_blank" rel="noopener">Скачать</a>
@@ -29,11 +34,7 @@
       <button id="btn-ping-all" class="btn-small">Пинг</button>
     </div>
 
-    <div id="error-state" class="error-state hidden">
-      <span>Нет связи с бэкендом</span>
-      <button id="btn-retry" class="btn-small">Повторить</button>
-      <button id="btn-help-setup" class="btn-small">Помощь</button>
-    </div>
+    <!-- error-state заменён на динамический renderBanner('error', ...) в popup.js -->
 
     <div id="proxy-list" class="proxy-list">
       <div class="empty-state">Нет добавленных прокси</div>
@@ -49,43 +50,53 @@
       <span id="version-text"></span>
       <button id="btn-settings-toggle" class="btn-settings" title="Настройки">⚙</button>
     </div>
-    <form id="settings-form">
-      <div id="settings-row" class="settings-row hidden">
+    <div id="settings-block" class="settings-block hidden">
+      <!-- Секция: Подключение -->
+      <div class="settings-section">
+        <div class="settings-section-title">Подключение</div>
+        <form id="settings-form">
+          <div class="settings-row-item">
+            <label for="settings-api-port">Порт API:</label>
+            <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
+            <button id="btn-settings-save" type="submit" class="btn-settings-save">Сохранить</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Секция: Браузер -->
+      <div class="settings-section">
+        <div class="settings-section-title">Браузер</div>
         <div class="settings-row-item">
-          <label for="settings-api-port">Порт API:</label>
-          <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
-          <button id="btn-settings-save" type="submit" class="btn-settings-save">Сохранить</button>
-        </div>
-        <div id="autostart-browser-wrap" class="settings-row-item autostart-row-settings">
-          <span class="autostart-label">Автозапуск браузера</span>
-          <label class="switch" title="Вкл/Выкл автозапуск браузера">
-            <input type="checkbox" id="autostart-browser-input">
-            <span class="slider"></span>
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="browser-autostart-toggle" class="settings-checkbox">
+            <span>Автозапуск браузера</span>
           </label>
         </div>
-        <div id="system-autostart-wrap" class="settings-row-item autostart-row-settings">
-          <span class="autostart-label">Запуск с системой</span>
-          <label class="switch" title="Вкл/Выкл запуск при старте ОС">
-            <input type="checkbox" id="system-autostart-input">
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div id="browser-config-wrap" class="settings-row-item browser-config-settings">
-          <label class="autostart-label" for="browser-select">Браузер:</label>
-          <select id="browser-select" class="input-settings browser-select"></select>
-        </div>
-        <div id="browser-path-wrap" class="settings-row-item browser-path-settings">
-          <label class="autostart-label" for="browser-path-input">Путь к браузеру:</label>
-          <input id="browser-path-input" class="input-settings" type="text" placeholder="Путь к исполняемому файлу">
-          <button id="btn-browser-path-save" type="button" class="btn-settings-save">Сохранить</button>
-        </div>
-        <div id="browser-path-error" class="browser-path-error hidden"></div>
-        <div id="browser-not-found-banner" class="autostart-banner-settings hidden">
-          <span class="autostart-banner-text">Браузер не выбран. Автозапуск недоступен.</span>
-          <button id="btn-browser-help" class="btn-small">Помощь</button>
+        <div id="browser-autostart-fields" class="browser-autostart-fields hidden">
+          <div class="settings-row-item browser-config-settings">
+            <label class="autostart-label" for="browser-select">Браузер:</label>
+            <select id="browser-select" class="input-settings browser-select"></select>
+          </div>
+          <div class="settings-row-item browser-path-settings">
+            <label class="autostart-label" for="browser-path-input">Путь:</label>
+            <input id="browser-path-input" class="input-settings" type="text" placeholder="Путь к исполняемому файлу">
+            <button id="btn-browser-path-save" type="button" class="btn-settings-save">Сохранить</button>
+          </div>
+          <div id="browser-path-error" class="browser-path-error hidden"></div>
         </div>
       </div>
-    </form>
+
+      <!-- Секция: Система -->
+      <div class="settings-section">
+        <div class="settings-section-title">Система</div>
+        <div class="settings-row-item">
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="system-autostart-toggle" class="settings-checkbox">
+            <span>Запуск с системой</span>
+          </label>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Модальное окно: помощь с настройкой -->

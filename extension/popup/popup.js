@@ -17,7 +17,7 @@ import { renderTabStatus } from './tab-status.js';
 import { checkBackendVersion, checkForUpdates, backendVersion } from './updater.js';
 import { handleSettingsSave } from './settings.js';
 import { discoverPort } from '../shared/port_discovery.js';
-import { loadAutostartStatus, renderAutostartToggle, handleAutostartToggle, handleSystemAutostartToggle, handleBrowserSelect, handleBrowserPathInput } from './autostart.js';
+import { loadAutostartStatus, renderAutostartToggle, handleBrowserSelect, handleBrowserPathInput } from './autostart.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -101,6 +101,63 @@ async function handleRetry() {
   }
 }
 
+/**
+ * Универсальная функция отрисовки баннера.
+ * @param {'error'|'warning'|'info'} type — тип баннера (красный/жёлтый/синий).
+ * @param {string} message — текст сообщения.
+ * @param {object} [options] — опции.
+ * @param {string} [options.containerId='app'] — ID контейнера (prepend в него).
+ * @param {boolean} [options.dismissable=false] — показывать кнопку «✕».
+ * @param {string} [options.actionText] — текст кнопки действия.
+ * @param {Function} [options.actionCallback] — обработчик кнопки действия.
+ * @param {string} [options.bannerId] — ID баннера для повторного использования.
+ */
+function renderBanner(type, message, options = {}) {
+  const {
+    containerId = 'app',
+    dismissable = false,
+    actionText,
+    actionCallback,
+    bannerId,
+  } = options;
+  const container = document.getElementById(containerId);
+  if (!container) return null;
+
+  const id = bannerId || `banner-${type}-${containerId}`;
+  let banner = document.getElementById(id);
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = id;
+    banner.className = `banner banner-${type}`;
+    container.prepend(banner);
+  }
+
+  banner.className = `banner banner-${type}`;
+  let html = `<span class="banner-message">${escapeHtml(message)}</span>`;
+  if (actionText) {
+    html += `<button class="btn-small banner-action">${escapeHtml(actionText)}</button>`;
+  }
+  if (dismissable) {
+    html += `<button class="btn-icon banner-dismiss" title="Закрыть">✕</button>`;
+  }
+  banner.innerHTML = html;
+  banner.classList.remove('hidden');
+
+  const actionBtn = banner.querySelector('.banner-action');
+  if (actionBtn && actionCallback) {
+    actionBtn.addEventListener('click', actionCallback, { once: true });
+  }
+  const dismissBtn = banner.querySelector('.banner-dismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => banner.classList.add('hidden'));
+  }
+
+  return banner;
+}
+
+// Глобальный доступ к renderBanner для autostart.js (избегает циклического импорта)
+window.__flowlinkRenderBanner = renderBanner;
+
 /** Показывает/скрывает error-state и блокирует кнопки. */
 function showError(visible) {
   const errorState = document.getElementById('error-state');
@@ -109,6 +166,10 @@ function showError(visible) {
   document.getElementById('status-bar')?.classList.toggle('hidden', visible);
   updateConnectionUI(!visible);
   if (visible) {
+    // При ошибке соединения — скрываем баннеры браузера и блок настроек (нет бэкенда = нет данных)
+    document.getElementById('browser-not-found-banner')?.classList.add('hidden');
+    document.getElementById('banner-warning-app')?.classList.add('hidden');
+    document.getElementById('browser-settings-block')?.classList.add('hidden');
     const retryBtn = document.getElementById('btn-retry');
     if (retryBtn) retryBtn.onclick = handleRetry;
     document.getElementById('btn-help-setup')?.addEventListener(
@@ -126,6 +187,7 @@ async function loadAndRender() {
     state.enabled = config.isEnabled !== undefined ? config.isEnabled : true;
     showError(false);
     render(state);
+    renderAutostartToggle();
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs[0]?.url) renderTabStatus(tabs[0].url, state);
   } catch (e) {
@@ -338,13 +400,22 @@ function attachGlobalListeners() {
     if (e.target.id === 'global-toggle-input') {
       handleGlobalToggle(e.target);
     }
-    // Тоггл автозапуска браузера
-    if (e.target.id === 'autostart-browser-input') {
-      handleAutostartToggle(e.target, showToast);
+    // Чекбокс автозапуска браузера
+    if (e.target.id === 'browser-autostart-toggle') {
+      const enabled = e.target.checked;
+      document.getElementById('browser-autostart-fields').classList.toggle('hidden', !enabled);
+      apiPost('/autostart-browser', { autostartBrowser: enabled }).catch((err) => {
+        showToast('Ошибка сохранения: ' + err.message);
+        e.target.checked = !enabled;
+      });
     }
-    // Тоггл системного автозапуска
-    if (e.target.id === 'system-autostart-input') {
-      handleSystemAutostartToggle(e.target, showToast);
+    // Чекбокс системного автозапуска
+    if (e.target.id === 'system-autostart-toggle') {
+      const enabled = e.target.checked;
+      apiPost('/system-autostart', { enabled }).catch((err) => {
+        showToast('Ошибка сохранения: ' + err.message);
+        e.target.checked = !enabled;
+      });
     }
   });
 
@@ -397,7 +468,7 @@ function attachGlobalListeners() {
   document.getElementById('btn-clear-masks')?.addEventListener('click', () => handleClearMasks(loadAndRender));
   document.getElementById('btn-settings-toggle')?.addEventListener('click', () => {
     if (!state.connected) { showToast('Нет соединения с бэкендом'); return; }
-    document.getElementById('settings-row').classList.toggle('hidden');
+    document.getElementById('settings-block').classList.toggle('hidden');
   });
   // Кнопка помощи для отсутствующего браузера
   document.getElementById('btn-browser-help')?.addEventListener('click', () => {
