@@ -89,7 +89,7 @@ if (Test-Path $crxKeyPath) {
         Warn "  Windows: https://slproweb.com/products/Win32OpenSSL.html (скачайте Light версию)"
         Warn "  Linux:   sudo apt install openssl  (или аналог для вашего пакетного менеджера)"
         Warn "  macOS:   brew install openssl"
-        $crxDataFlag = ""
+        $crxDataFlag = @()
     } else {
         # Добавление публичного ключа в manifest.json
         & $python -c @"
@@ -124,15 +124,15 @@ with zipfile.ZipFile('$tmpZipNix', 'w', zipfile.ZIP_DEFLATED) as zf:
         Warn "  Windows: https://nodejs.org (скачайте LTS, установите)"
         Warn "  Linux:   sudo apt install nodejs npm  (или аналог для вашего пакетного менеджера)"
         Warn "  macOS:   brew install node"
-        $crxDataFlag = ""
+        $crxDataFlag = @()
     } else {
         $crxCmd = "npx -p crx3-utils crx3-new `"$crxKeyPath`" < `"$tmpZip`" > `"$crxOutput`""
         & cmd /c $crxCmd
         if ($LASTEXITCODE -ne 0) {
             Warn "Ошибка сборки CRX (npx вернул код $LASTEXITCODE)"
-            $crxDataFlag = ""
+            $crxDataFlag = @()
         } else {
-            $crxDataFlag = "--add-data `"releases/flowlink-proxy.crx;.`""
+            $crxDataFlag = @('--add-data', 'releases/flowlink-proxy.crx;.')
             Info "CRX собран: $crxOutput"
         }
     }
@@ -140,14 +140,14 @@ with zipfile.ZipFile('$tmpZipNix', 'w', zipfile.ZIP_DEFLATED) as zf:
     Remove-Item -Recurse -Force $tmpDir, $tmpZip -ErrorAction SilentlyContinue
     if (-not $crxDataFlag) {
         if (Test-Path $crxOutput) {
-            $crxDataFlag = "--add-data `"releases/flowlink-proxy.crx;.`""
+            $crxDataFlag = @('--add-data', 'releases/flowlink-proxy.crx;.')
             Info "CRX собран: $crxOutput"
         } else {
             Warn "Не удалось собрать CRX"
         }
     }
 } else {
-    $crxDataFlag = ""
+    $crxDataFlag = @()
     Warn "Приватный ключ CRX не найден ($crxKeyPath)."
     Warn "CRX не будет включён в сборку."
     Warn "Сгенерируйте ключ: openssl genrsa -out scripts\build\crx-private-key.pem 2048"
@@ -170,7 +170,7 @@ $binaryName = "FlowLink Proxy.exe"
     $iconFlag `
     --add-data "server/requirements.txt;server/" `
     --add-data "server/icons;icons/" `
-    $crxDataFlag `
+    @crxDataFlag `
     --hidden-import tkinter `
     --hidden-import _tkinter `
     --hidden-import pystray `
