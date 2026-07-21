@@ -77,32 +77,37 @@ if (Test-Path $crxKeyPath) {
     New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
     Copy-Item -Recurse "$ProjectRoot\extension\*" $tmpDir
     
+    # Нормализация путей для Python (замена \ на /)
+    $tmpDirNix = $tmpDir.Replace('\', '/')
+    $tmpZipNix = $tmpZip.Replace('\', '/')
+    $crxKeyNix = $crxKeyPath.Replace('\', '/')
+    
     # Добавление публичного ключа в manifest.json
     & $python -c @"
 import json, subprocess, base64
-with open('$tmpDir/manifest.json') as f:
+with open('$tmpDirNix/manifest.json') as f:
     m = json.load(f)
-r = subprocess.run(['openssl', 'rsa', '-pubout', '-in', '$crxKeyPath', '-outform', 'DER'],
+r = subprocess.run(['openssl', 'rsa', '-pubout', '-in', '$crxKeyNix', '-outform', 'DER'],
                   capture_output=True)
 m['key'] = base64.b64encode(r.stdout).decode('ascii')
-with open('$tmpDir/manifest.json', 'w') as f:
+with open('$tmpDirNix/manifest.json', 'w') as f:
     json.dump(m, f, indent=2)
 "@
     
     # Создание ZIP
     & $python -c @"
 import zipfile, os
-with zipfile.ZipFile('$tmpZip', 'w', zipfile.ZIP_DEFLATED) as zf:
-    for root, dirs, files in os.walk('$tmpDir'):
+with zipfile.ZipFile('$tmpZipNix', 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk('$tmpDirNix'):
         for fn in files:
             fp = os.path.join(root, fn)
-            zf.write(fp, os.path.relpath(fp, '$tmpDir'))
+            zf.write(fp, os.path.relpath(fp, '$tmpDirNix'))
 "@
     
-    # Сборка CRX через crx3-utils
+    # Сборка CRX через crx3-utils (через cmd, т.к. PowerShell не поддерживает < в Invoke-Expression)
     New-Item -ItemType Directory -Force -Path "releases" | Out-Null
     $crxCmd = "npx -p crx3-utils crx3-new `"$crxKeyPath`" < `"$tmpZip`" > `"$crxOutput`""
-    Invoke-Expression $crxCmd
+    & cmd /c $crxCmd
     
     Remove-Item -Recurse -Force $tmpDir, $tmpZip -ErrorAction SilentlyContinue
     if (Test-Path $crxOutput) {
