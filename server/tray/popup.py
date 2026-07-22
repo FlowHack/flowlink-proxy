@@ -266,10 +266,14 @@ class FlowLinkPopup:
                 - width // 2
             )
         if y is None:
-            y = (
-                self._root.winfo_pointery()
-                - height - 8
-            )
+            pointer_y = self._root.winfo_pointery()
+            # Сначала пытаемся показать над курсором
+            suggested_y = pointer_y - height - 8
+            if suggested_y >= 0:
+                y = suggested_y
+            else:
+                # Если не влезает, показываем под курсором
+                y = pointer_y + 8
 
         # Не выходит за экран
         try:
