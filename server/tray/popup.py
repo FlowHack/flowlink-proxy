@@ -266,21 +266,21 @@ class FlowLinkPopup:
         if y is not None:
             return y
 
+        try:
+            sh = self._popup.winfo_screenheight()
+        except tk.TclError:
+            sh = 1080
+
         pointer_y = self._root.winfo_pointery()  # type: ignore[union-attr]
         above_y = pointer_y - height - 8
         if above_y >= 0:
             return above_y
 
         below_y = pointer_y + 8
-        try:
-            sh = self._popup.winfo_screenheight()  # type: ignore[union-attr]
-        except tk.TclError:
-            sh = 1080
-
         if below_y + height <= sh:
             return below_y
 
-        # Не влезает ни сверху, ни снизу — центрируем
+        # Не влезает целиком — центрируем
         return max(0, (sh - height) // 2)
 
     def _configure_popup(
@@ -472,7 +472,7 @@ class FlowLinkPopup:
             frame = tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, cursor='hand2',
             )
-            frame.pack(fill='x', padx=4, pady=(1, 3))
+            frame.pack(fill='x', padx=4, pady=(0, 2))
 
             # Иконка
             if icon:
@@ -497,7 +497,7 @@ class FlowLinkPopup:
                 font=('Segoe UI', 10),
                 anchor='w',
             )
-            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=6)
+            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=4)
 
             # Hover + клик
             def on_enter(
@@ -563,7 +563,7 @@ class FlowLinkPopup:
             frame = tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, cursor='hand2',
             )
-            frame.pack(fill='x', padx=4, pady=(1, 3))
+            frame.pack(fill='x', padx=4, pady=(0, 2))
 
             # Иконка
             if icon:
@@ -587,7 +587,7 @@ class FlowLinkPopup:
                 font=('Segoe UI', 10),
                 anchor='w',
             )
-            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=6)
+            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=4)
 
             # Чекбокс
             mark = '\u2713' if checked else ''
