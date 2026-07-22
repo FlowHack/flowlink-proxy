@@ -219,6 +219,19 @@ class Win32Tray:
             )
             return False
 
+        # Принудительно убираем окно из панели задач через Win32 API
+        try:
+            hwnd = ctypes.windll.user32.GetParent(self._tk_root.winfo_id())
+            GWL_EXSTYLE = -20
+            WS_EX_APPWINDOW = 0x00040000
+            WS_EX_TOOLWINDOW = 0x00000080
+            ex_style = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+            ex_style &= ~WS_EX_APPWINDOW
+            ex_style |= WS_EX_TOOLWINDOW
+            ctypes.windll.user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style)
+        except Exception:
+            pass  # Если не сработало — не критично
+
         try:
             self._tk_root.attributes('-toolwindow', True)
         except tk.TclError as e:
