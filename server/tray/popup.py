@@ -217,6 +217,15 @@ class FlowLinkPopup:
             )
             return
 
+        # Пытаемся скрыть окно из панели задач через tkinter API
+        # (должно сработать на Windows, если tkinter поддерживает)
+        try:
+            self._popup.attributes('-toolwindow', True)
+        except tk.TclError:
+            pass
+
+        self._apply_toolwindow_style()
+
         try:
             self._popup.overrideredirect(True)
             self._popup.attributes('-topmost', True)
@@ -231,6 +240,56 @@ class FlowLinkPopup:
             return
 
         self._configure_popup(x, y, items)
+
+    def _apply_toolwindow_style(self) -> None:
+        """Скрывает popup из панели задач Windows через Win32 API.
+
+        Toplevel по умолчанию может иметь WS_EX_APPWINDOW,
+        что приводит к появлению иконки «перо» в таскбаре.
+        Применяем WS_EX_TOOLWINDOW сразу после создания окна.
+        Ленивый импорт ctypes — Win32-специфичный код.
+        """
+        if not self._popup:
+            return
+        logger.debug('Popup: _apply_toolwindow_style() вызван')
+        try:
+            # ленивый импорт ctypes — Win32-специфичный код
+            import ctypes  # pylint: disable=import-outside-toplevel
+            hwnd = self._popup.winfo_id()
+            gwl_exstyle = -20
+            ws_ex_appwindow = 0x00040000
+            ws_ex_toolwindow = 0x00000080
+            ws_ex_noactivate = 0x08000000
+            swp_framechanged = 0x0020
+            swp_nomove = 0x0002
+            swp_nosize = 0x0001
+            swp_nozorder = 0x0004
+            swp_noactivate = 0x0010
+            ex_style = (
+                ctypes.windll.user32.GetWindowLongPtrW(  # type: ignore[reportAttributeAccessIssue] — pyright не видит windll на Linux
+                    hwnd, gwl_exstyle,
+                )
+            )
+            ex_style &= ~ws_ex_appwindow
+            ex_style |= ws_ex_toolwindow
+            ex_style |= ws_ex_noactivate
+            ctypes.windll.user32.SetWindowLongPtrW(  # type: ignore[reportAttributeAccessIssue] — pyright не видит windll на Linux
+                hwnd, gwl_exstyle, ex_style,
+            )
+            ctypes.windll.user32.SetWindowPos(  # type: ignore[reportAttributeAccessIssue] — pyright не видит windll на Linux
+                hwnd, 0, 0, 0, 0, 0,
+                swp_framechanged | swp_nomove
+                | swp_nosize | swp_nozorder | swp_noactivate,
+            )
+            logger.debug(
+                'Popup: WS_EX_TOOLWINDOW применён к Toplevel '
+                '(HWND=%s)', hwnd,
+            )
+        except (OSError, AttributeError, tk.TclError, ValueError):
+            logger.debug(
+                'Popup: не удалось применить WS_EX_TOOLWINDOW '
+                'к popup-окну — иконка может появиться в таскбаре',
+            )
 
     def _calc_y_position(
         self,
