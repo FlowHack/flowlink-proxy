@@ -295,7 +295,7 @@ class Win32Tray:
                 e, exc_info=True,
             )
         finally:
-        finally:
+            pass
 
     def _run_tk(self):
         """
@@ -610,7 +610,7 @@ class Win32Tray:
                 self._popup_timer_id = self._tk_root.after(
                     50, self._poll_popup_flag,
                 )
-            except (tk.TclError, RuntimeError, OSError) as e:
+            except (tk.TclError, RuntimeError, OSError):
                 # ошибка планирования – игнорируем
                 pass
 
