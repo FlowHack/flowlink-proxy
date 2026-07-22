@@ -4,6 +4,8 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-green.svg)](LICENSE.txt)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-orange?logo=googlechrome&logoColor=white)](extension/)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen)](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+[![AI: DeepSeek](https://img.shields.io/badge/AI-DeepSeek-4A6CF7?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDJhNyA3IDAgMCAwLTcgN2MwIDMgMS41IDUuNSA0IDdsLTEgNmg0bC0xLTZjMi41LTEuNSA0LTQgNC03YTcgNyAwIDAgMC03LTd6Ii8+PC9zdmc+)](https://deepseek.com)
+[![AI: AiderDesk](https://img.shields.io/badge/AI-AiderDesk-7C3AED?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiByeD0iNCIvPjxwYXRoIGQ9Ik04IDEyaDgiLz48cGF0aCBkPSJNMTIgOHY4Ii8+PC9zdmc+)](https://aiderdesk.com)
 
 Автоматическая маршрутизация трафика: сайты по маскам — через SOCKS5-прокси с паролем, остальные — напрямую.
 
@@ -22,6 +24,18 @@
 SOCKS5 с паролем       Прямое соединение
 (ваш сервер)           ( Happ / интернет )
 ```
+
+---
+
+## Создание проекта
+
+FlowLink Proxy создан с использованием **AI-assisted development** в среде **AiderDesk**.
+
+**Роли:**
+- **DeepSeek (Architect Manager)** — архитектура проекта, распределение задач, контроль качества
+- **Big Pickle (SubAgent)** — реализация задач средней сложности, рефакторинг, написание тестов, запуск линтинга (pylint, pyright, pytest)
+
+Архитектор-менеджер определяет план, делегирует выполнение субагенту и проверяет результат. Такой подход позволил поддерживать высокое качество кода при минимальном времени разработки.
 
 ---
 
@@ -283,8 +297,7 @@ flowlink-proxy/
 │       ├── flowlink.desktop       # Linux: десктоп-файл
 │       └── com.flowlink.proxy.plist # macOS: LaunchAgent
 │
-├── myAgents/                  # Конфиги агента (для разработки)
-├── AI_DEV_LOG.md              # Журнал разработки
+├── AI_DEV_LOG.md              # Журнал разработки (локально, не комиттится)
 ├── SETUP.md                   # Подробная установка и настройка
 ├── DEBUG.md                   # Отладка, CLI-флаги, API
 ├── PRIVACY_POLICY.md          # Политика конфиденциальности

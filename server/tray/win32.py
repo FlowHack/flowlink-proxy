@@ -219,29 +219,11 @@ class Win32Tray:
             )
             return False
 
-        # Принудительно убираем окно из панели задач через Win32 API
-        try:
-            hwnd = self._tk_root.winfo_id()
-            GWL_EXSTYLE = -20
-            WS_EX_APPWINDOW = 0x00040000
-            WS_EX_TOOLWINDOW = 0x00000080
-            SWP_FRAMECHANGED = 0x0020
-            SWP_NOMOVE = 0x0002
-            SWP_NOSIZE = 0x0001
-            SWP_NOZORDER = 0x0004
-            SWP_NOACTIVATE = 0x0010
-            ex_style = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
-            ex_style &= ~WS_EX_APPWINDOW
-            ex_style |= WS_EX_TOOLWINDOW
-            ctypes.windll.user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style)
-            # Применяем изменения стиля — без SetWindowPos стили не вступают в силу
-            ctypes.windll.user32.SetWindowPos(
-                hwnd, 0, 0, 0, 0, 0,
-                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-            )
-        except Exception:
-            pass  # Если не сработало — не критично
-
+        # НЕМЕДЛЕННО скрываем окно — до того, как Windows зарегистрирует
+        # его в таскбаре. Порядок критичен:
+        # 1. Сначала -toolwindow (Tk установит WS_EX_TOOLWINDOW при создании окна)
+        # 2. Потом withdraw (скрывает окно)
+        # 3. Потом Win32 API для гарантии
         try:
             self._tk_root.attributes('-toolwindow', True)
         except tk.TclError as e:
@@ -256,6 +238,68 @@ class Win32Tray:
                 'Tray Win32: ошибка withdraw(): %s', e,
             )
             return False
+
+        # Даём Tk обработать withdraw до применения Win32 стилей
+        try:
+            self._tk_root.update_idletasks()
+        except tk.TclError as e:
+            logger.error(
+                'Tray Win32: ошибка update_idletasks(): %s', e,
+            )
+
+        # Принудительно убираем окно из панели задач через Win32 API
+        # overrideredirect убирает управление окном от window manager
+        try:
+            self._tk_root.overrideredirect(True)
+        except tk.TclError as e:
+            logger.error(
+                'Tray Win32: ошибка overrideredirect(): %s', e,
+            )
+
+        try:
+            hwnd = self._tk_root.winfo_id()
+            GWL_EXSTYLE = -20
+            WS_EX_APPWINDOW = 0x00040000
+            WS_EX_TOOLWINDOW = 0x00000080
+            SWP_FRAMECHANGED = 0x0020
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
+            ex_style = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+            logger.debug(
+                'Tray Win32: HWND=%s, EX_STYLE до=0x%X '
+                '(APPWINDOW=%s, TOOLWINDOW=%s)',
+                hwnd, ex_style,
+                bool(ex_style & WS_EX_APPWINDOW),
+                bool(ex_style & WS_EX_TOOLWINDOW),
+            )
+            ex_style &= ~WS_EX_APPWINDOW
+            ex_style |= WS_EX_TOOLWINDOW
+            ctypes.windll.user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style)
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, 0, 0, 0, 0, 0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+            )
+            # Проверяем, применились ли стили
+            ex_style_after = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+            logger.debug(
+                'Tray Win32: EX_STYLE после=0x%X '
+                '(APPWINDOW=%s, TOOLWINDOW=%s)',
+                ex_style_after,
+                bool(ex_style_after & WS_EX_APPWINDOW),
+                bool(ex_style_after & WS_EX_TOOLWINDOW),
+            )
+        except (OSError, AttributeError, tk.TclError, ValueError):
+            pass  # Если не сработало — не критично
+
+        # Повторный withdraw для гарантии
+        try:
+            self._tk_root.withdraw()
+        except tk.TclError as e:
+            logger.error(
+                'Tray Win32: ошибка повторного withdraw(): %s', e,
+            )
 
         self._popup.set_tk_root(self._tk_root)
         self._tk_root_valid = True
@@ -720,9 +764,13 @@ class Win32Tray:
         # При двойном клике левой кнопкой не открываем popup
         if event == WM_LBUTTONDBLCLK:
             return 0
+        # WM_MOUSEMOVE (0x200) — нормальное событие от NOTIFYICON_VERSION_4,
+        # возникает при движении мыши над иконкой трея. Игнорируем.
+        if event == 0x200:
+            return 0
         if event not in (WM_RBUTTONUP, WM_RBUTTONDBLCLK,
                          WM_LBUTTONDBLCLK, WM_LBUTTONUP):
-            logger.warning('Tray Win32: _handle_tray_callback: неизвестное событие 0x%X', event)
+            logger.debug('Tray Win32: _handle_tray_callback: неизвестное событие 0x%X', event)
             return None
         # ВАЖНО: не вызываем self._tk_root.winfo_exists() или любые
         # другие Tcl/Tk функции из Win32 callback'а — это реентерабельный
@@ -797,7 +845,11 @@ class Win32Tray:
         Вызывается Windows в контексте потока, создавшего окно.
         НЕ должен пробрасывать исключения — иначе краш mainloop.
         """
-        logger.debug('Tray Win32: _wnd_proc: msg=0x%X', msg)
+        # msg=0x8001 (TRAY_CALLBACK) — нормальные callback-события от иконки
+        # трея (движение мыши, ховер). msg=0x24/0x81/0x83/0x1 — стандартные
+        # сообщения Windows при создании окна. Не логируем их — только спам.
+        if msg not in (TRAY_CALLBACK, 0x24, 0x81, 0x83, 0x1):
+            logger.debug('Tray Win32: _wnd_proc: msg=0x%X', msg)
         try:
             if msg == TRAY_CALLBACK:
                 result = self._handle_tray_callback(lparam & 0xFFFF)
