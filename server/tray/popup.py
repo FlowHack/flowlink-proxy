@@ -244,6 +244,45 @@ class FlowLinkPopup:
 
         self._configure_popup(x, y, items)
 
+    def _calc_y_position(
+        self,
+        y: Optional[int],
+        height: int,
+    ) -> int:
+        """
+        Вычисляет Y-координату для popup.
+
+        Если y=None — пытается расположить над курсором,
+        при нехватке места — под курсором, в крайнем случае —
+        центрирует по вертикали.
+
+        Args:
+            y: Исходная Y-координата (или None).
+            height: Высота popup.
+
+        Returns:
+            Y-координата до экранного клампинга.
+        """
+        if y is not None:
+            return y
+
+        pointer_y = self._root.winfo_pointery()  # type: ignore[union-attr]
+        above_y = pointer_y - height - 8
+        if above_y >= 0:
+            return above_y
+
+        below_y = pointer_y + 8
+        try:
+            sh = self._popup.winfo_screenheight()  # type: ignore[union-attr]
+        except tk.TclError:
+            sh = 1080
+
+        if below_y + height <= sh:
+            return below_y
+
+        # Не влезает ни сверху, ни снизу — центрируем
+        return max(0, (sh - height) // 2)
+
     def _configure_popup(
         self,
         x: Optional[int],
@@ -259,33 +298,17 @@ class FlowLinkPopup:
         # Высота вычисляется динамически
         height = self.calc_height(items)
 
-        # Позиционирование
+        # Позиционирование по X
         if x is None:
             x = (
                 self._root.winfo_pointerx()
                 - width // 2
             )
-        if y is None:
-            pointer_y = self._root.winfo_pointery()
-            # Сначала пытаемся показать над курсором
-            above_y = pointer_y - height - 8
-            if above_y >= 0:
-                y = above_y
-            else:
-                # Пробуем под курсором
-                below_y = pointer_y + 8
-                # Проверяем, влезает ли снизу
-                try:
-                    sh = self._popup.winfo_screenheight()
-                except tk.TclError:
-                    sh = 1080
-                if below_y + height <= sh:
-                    y = below_y
-                else:
-                    # Не влезает ни сверху, ни снизу — центрируем по вертикали
-                    y = max(0, (sh - height) // 2)
 
-        # Не выходит за экран
+        # Позиционирование по Y (с учётом границ экрана)
+        y = self._calc_y_position(y, height)
+
+        # Позиционирование по X (с учётом границ экрана)
         try:
             sw = self._popup.winfo_screenwidth()
             sh = self._popup.winfo_screenheight()
