@@ -197,7 +197,6 @@ class FlowLinkPopup:
         items: List[Dict[str, Any]],
     ) -> None:
         """Создаёт и отображает popup-окно."""
-        logger.debug(
         if not self._root:
             logger.error(
                 'Tk root не установлен — popup невозможен',
@@ -217,8 +216,6 @@ class FlowLinkPopup:
                 'Toplevel: %s', e,
             )
             return
-
-        logger.debug('Popup: _create_popup() Toplevel создан')
 
         try:
             self._popup.overrideredirect(True)
@@ -517,7 +514,6 @@ class FlowLinkPopup:
                 _event: tk.Event[tk.Tk],
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
-                logger.info('Popup: клик по пункту меню')
                 logger.debug('Popup: клик по пункту меню')
                 if cmd:
                     try:
@@ -621,7 +617,6 @@ class FlowLinkPopup:
                 _event: tk.Event[tk.Tk],
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
-                logger.info('Popup: клик по пункту с чекбоксом')
                 logger.debug('Popup: клик по пункту с чекбоксом')
                 if cmd:
                     try:
@@ -681,7 +676,6 @@ class FlowLinkPopup:
                 )
             else:
                 self._popup.attributes('-alpha', 1.0)
-                logger.debug('Popup: анимация появления завершена (alpha=1.0)')
         except tk.TclError:
             logger.debug(
                 '_fade_in: окно закрылось во время анимации '

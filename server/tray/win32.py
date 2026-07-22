@@ -199,7 +199,6 @@ class Win32Tray:
         Returns:
             True при успехе, False при ошибке.
         """
-        logger.debug('Tray Win32: инициализация tkinter...')
         try:
             self._tk_root = tk.Tk()
         except tk.TclError as e:
@@ -220,7 +219,6 @@ class Win32Tray:
             )
             return False
 
-        logger.debug('Tray Win32: tkinter создан, withdraw...')
         try:
             self._tk_root.withdraw()
         except tk.TclError as e:
@@ -240,7 +238,6 @@ class Win32Tray:
         Returns:
             True при успехе, False при ошибке.
         """
-        logger.debug('Tray Win32: создание иконки в трее...')
         try:
             self._create_tray_icon()
         except OSError as e:
@@ -269,7 +266,6 @@ class Win32Tray:
         if self._tk_root is None:
             logger.error('Tray Win32: tk_root не установлен')
             return
-        # Запускаем таймер проверки флага popup
         try:
             self._popup_timer_id = self._tk_root.after(
                 50, self._poll_popup_flag,
@@ -279,7 +275,6 @@ class Win32Tray:
                 'Tray Win32: не удалось запустить '
                 '_poll_popup_flag: %s', e,
             )
-        logger.debug('Tray Win32: запуск mainloop...')
         try:
             self._tk_root.mainloop()
         except tk.TclError as e:
