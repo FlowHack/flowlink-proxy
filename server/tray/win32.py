@@ -704,11 +704,7 @@ class Win32Tray:
                         hwnd_popup = ctypes.c_void_p(popup_hwnd)
                         _user32.SetForegroundWindow(hwnd_popup)
                         _user32.BringWindowToTop(hwnd_popup)
-                        logger.error(
-                            '_show_popup: SetForegroundWindow/'
-                            'BringWindowToTop выполнены',
-                            exc_info=True,
-                        )
+                        logger.debug('Tray Win32: _show_popup: SetForegroundWindow/BringWindowToTop выполнены')
                 except (OSError, AttributeError, tk.TclError, ValueError) as e:
                     logger.debug(
                         'Tray Win32: не удалось установить foreground '
@@ -725,20 +721,14 @@ class Win32Tray:
 
     def _handle_tray_callback(self, event):
         """Обрабатывает событие трей (правый/левый клик)."""
-        logger.error('_handle_tray_callback: event=0x%X', event, exc_info=True)
+        logger.debug('Tray Win32: _handle_tray_callback: event=0x%X', event)
         # При двойном клике левой кнопкой не открываем popup
         if event == WM_LBUTTONDBLCLK:
-            logger.error(
-                '_handle_tray_callback: WM_LBUTTONDBLCLK — игнорирую', exc_info=True,
-            )
+            logger.debug('Tray Win32: _handle_tray_callback: WM_LBUTTONDBLCLK — игнорирую')
             return 0
         if event not in (WM_RBUTTONUP, WM_RBUTTONDBLCLK,
                          WM_LBUTTONDBLCLK, WM_LBUTTONUP):
-            logger.error(
-                '_handle_tray_callback: возврат None '
-                '— неизвестное событие 0x%X',
-                event, exc_info=True,
-            )
+            logger.warning('Tray Win32: _handle_tray_callback: неизвестное событие 0x%X', event)
             return None
         # ВАЖНО: не вызываем self._tk_root.winfo_exists() или любые
         # другие Tcl/Tk функции из Win32 callback'а — это реентерабельный
@@ -747,16 +737,13 @@ class Win32Tray:
         # Вместо этого используем флаг _tk_root_valid, который
         # устанавливается из mainloop-потока.
         if not self._tk_root_valid:
-            logger.error('_handle_tray_callback: возврат 0 — tk_root невалиден', exc_info=True)
+            logger.warning('Tray Win32: _handle_tray_callback: tk_root невалиден, возврат 0')
             return 0
         # Не открываем popup, если он уже открыт
         if self._popup_open:
-            logger.error('_handle_tray_callback: возврат 0 — popup уже открыт', exc_info=True)
+            logger.debug('Tray Win32: _handle_tray_callback: popup уже открыт, возврат 0')
             return 0
-        logger.error(
-            '_handle_tray_callback: событие 0x%X, планирую _safe_show_popup',
-            event, exc_info=True,
-        )
+        logger.debug('Tray Win32: _handle_tray_callback: событие 0x%X, планирую _safe_show_popup', event)
         # НЕ вызываем SetForegroundWindow на self._hwnd — это message-only
         # окно (HWND_MESSAGE), и SetForegroundWindow на нём вызывает
         # SEH-исключение (access violation) на некоторых версиях Windows.
@@ -771,7 +758,7 @@ class Win32Tray:
         # проверяется tkinter-таймером _poll_popup_flag() в нормальном
         # контексте mainloop.
         self._pending_popup = True
-        logger.error('_handle_tray_callback: _pending_popup=True, возврат 0', exc_info=True)
+        logger.debug('Tray Win32: _handle_tray_callback: _pending_popup=True, возврат 0')
         return 0
 
     def _handle_wm_destroy(self):
@@ -822,11 +809,7 @@ class Win32Tray:
         Вызывается Windows в контексте потока, создавшего окно.
         НЕ должен пробрасывать исключения — иначе краш mainloop.
         """
-        logger.error('_wnd_proc: msg=0x%X wparam=%s lparam=%s', msg, wparam, lparam, exc_info=True)
-        logger.debug(
-            'Tray Win32: _wnd_proc вызван msg=0x%X wparam=%s lparam=%s',
-            msg, wparam, lparam,
-        )
+        logger.debug('Tray Win32: _wnd_proc: msg=0x%X wparam=%s lparam=%s', msg, wparam, lparam)
         try:
             if msg == TRAY_CALLBACK:
                 result = self._handle_tray_callback(lparam & 0xFFFF)
