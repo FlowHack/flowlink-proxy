@@ -267,7 +267,7 @@ class FlowLinkPopup:
             return y
 
         try:
-            sh = self._popup.winfo_screenheight()
+            sh = self._popup.winfo_screenheight()  # type: ignore[reportOptionalMemberAccess]
         except tk.TclError:
             sh = 1080
 
