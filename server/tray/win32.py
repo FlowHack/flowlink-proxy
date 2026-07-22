@@ -220,6 +220,13 @@ class Win32Tray:
             return False
 
         try:
+            self._tk_root.attributes('-toolwindow', True)
+        except tk.TclError as e:
+            logger.error(
+                'Tray Win32: ошибка установки -toolwindow: %s', e,
+            )
+
+        try:
             self._tk_root.withdraw()
         except tk.TclError as e:
             logger.error(
