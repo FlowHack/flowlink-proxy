@@ -265,18 +265,20 @@ class FlowLinkPopup:
             swp_nosize = 0x0001
             swp_nozorder = 0x0004
             swp_noactivate = 0x0010
+            # type: ignore[reportAttributeAccessIssue] нужен,
+            # т.к. pyright на Linux не распознаёт ctypes.windll
             ex_style = (
-                ctypes.windll.user32.GetWindowLongPtrW(  # type: ignore[reportAttributeAccessIssue] — pyright не видит windll на Linux
+                ctypes.windll.user32.GetWindowLongPtrW(  # type: ignore[reportAttributeAccessIssue]
                     hwnd, gwl_exstyle,
                 )
             )
             ex_style &= ~ws_ex_appwindow
             ex_style |= ws_ex_toolwindow
             ex_style |= ws_ex_noactivate
-            ctypes.windll.user32.SetWindowLongPtrW(  # type: ignore[reportAttributeAccessIssue] — pyright не видит windll на Linux
+            ctypes.windll.user32.SetWindowLongPtrW(  # type: ignore[reportAttributeAccessIssue]
                 hwnd, gwl_exstyle, ex_style,
             )
-            ctypes.windll.user32.SetWindowPos(  # type: ignore[reportAttributeAccessIssue] — pyright не видит windll на Linux
+            ctypes.windll.user32.SetWindowPos(  # type: ignore[reportAttributeAccessIssue]
                 hwnd, 0, 0, 0, 0, 0,
                 swp_framechanged | swp_nomove
                 | swp_nosize | swp_nozorder | swp_noactivate,
