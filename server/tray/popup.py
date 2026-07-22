@@ -26,19 +26,7 @@ from queue import Queue, Empty
 logger = logging.getLogger('flowlink.tray.popup')
 
 
-class PopupColors:  # pylint: disable=too-few-public-methods
-    # Data-класс констант цветов — публичные методы не нужны
-    """Цвета popup-меню (совпадают с popup.css расширения)."""
-    BG = '#0d0d1a'
-    SURFACE = '#1a1a2e'
-    SURFACE_HOVER = '#222244'
-    BORDER = '#2a2a4a'
-    TEXT = '#e0e0e0'
-    TEXT_SECONDARY = '#999999'
-    TEXT_MUTED = '#666666'
-    ACCENT = '#e74c3c'
-    ACCENT_HOVER = '#c0392b'
-    GREEN = '#2ecc71'
+from server.ui.theme import ThemeColors as PopupColors  # pylint: disable=wrong-import-position
 
 
 class FlowLinkPopup:

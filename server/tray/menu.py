@@ -328,22 +328,63 @@ def _select_browser(
         log: Логгер.
     """
     try:
-        import tkinter as tk  # pylint: disable=import-outside-toplevel
-        from tkinter import filedialog, messagebox  # pylint: disable=import-outside-toplevel
-
         detector = callbacks.get('browser_detector')
         detected = detector() if detector else []
+
+        if detected:
+            # Используем кастомный диалог выбора из списка
+            from server.ui.dialogs import show_item_picker  # pylint: disable=import-outside-toplevel
+
+            def _on_select(item: dict) -> None:
+                """Обработчик выбора браузера из списка."""
+                path = item['path']
+                saver = callbacks.get('browser_path_saver')
+                if saver:
+                    saver(path)
+                    log.info('Путь браузера изменён: %s', path)
+
+            show_item_picker(
+                title='Выбор браузера',
+                message='Найденные браузеры:',
+                items=[
+                    {
+                        'label': b['name'],
+                        'subtitle': b['path'],
+                        'path': b['path'],
+                    }
+                    for b in detected
+                ],
+                on_select=_on_select,
+                allow_manual=True,
+                on_manual=lambda: _open_file_dialog(callbacks, log),
+            )
+        else:
+            # Браузеры не найдены — сразу открываем диалог выбора файла
+            _open_file_dialog(callbacks, log)
+
+    except ImportError:
+        log.error('tkinter недоступен для диалога выбора файла')
+
+
+def _open_file_dialog(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """Открывает системный диалог выбора исполняемого файла браузера.
+
+    Args:
+        callbacks: Словарь коллбэков.
+        log: Логгер.
+    """
+    try:
+        import tkinter as tk  # pylint: disable=import-outside-toplevel
+        from tkinter import filedialog  # pylint: disable=import-outside-toplevel
+        from server.ui.dialogs import _set_window_icon  # pylint: disable=import-outside-toplevel
 
         root = tk.Tk()
         root.withdraw()
         root.attributes('-topmost', True)
-
-        if detected:
-            msg = 'Найденные браузеры:\n'
-            for b in detected:
-                msg += f"  {b['name']}: {b['path']}\n"
-            msg += '\nВыберите нужный в диалоге или укажите путь вручную.'
-            messagebox.showinfo('Обнаружение браузеров', msg)
+        _set_window_icon(root)
 
         path = filedialog.askopenfilename(
             title='Выберите исполняемый файл браузера',

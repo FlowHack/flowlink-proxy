@@ -303,24 +303,20 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
     def _show_notification():
         """Показывает уведомление в отдельном потоке (tkinter или webbrowser)."""
         try:
-            import tkinter as tk  # pylint: disable=import-outside-toplevel
-            from tkinter import messagebox  # pylint: disable=import-outside-toplevel
-
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes('-topmost', True)
+            from server.ui.dialogs import ask_yes_no  # pylint: disable=import-outside-toplevel
 
             message = (
                 'FlowLink Proxy запущен. Для работы необходимы также\n'
-                'браузер Chrome и расширение FlowLink.\n\n'
+                'браузер на Chromium (Chrome, Edge, Яндекс Браузер,\n'
+                'Opera, Brave и др.) и расширение FlowLink Proxy.\n\n'
                 'Установите расширение и подключите его к серверу.'
             )
-            answer = messagebox.askyesno(
+            answer = ask_yes_no(
                 'FlowLink Proxy',
                 message,
-                icon='info',
+                yes_text='Открыть инструкцию',
+                no_text='Закрыть',
             )
-            root.destroy()
 
             if answer:
                 logger.warning(

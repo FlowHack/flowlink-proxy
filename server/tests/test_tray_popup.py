@@ -45,19 +45,18 @@ class TestPopupColors(unittest.TestCase):
         self.assertEqual(PopupColors.ACCENT, '#e74c3c')  # type: ignore[reportPossiblyUnbound]
 
     def test_all_colors_are_hex(self):
-        """Все цвета — валидные hex-строки."""
+        """Все цвета — валидные hex-строки или rgba()."""
         for attr in dir(PopupColors):  # type: ignore[reportPossiblyUnbound]
             if attr.startswith('_'):
                 continue
             val = getattr(PopupColors, attr)  # type: ignore[reportPossiblyUnbound]
             if isinstance(val, str):
+                is_hex = val.startswith('#') and len(val) == 7
+                is_rgba = val.startswith('rgba(') and val.endswith(')')
+                is_font = attr.startswith('FONT')
                 self.assertTrue(
-                    val.startswith('#'),
-                    f'{attr} = {val!r} не hex-цвет',
-                )
-                self.assertEqual(
-                    len(val), 7,
-                    f'{attr} = {val!r} не 7-символьный hex',
+                    is_hex or is_rgba or is_font,
+                    f'{attr} = {val!r} не hex-цвет и не rgba()',
                 )
 
 
@@ -71,28 +70,28 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
         self.assertEqual(result, 40)
 
     def test_single_item(self):
-        """Один пункт: 12 (padding) + 40 (item) + 12 (padding) = 64."""
+        """Один пункт: 6 (padding) + 28 (item) + 6 (padding) = 40."""
         items = [{'type': 'item', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 64)
+        self.assertEqual(result, 40)
 
     def test_two_items(self):
-        """Два пункта: 12 + 40 + 40 + 12 = 104."""
+        """Два пункта: 6 + 28 + 28 + 6 = 68."""
         items = [
             {'type': 'item', 'text': 'First'},
             {'type': 'item', 'text': 'Second'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 104)
+        self.assertEqual(result, 68)
 
     def test_separator_height(self):
-        """Разделитель: 12 + 12 + 40 + 12 = 76."""
+        """Разделитель: 6 + 8 + 28 + 6 = 48."""
         items = [
             {'type': 'separator'},
             {'type': 'item', 'text': 'Test'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 76)
+        self.assertEqual(result, 48)
 
     def test_menu_7_items_2_separators(self):
         """Полное меню (6 пунктов + 2 разделителя)."""
@@ -106,16 +105,16 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
             {'type': 'separator'},
             {'type': 'item', 'text': '6'},
         ]
-        # 12 + 40*6 + 12*2 + 12 = 288
+        # 6 + 28*6 + 8*2 + 6 = 196
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 288)
+        self.assertEqual(result, 196)
 
     def test_unknown_type_treated_as_item(self):
         """Неизвестный тип обрабатывается как пункт."""
         items = [{'type': 'unknown', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        # Высота как для обычного item
-        self.assertEqual(result, 64)
+        # Высота как для обычного item: 6 + 28 + 6 = 40
+        self.assertEqual(result, 40)
 
     def test_min_height_floor(self):
         """Минимальная высота — 40, даже если calculation меньше."""
