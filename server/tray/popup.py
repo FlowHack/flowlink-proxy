@@ -354,9 +354,9 @@ class FlowLinkPopup:
     @staticmethod
     def calc_height(items: List[Dict[str, Any]]) -> int:
         """Вычисляет высоту popup на основе количества элементов."""
-        item_height = 40  # высота одного пункта (4px верхний padding + 28px контент + 8px нижний)
-        separator_height = 12  # высота разделителя
-        padding = 12  # верхний + нижний padding (6+6) — совпадает с _build_items
+        item_height = 32  # высота одного пункта (уменьшено)
+        separator_height = 10  # высота разделителя (уменьшено)
+        padding = 8  # верхний + нижний padding (4+4) — совпадает с _build_items
 
         height = padding
         for item in items:
@@ -375,7 +375,7 @@ class FlowLinkPopup:
         try:
             # Верхний padding
             tk.Frame(  # type: ignore[reportCallIssue]
-                self._popup, bg=PopupColors.BG, height=6,
+                self._popup, bg=PopupColors.BG, height=4,
             ).pack(fill='x')
 
             for item in items:
@@ -402,7 +402,7 @@ class FlowLinkPopup:
 
             # Нижний padding
             tk.Frame(  # type: ignore[reportCallIssue]
-                self._popup, bg=PopupColors.BG, height=6,
+                self._popup, bg=PopupColors.BG, height=4,
             ).pack(fill='x')
         except tk.TclError as e:
             logger.error(
@@ -439,7 +439,7 @@ class FlowLinkPopup:
             frame = tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, cursor='hand2',
             )
-            frame.pack(fill='x', padx=4, pady=(4, 8))
+            frame.pack(fill='x', padx=4, pady=(2, 4))
 
             # Иконка
             if icon:
@@ -530,7 +530,7 @@ class FlowLinkPopup:
             frame = tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, cursor='hand2',
             )
-            frame.pack(fill='x', padx=4, pady=(4, 8))
+            frame.pack(fill='x', padx=4, pady=(2, 4))
 
             # Иконка
             if icon:
@@ -625,12 +625,12 @@ class FlowLinkPopup:
         """Добавляет разделитель."""
         try:
             frame = tk.Frame(  # type: ignore[reportCallIssue]
-                self._popup, bg=PopupColors.BG, height=10,
+                self._popup, bg=PopupColors.BG, height=6,
             )
             frame.pack(fill='x')
             frame.pack_propagate(False)
             tk.Frame(frame, bg=PopupColors.BORDER, height=1).pack(  # type: ignore[reportCallIssue]
-                fill='x', padx=8, pady=4,
+                fill='x', padx=8, pady=2,
             )
         except tk.TclError as e:
             logger.error(
