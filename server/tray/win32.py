@@ -221,14 +221,24 @@ class Win32Tray:
 
         # Принудительно убираем окно из панели задач через Win32 API
         try:
-            hwnd = ctypes.windll.user32.GetParent(self._tk_root.winfo_id())
+            hwnd = self._tk_root.winfo_id()
             GWL_EXSTYLE = -20
             WS_EX_APPWINDOW = 0x00040000
             WS_EX_TOOLWINDOW = 0x00000080
+            SWP_FRAMECHANGED = 0x0020
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
             ex_style = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
             ex_style &= ~WS_EX_APPWINDOW
             ex_style |= WS_EX_TOOLWINDOW
             ctypes.windll.user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style)
+            # Применяем изменения стиля — без SetWindowPos стили не вступают в силу
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, 0, 0, 0, 0, 0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+            )
         except Exception:
             pass  # Если не сработало — не критично
 
