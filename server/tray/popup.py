@@ -309,7 +309,7 @@ class FlowLinkPopup:
         # Позиционирование по Y (с учётом границ экрана)
         y = self._calc_y_position(y, height)
 
-        # Позиционирование по X (с учётом границ экрана)
+        # Границы экрана для X
         try:
             sw = self._popup.winfo_screenwidth()
             sh = self._popup.winfo_screenheight()
@@ -322,38 +322,7 @@ class FlowLinkPopup:
         x = max(0, min(x, sw - width - 4))
         y = max(0, min(y, sh - height - 4))
 
-        try:
-            self._popup.geometry(
-                f'{width}x{height}+{x}+{y}',
-            )
-        except tk.TclError as e:
-            logger.error(
-                'Popup: ошибка установки geometry: %s', e,
-            )
-            self._safe_destroy()
-            return
-
-        logger.debug(
-            'Popup: _configure_popup() geometry '
-            '%sx%s+%s+%s',
-            width, height, x, y,
-        )
-
-        # ВРЕМЕННАЯ ОТЛАДКА: логируем реальные размеры окна
-        try:
-            self._popup.update_idletasks()
-            real_w = self._popup.winfo_reqwidth()
-            real_h = self._popup.winfo_reqheight()
-            logger.info(
-                '=== ОТЛАДКА POPUP: geometry=%sx%s, '
-                'requested=%sx%s, screen=%sx%s, y=%s ===',
-                width, height, real_w, real_h,
-                sw, sh, y,
-            )
-        except tk.TclError as e:
-            logger.warning('Ошибка при отладке popup: %s', e)
-
-        # Строим содержимое
+        # Строим содержимое ДО geometry
         try:
             self._build_items(items)
         except (TypeError, ValueError) as e:
@@ -367,9 +336,30 @@ class FlowLinkPopup:
                 '%s', e,
             )
 
+        # После построения — получаем реальные размеры
+        try:
+            self._popup.update_idletasks()
+            real_w = self._popup.winfo_reqwidth()
+            real_h = self._popup.winfo_reqheight()
+        except tk.TclError:
+            real_w, real_h = width, height
+
+        # Устанавливаем geometry с реальными размерами
+        try:
+            self._popup.geometry(
+                f'{real_w}x{real_h}+{x}+{y}',
+            )
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка установки geometry: %s', e,
+            )
+            self._safe_destroy()
+            return
+
         logger.debug(
-            'Popup: _configure_popup() '
-            '_build_items завершён',
+            'Popup: _configure_popup() geometry '
+            '%sx%s+%s+%s',
+            real_w, real_h, x, y,
         )
 
         # Автозакрытие при потере фокуса
@@ -390,11 +380,6 @@ class FlowLinkPopup:
                 'Popup: не удалось установить '
                 'grab: %s', e,
             )
-
-        logger.debug(
-            'Popup: _configure_popup() '
-            'grab_set выполнен',
-        )
 
         # Плавное появление
         self._fade_in()
@@ -693,7 +678,6 @@ class FlowLinkPopup:
         с шагом 0.1 и интервалом 15мс. Если окно было закрыто
         во время анимации — корректно завершается (TclError).
         """
-        logger.debug('Popup: _fade_in() alpha=%s', alpha)
         if not self._popup:
             return
         try:
@@ -704,6 +688,7 @@ class FlowLinkPopup:
                 )
             else:
                 self._popup.attributes('-alpha', 1.0)
+                logger.debug('Popup: анимация появления завершена (alpha=1.0)')
         except tk.TclError:
             logger.debug(
                 '_fade_in: окно закрылось во время анимации '
