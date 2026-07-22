@@ -339,6 +339,20 @@ class FlowLinkPopup:
             width, height, x, y,
         )
 
+        # ВРЕМЕННАЯ ОТЛАДКА: логируем реальные размеры окна
+        try:
+            self._popup.update_idletasks()
+            real_w = self._popup.winfo_reqwidth()
+            real_h = self._popup.winfo_reqheight()
+            logger.info(
+                '=== ОТЛАДКА POPUP: geometry=%sx%s, '
+                'requested=%sx%s, screen=%sx%s, y=%s ===',
+                width, height, real_w, real_h,
+                sw, sh, y,
+            )
+        except tk.TclError as e:
+            logger.warning('Ошибка при отладке popup: %s', e)
+
         # Строим содержимое
         try:
             self._build_items(items)
