@@ -150,13 +150,9 @@ class FlowLinkPopup:
             x, y, len(items) if items else 0,
         )
         try:
-            logger.debug('Popup: show() — ожидание _build_lock')
             with self._build_lock:
-                logger.debug('Popup: show() — _build_lock получен')
                 self.dismiss()
-                logger.debug('Popup: show() — dismiss() завершён')
                 self._create_popup(x, y, items or [])
-                logger.debug('Popup: show() _create_popup завершён')
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter при показе: %s', e,
@@ -173,7 +169,6 @@ class FlowLinkPopup:
 
     def dismiss(self) -> None:
         """Закрывает popup-меню, если оно открыто."""
-        logger.debug('Popup: dismiss() вход')
         self._polling_active = False
         try:
             if self._popup is not None:
@@ -194,7 +189,6 @@ class FlowLinkPopup:
             logger.error('Popup: dismiss() — критическая ошибка: %s', e, exc_info=True)
         finally:
             self._popup = None
-            logger.debug('Popup: dismiss() выход, _popup=None')
 
     def _create_popup(
         self,
@@ -204,9 +198,6 @@ class FlowLinkPopup:
     ) -> None:
         """Создаёт и отображает popup-окно."""
         logger.debug(
-            'Popup: _create_popup() вход x=%s y=%s items=%s',
-            x, y, len(items),
-        )
         if not self._root:
             logger.error(
                 'Tk root не установлен — popup невозможен',
@@ -527,6 +518,7 @@ class FlowLinkPopup:
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
                 logger.info('Popup: клик по пункту меню')
+                logger.debug('Popup: клик по пункту меню')
                 if cmd:
                     try:
                         cmd()
@@ -630,6 +622,7 @@ class FlowLinkPopup:
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
                 logger.info('Popup: клик по пункту с чекбоксом')
+                logger.debug('Popup: клик по пункту с чекбоксом')
                 if cmd:
                     try:
                         cmd()

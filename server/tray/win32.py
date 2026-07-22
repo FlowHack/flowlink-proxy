@@ -300,11 +300,7 @@ class Win32Tray:
                 e, exc_info=True,
             )
         finally:
-            self._tk_root_valid = False
-            logger.debug(
-                'Tray Win32: mainloop завершён, '
-                '_tk_root_valid=False',
-            )
+        finally:
 
     def _run_tk(self):
         """
@@ -409,10 +405,6 @@ class Win32Tray:
         # Регистрируем WM_TASKBAR_CREATED для пересоздания иконки
         self._taskbar_msg_id = _user32.RegisterWindowMessageW(
             'TaskbarCreated',
-        )
-        logger.debug(
-            'Tray Win32: WM_TASKBAR_CREATED = %d',
-            self._taskbar_msg_id,
         )
 
         return hwnd
@@ -570,10 +562,6 @@ class Win32Tray:
         if self._fallback_icon_path:
             try:
                 os.unlink(self._fallback_icon_path)
-                logger.debug(
-                    'Tray Win32: удалён temp-файл иконки %s',
-                    self._fallback_icon_path,
-                )
             except OSError:
                 pass
             self._fallback_icon_path = None
@@ -628,10 +616,8 @@ class Win32Tray:
                     50, self._poll_popup_flag,
                 )
             except (tk.TclError, RuntimeError, OSError) as e:
-                logger.debug(
-                    'Tray Win32: _poll_popup_flag ошибка '
-                    'при планировании таймера: %s', e,
-                )
+                # ошибка планирования – игнорируем
+                pass
 
     def _safe_show_popup(self) -> None:
         """
@@ -641,13 +627,10 @@ class Win32Tray:
         tkinter mainloop. Даже если _show_popup выбросит
         исключение, которое не поймано — этот метод его поймает.
         """
-        logger.debug('Tray Win32: _safe_show_popup вход')
         # Проверяем флаг вместо winfo_exists() — безопаснее
         if self._popup_open:
-            logger.debug('Tray Win32: пропускаю _safe_show_popup — popup уже открыт')
             return
         if not self._tk_root_valid:
-            logger.debug('Tray Win32: пропускаю _safe_show_popup — tk_root невалиден')
             return
 
         self._popup_open = True
@@ -661,7 +644,6 @@ class Win32Tray:
                          '%s', e, exc_info=True)
         finally:
             self._popup_open = False
-            logger.debug('Tray Win32: _safe_show_popup выход, _popup_open=False')
 
     def _show_popup(self):
         """
@@ -670,7 +652,6 @@ class Win32Tray:
         Ловит все исключения — callback не должен крашить
         mainloop.
         """
-        logger.debug('Tray Win32: _show_popup вызван')
         try:
             rect = self._get_icon_rect()
             if rect:
@@ -679,22 +660,13 @@ class Win32Tray:
             else:
                 x, y = self._get_cursor_pos()
                 y -= 280
-            logger.debug(
-                'Tray Win32: _show_popup — позиция x=%s y=%s', x, y,
-            )
 
             items = build_menu_items(
                 self._callbacks, self._stop, 'Tray Win32',
             )
-            logger.debug(
-                'Tray Win32: _show_popup — построено %d элементов',
-                len(items),
-            )
 
             if self._tk_root:
-                logger.debug('Tray Win32: _show_popup — вызов popup.show()')
                 self._popup.show(x=x, y=y, items=items)
-                logger.debug('Tray Win32: _show_popup — popup.show() завершён')
                 # Устанавливаем popup-окно как foreground.
                 # НЕ используем self._hwnd (message-only окно) —
                 # SetForegroundWindow на HWND_MESSAGE вызывает краш.
@@ -704,7 +676,6 @@ class Win32Tray:
                         hwnd_popup = ctypes.c_void_p(popup_hwnd)
                         _user32.SetForegroundWindow(hwnd_popup)
                         _user32.BringWindowToTop(hwnd_popup)
-                        logger.debug('Tray Win32: _show_popup: SetForegroundWindow/BringWindowToTop выполнены')
                 except (OSError, AttributeError, tk.TclError, ValueError) as e:
                     logger.debug(
                         'Tray Win32: не удалось установить foreground '
@@ -721,10 +692,8 @@ class Win32Tray:
 
     def _handle_tray_callback(self, event):
         """Обрабатывает событие трей (правый/левый клик)."""
-        logger.debug('Tray Win32: _handle_tray_callback: event=0x%X', event)
         # При двойном клике левой кнопкой не открываем popup
         if event == WM_LBUTTONDBLCLK:
-            logger.debug('Tray Win32: _handle_tray_callback: WM_LBUTTONDBLCLK — игнорирую')
             return 0
         if event not in (WM_RBUTTONUP, WM_RBUTTONDBLCLK,
                          WM_LBUTTONDBLCLK, WM_LBUTTONUP):
@@ -741,9 +710,7 @@ class Win32Tray:
             return 0
         # Не открываем popup, если он уже открыт
         if self._popup_open:
-            logger.debug('Tray Win32: _handle_tray_callback: popup уже открыт, возврат 0')
             return 0
-        logger.debug('Tray Win32: _handle_tray_callback: событие 0x%X, планирую _safe_show_popup', event)
         # НЕ вызываем SetForegroundWindow на self._hwnd — это message-only
         # окно (HWND_MESSAGE), и SetForegroundWindow на нём вызывает
         # SEH-исключение (access violation) на некоторых версиях Windows.
@@ -758,15 +725,11 @@ class Win32Tray:
         # проверяется tkinter-таймером _poll_popup_flag() в нормальном
         # контексте mainloop.
         self._pending_popup = True
-        logger.debug('Tray Win32: _handle_tray_callback: _pending_popup=True, возврат 0')
         return 0
 
     def _handle_wm_destroy(self):
         """Обрабатывает WM_DESTROY."""
         if self._shutting_down:
-            logger.debug(
-                'Tray Win32: WM_DESTROY (shutdown), удаление иконки',
-            )
             try:
                 self._remove_icon()
             except (OSError, RuntimeError) as e:
@@ -809,7 +772,7 @@ class Win32Tray:
         Вызывается Windows в контексте потока, создавшего окно.
         НЕ должен пробрасывать исключения — иначе краш mainloop.
         """
-        logger.debug('Tray Win32: _wnd_proc: msg=0x%X wparam=%s lparam=%s', msg, wparam, lparam)
+        logger.debug('Tray Win32: _wnd_proc: msg=0x%X', msg)
         try:
             if msg == TRAY_CALLBACK:
                 result = self._handle_tray_callback(lparam & 0xFFFF)
