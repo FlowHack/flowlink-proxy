@@ -287,8 +287,8 @@ rm -rf venv/                      # Linux / macOS
 
 | ОС | Путь |
 |---|---|
-| Linux / macOS | `~/.flowlink-proxy/` → `rm -rf ~/.flowlink-proxy/` |
-| Windows | `%APPDATA%\FlowLink Proxy\` → `rmdir /s /q "%APPDATA%\FlowLink Proxy"` |
+| Linux / macOS | `~/.FlowHack/FlowLink Proxy/` → `rm -rf ~/.FlowHack/FlowLink\ Proxy/` |
+| Windows | `%APPDATA%\FlowHack\FlowLink Proxy\` → `rmdir /s /q "%APPDATA%\FlowHack\FlowLink Proxy"` |
 
 ---
 
@@ -435,6 +435,22 @@ open -a "Firefox" --args --proxy-server=127.0.0.1:8080
 
 > **Важно:** порт в `--proxy-server` должен совпадать с портом бэкенда (`--proxy-port`, по умолчанию `8080`).
 
+### Выбор браузера через GUI
+
+После запуска бэкенда вы можете выбрать браузер через системный трей:
+
+1. Нажмите правой кнопкой мыши на иконку FlowLink Proxy в трее
+2. Выберите пункт «Выбрать браузер...»
+3. Откроется диалог со списком найденных браузеров
+4. Кликните по нужному браузеру — путь сохранится автоматически
+5. Если браузер не найден, нажмите «Указать вручную» и выберите исполняемый файл
+
+Также можно указать путь через CLI при запуске:
+
+```bash
+python -m server --browser-path "/path/to/browser"
+```
+
 ---
 
 ## Настройка портов
@@ -460,6 +476,16 @@ python -m server --proxy-port 9090 --api-port 9091
 ---
 
 ## Автозапуск
+
+### Автозапуск через системный трей
+
+После запуска бэкенда настройте автозапуск через меню в трее:
+
+- **Автозапуск браузера** — браузер будет автоматически запускаться при старте бэкенда
+- **Запуск с системой** — бэкенд будет автоматически запускаться при входе в систему
+- **Запуск с расширением** — при запуске браузера в него будет загружено расширение FlowLink Proxy
+
+Все настройки сохраняются в файле `.flowlink-settings` в директории данных.
 
 ### Windows
 
@@ -536,12 +562,12 @@ python -m server
 
 | Скрипт | Переменная | По умолч. | Описание |
 |--------|------------|-----------|----------|
-| `launcher/FlowLink Proxy-linux.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `launcher/FlowLink Proxy-linux.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Опционально. Можно указать через CLI `--browser-path` или выбрать в трее |
 | `launcher/FlowLink Proxy-linux.sh` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
-| `launcher/FlowLink Proxy-macos.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `launcher/FlowLink Proxy-macos.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Опционально. Можно указать через CLI `--browser-path` или выбрать в трее |
 | `launcher/FlowLink Proxy-macos.sh` | `PROXY_PORT` | `8080` | Порт HTTP-прокси |
-| `setup/setup-and-run-linux.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
-| `setup/setup-and-run-macos.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Путь к исполняемому файлу браузера (ОБЯЗАТЕЛЬНО) |
+| `setup/setup-and-run-linux.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Опционально. Можно указать через CLI `--browser-path` или выбрать в трее |
+| `setup/setup-and-run-macos.sh` | `BROWSER_PATH` | `ПУТЬ_К_БРАУЗЕРУ` | Опционально. Можно указать через CLI `--browser-path` или выбрать в трее |
 | `autostart/flowlink.service` | `ExecStart` | — | Путь к бинарнику (настраивается вручную) |
 | `autostart/flowlink.service` | `FLOWLINK_DATA_DIR` | `%h/.local/share/flowlink-proxy` | Папка данных |
 | `autostart/flowlink.desktop` | `Exec` | `%h/flowlink-proxy/scripts/setup/setup-and-run-linux.sh` | Путь к скрипту запуска |
