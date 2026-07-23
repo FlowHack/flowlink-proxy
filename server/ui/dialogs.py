@@ -49,19 +49,20 @@ def _set_window_icon(window: tk.Tk | tk.Toplevel) -> None:
         pass
 
 
-def _create_dialog_root(title: str) -> tk.Tk:
-    """Создаёт скрытое корневое окно для диалога.
+def _get_or_create_root(title: str) -> tk.Tk:
+    """Создаёт новый корневой Tk() для диалога (fallback).
+
+    Используется только когда parent_root не передан (нет трея).
 
     Args:
         title: Заголовок окна.
 
     Returns:
-        Скрытое tk.Tk окно с установленной иконкой.
+        Новый скрытый tk.Tk.
     """
     root = tk.Tk()
     root.withdraw()
     root.title(title)
-    root.attributes('-topmost', True)
     _set_window_icon(root)
     return root
 
@@ -208,6 +209,7 @@ def show_info(  # pylint: disable=too-many-locals
     title: str,
     message: str,
     buttons: Optional[list[dict[str, Any]]] = None,
+    parent_root: Optional[tk.Tk] = None,
 ) -> Optional[str]:
     """Показывает кастомный диалог в стиле FlowLink Proxy.
 
@@ -217,6 +219,9 @@ def show_info(  # pylint: disable=too-many-locals
         buttons: Список кнопок. Каждая кнопка — словарь:
             {'text': str, 'action': callable, 'primary': bool}.
             Если None — создаётся одна кнопка 'OK'.
+        parent_root: Существующий Tk() для привязки диалога.
+            Если передан — используется wait_window (работает в mainloop трея).
+            Если None — создаётся новый Tk() со своим mainloop.
 
     Returns:
         'closed' если окно закрыто без выбора, иначе None.
@@ -226,7 +231,8 @@ def show_info(  # pylint: disable=too-many-locals
 
     result = {'value': 'closed'}
 
-    root = _create_dialog_root(title)
+    owns_root = parent_root is None
+    root = parent_root if parent_root is not None else _get_or_create_root(title)
 
     # Создаём диалоговое окно
     dialog = tk.Toplevel(root)
@@ -292,7 +298,8 @@ def show_info(  # pylint: disable=too-many-locals
                     action()
                 result['value'] = b_data.get('text', 'OK')
                 dialog.destroy()
-                root.destroy()
+                if owns_root:
+                    root.quit()
             return _action
 
         btn = _make_button(
@@ -317,12 +324,17 @@ def show_info(  # pylint: disable=too-many-locals
     def _on_close() -> None:
         result['value'] = 'closed'
         dialog.destroy()
-        root.destroy()
+        if owns_root:
+            root.quit()
 
     dialog.protocol('WM_DELETE_WINDOW', _on_close)
 
-    # Ожидание закрытия
-    root.wait_window(dialog)
+    # Ожидаем закрытия диалога
+    if owns_root:
+        root.mainloop()
+        root.destroy()
+    else:
+        root.wait_window(dialog)
 
     return result['value']
 
@@ -368,6 +380,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     on_select: Callable[[dict[str, Any]], None],
     allow_manual: bool = True,
     on_manual: Optional[Callable[[], None]] = None,
+    parent_root: Optional[tk.Tk] = None,
 ) -> None:
     """Показывает диалог со списком элементов для выбора.
 
@@ -381,8 +394,12 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
         allow_manual: Если True — показывает кнопку 'Указать вручную'.
         on_manual: Функция, вызываемая после закрытия диалога,
             если нажата кнопка 'Указать вручную'.
+        parent_root: Существующий Tk() для привязки диалога.
+            Если передан — используется wait_window (работает в mainloop трея).
+            Если None — создаётся новый Tk() со своим mainloop.
     """
-    root = _create_dialog_root(title)
+    owns_root = parent_root is None
+    root = parent_root if parent_root is not None else _get_or_create_root(title)
 
     # Создаём диалоговое окно
     dialog = tk.Toplevel(root)
@@ -455,7 +472,8 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
             def _action() -> None:
                 on_select(itm)
                 dialog.destroy()
-                root.destroy()
+                if owns_root:
+                    root.quit()
             return _action
 
         row = _make_item_row(
@@ -484,7 +502,8 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
         def _on_manual() -> None:
             manual_result['clicked'] = True
             dialog.destroy()
-            root.destroy()
+            if owns_root:
+                root.quit()
 
         manual_btn = _make_button(
             bottom_frame,
@@ -497,7 +516,8 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     # Кнопка "Отмена"
     def _on_cancel() -> None:
         dialog.destroy()
-        root.destroy()
+        if owns_root:
+            root.quit()
 
     cancel_btn = _make_button(
         bottom_frame,
@@ -510,7 +530,9 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     # Центрируем окно
     dialog.update_idletasks()
     width = max(480, dialog.winfo_reqwidth())
-    height = min(500, dialog.winfo_reqheight())
+    # Высота рассчитывается по количеству элементов: ~44px на строку + ~120px overhead
+    content_height = len(items) * 44 + 120
+    height = min(500, max(200, content_height))
     _center_window(dialog, width, height)
 
     # Модальность
@@ -520,12 +542,17 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     # Обработка закрытия окна
     def _on_close() -> None:
         dialog.destroy()
-        root.destroy()
+        if owns_root:
+            root.quit()
 
     dialog.protocol('WM_DELETE_WINDOW', _on_close)
 
-    # Ожидание закрытия
-    root.wait_window(dialog)
+    # Ожидаем закрытия диалога
+    if owns_root:
+        root.mainloop()
+        root.destroy()
+    else:
+        root.wait_window(dialog)
 
     # Если нажали "Указать вручную" — вызываем коллбэк
     if allow_manual and manual_result.get('clicked') and on_manual:
