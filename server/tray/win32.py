@@ -192,7 +192,7 @@ class Win32Tray:
         """Обновляет popup-меню (вызывается при изменении конфига)."""
         # Popup рендерит свежее состояние при каждом открытии
 
-    def _init_tk(self) -> bool:
+    def _init_tk(self) -> bool:  # pylint: disable=too-many-statements
         """
         Инициализирует tkinter root и withdraw.
 
@@ -247,15 +247,6 @@ class Win32Tray:
                 'Tray Win32: ошибка update_idletasks(): %s', e,
             )
 
-        # Принудительно убираем окно из панели задач через Win32 API
-        # overrideredirect убирает управление окном от window manager
-        try:
-            self._tk_root.overrideredirect(True)
-        except tk.TclError as e:
-            logger.error(
-                'Tray Win32: ошибка overrideredirect(): %s', e,
-            )
-
         try:
             hwnd = self._tk_root.winfo_id()
             GWL_EXSTYLE = -20
@@ -266,7 +257,10 @@ class Win32Tray:
             SWP_NOSIZE = 0x0001
             SWP_NOZORDER = 0x0004
             SWP_NOACTIVATE = 0x0010
-            ex_style = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+            # type: ignore[reportAttributeAccessIssue]
+            ex_style = ctypes.windll.user32.GetWindowLongPtrW(
+                hwnd, GWL_EXSTYLE,
+            )
             logger.debug(
                 'Tray Win32: HWND=%s, EX_STYLE до=0x%X '
                 '(APPWINDOW=%s, TOOLWINDOW=%s)',
@@ -276,13 +270,20 @@ class Win32Tray:
             )
             ex_style &= ~WS_EX_APPWINDOW
             ex_style |= WS_EX_TOOLWINDOW
-            ctypes.windll.user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style)
+            # type: ignore[reportAttributeAccessIssue]
+            ctypes.windll.user32.SetWindowLongPtrW(
+                hwnd, GWL_EXSTYLE, ex_style,
+            )
+            # type: ignore[reportAttributeAccessIssue]
             ctypes.windll.user32.SetWindowPos(
                 hwnd, 0, 0, 0, 0, 0,
                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
             )
             # Проверяем, применились ли стили
-            ex_style_after = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+            # type: ignore[reportAttributeAccessIssue]
+            ex_style_after = ctypes.windll.user32.GetWindowLongPtrW(
+                hwnd, GWL_EXSTYLE,
+            )
             logger.debug(
                 'Tray Win32: EX_STYLE после=0x%X '
                 '(APPWINDOW=%s, TOOLWINDOW=%s)',
@@ -730,6 +731,8 @@ class Win32Tray:
                 x, y = self._get_cursor_pos()
                 y -= 280
 
+            # Передаём tk_root в callbacks для диалогов выбора браузера
+            self._callbacks['tk_root'] = self._tk_root
             items = build_menu_items(
                 self._callbacks, self._stop, 'Tray Win32',
             )
