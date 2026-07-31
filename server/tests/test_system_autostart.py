@@ -5,10 +5,8 @@
 import unittest
 from unittest.mock import patch
 
-from server.config.system_autostart import (
-    is_system_autostart_enabled,
-    get_system_autostart_info,
-)
+from server.config.system_autostart import (get_system_autostart_info,
+                                            is_system_autostart_enabled)
 
 
 class TestIsSystemAutostartEnabled(unittest.TestCase):

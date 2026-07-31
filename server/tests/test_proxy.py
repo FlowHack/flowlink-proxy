@@ -4,7 +4,8 @@
 
 import unittest
 
-from server.protocols.parser import RE_CONNECT, RE_HTTP, parse_connect, parse_http
+from server.protocols.parser import (RE_CONNECT, RE_HTTP, parse_connect,
+                                     parse_http)
 
 
 class TestProxyRegex(unittest.TestCase):

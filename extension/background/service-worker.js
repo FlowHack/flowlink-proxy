@@ -85,6 +85,16 @@ function connectSSE() {
       chrome.storage.local.set({ configChanged: true, configChangedAt: Date.now() });
     });
 
+    // Изменение настроек браузера (автозапуск/путь) — тоже перезагружаем popup
+    eventSource.addEventListener('browser_config_changed', () => {
+      console.log('[FlowLink Proxy] SSE: конфигурация браузера изменена');
+      chrome.storage.local.set({ configChanged: true, configChangedAt: Date.now() });
+    });
+    eventSource.addEventListener('autostart_browser_changed', () => {
+      console.log('[FlowLink Proxy] SSE: автозапуск браузера изменён');
+      chrome.storage.local.set({ configChanged: true, configChangedAt: Date.now() });
+    });
+
     eventSource.addEventListener('need_update', (event) => {
       console.log('[FlowLink Proxy] SSE: симуляция обновления');
       let version = '';
@@ -92,19 +102,6 @@ function connectSSE() {
         version = JSON.parse(event.data).version || '';
       } catch {}
       chrome.storage.local.set({ needUpdate: true, needUpdateVersion: version, needUpdateAt: Date.now() });
-    });
-
-    eventSource.addEventListener('autostart_browser_changed', (event) => {
-      console.log('[FlowLink Proxy] SSE: автозапуск браузера изменён');
-      let autostartBrowser = true;
-      try {
-        autostartBrowser = JSON.parse(event.data).autostartBrowser;
-      } catch {}
-      chrome.storage.local.set({
-        autostartBrowserChanged: true,
-        autostartBrowser,
-        autostartBrowserChangedAt: Date.now(),
-      });
     });
 
     eventSource.onerror = (err) => {
@@ -122,3 +119,34 @@ function connectSSE() {
     setTimeout(connectSSE, 5000);
   }
 }
+
+/**
+ * Периодически проверяет, что SSE-соединение с бэкендом установлено.
+ * Если бэкенд появился позже расширения (браузер запущен раньше),
+ * EventSource может не переподключиться автоматически — здесь мы
+ * принудительно пересоздаём соединение, когда бэкенд становится доступен.
+ */
+function ensureSSEConnected() {
+  // Если соединение уже открыто — не трогаем.
+  // Если eventSource застрял в состоянии CONNECTING (бэкенд появился позже),
+  // EventSource может не переподключиться сам — здесь мы принудительно
+  // пересоздаём соединение, когда бэкенд становится доступен.
+  if (eventSource && eventSource.readyState === EventSource.OPEN) {
+    return;
+  }
+  // eventSource ещё не создан или закрыт — пробуем переподключиться
+  // Проверяем, что бэкенд доступен, прежде чем переподключаться
+  fetch(`http://127.0.0.1:${apiPort}/api/version`, { signal: AbortSignal.timeout(3000) })
+    .then((res) => {
+      if (res.ok) {
+        console.log('[FlowLink Proxy] SSE: бэкенд доступен, переподключаюсь');
+        connectSSE();
+      }
+    })
+    .catch(() => {
+      // Бэкенд недоступен — ждём следующей проверки
+    });
+}
+
+// Запускаем периодическую проверку SSE-соединения каждые 10 секунд
+setInterval(ensureSSEConnected, 10000);

@@ -106,7 +106,8 @@ def clear_all_data() -> int:
 
     # Переоткрываем логгер, чтобы освободить файловый дескриптор
     # Ленивый импорт для избежания циклической зависимости
-    from server.logging_config import reopen_logging  # pylint: disable=import-outside-toplevel
+    from server.logging_config import \
+        reopen_logging  # pylint: disable=import-outside-toplevel
     reopen_logging()
 
     # Удаляем директорию логов целиком
@@ -144,7 +145,8 @@ def clear_logs_only() -> int:
 
     # Переоткрываем логгер, чтобы освободить файловый дескриптор
     # Ленивый импорт для избежания циклической зависимости
-    from server.logging_config import reopen_logging  # pylint: disable=import-outside-toplevel
+    from server.logging_config import \
+        reopen_logging  # pylint: disable=import-outside-toplevel
     reopen_logging()
 
     if os.path.isdir(logs_dir):

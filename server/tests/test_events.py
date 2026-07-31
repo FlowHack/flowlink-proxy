@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from server.services.events import (_MAX_QUEUE_SIZE, SSE_QUEUE, emit_event,
-                                     handle_sse)
+                                    handle_sse)
 
 
 class TestEventsQueue(unittest.TestCase):

@@ -11,20 +11,9 @@ from __future__ import annotations
 import logging
 import threading
 import types
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-)
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-from server.tray.menu import (
-    load_icon,
-    get_autostart_state,
-    safe_open_folder,
-)
+from server.tray.menu import get_autostart_state, load_icon, safe_open_folder
 from server.utils import get_data_dir
 
 if TYPE_CHECKING:
@@ -130,11 +119,25 @@ def _build_menu(
     actions: Dict[str, Callable[[pystray.Icon], None]],
     autostart_enabled: List[bool],
     system_autostart_enabled: List[bool],
+    callbacks: Dict[str, Any],
 ) -> pystray.Menu:
     """Строит pystray Menu с символами ✓/✗ в тексте (без нативных чекбоксов)."""
     mark_as = '\u2713' if autostart_enabled[0] else '\u2717'
     mark_sys = '\u2713' if system_autostart_enabled[0] else '\u2717'
+
+    # Состояние подключения расширения (для индикатора в меню).
+    ext_connected = bool(
+        callbacks.get('extension_connected_getter', lambda: False)(),
+    )
+    ext_mark = '\U0001f517' if ext_connected else '\u26a0\ufe0f'
+    ext_text = (
+        f'{ext_mark} Расширение: подключено' if ext_connected
+        else f'{ext_mark} Расширение: не подключено'
+    )
+
     return pystray_mod.Menu(
+        pystray_mod.MenuItem(ext_text, None, enabled=False),
+        pystray_mod.Menu.SEPARATOR,
         pystray_mod.MenuItem(
             '\U0001f4dc Посмотреть логи', actions['open_logs'],
         ),
@@ -203,7 +206,7 @@ def start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[pystray.Icon]:
         try:
             icon.menu = _build_menu(
                 pystray, actions, autostart_enabled,
-                system_autostart_enabled,
+                system_autostart_enabled, callbacks,
             )
             icon.update_menu()
         except (RuntimeError, OSError) as exc:
@@ -226,7 +229,7 @@ def start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[pystray.Icon]:
         'flowlink-proxy', icon_image,
         'FlowLink Proxy', menu=_build_menu(
             pystray, actions, autostart_enabled,
-            system_autostart_enabled,
+            system_autostart_enabled, callbacks,
         ),
     )
 

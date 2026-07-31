@@ -8,13 +8,9 @@ import unittest
 
 from server.config import config as cfg
 from server.config import repo as config_repo
-from server.services.fake_proxies import (
-    _random_credential,
-    _random_id,
-    _random_ip,
-    _random_port,
-    generate_fake_proxies,
-)
+from server.services.fake_proxies import (_random_credential, _random_id,
+                                          _random_ip, _random_port,
+                                          generate_fake_proxies)
 
 
 class TestRandomId(unittest.TestCase):

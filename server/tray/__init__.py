@@ -24,17 +24,11 @@ Threading:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
 import logging
 import sys
+from typing import Any, Dict, Optional
 
-from server.tray.platform import (
-    is_windows,
-    is_linux,
-    is_macos,
-    has_tkinter,
-)
+from server.tray.platform import has_tkinter, is_linux, is_macos, is_windows
 
 logger = logging.getLogger('flowlink.tray')
 
@@ -126,7 +120,8 @@ def _start_win32_tray_with_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
 def _start_pystray_with_tkinter(callbacks: Dict[str, Any]) -> Optional[Any]:
     """Запуск pystray с нативным меню (если tkinter есть)."""
     try:
-        from server.tray.fallback import start_pystray_fallback  # pylint: disable=import-outside-toplevel
+        from server.tray.fallback import \
+            start_pystray_fallback  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error(
             'pystray+tkinter: модуль fallback.py не найден: %s', e,
@@ -165,7 +160,8 @@ def _init_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
     """
     try:
         # Ленивый импорт: платформо-зависимый бэкенд
-        from server.tray.win32 import Win32Tray  # pylint: disable=import-outside-toplevel
+        from server.tray.win32 import \
+            Win32Tray  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error('Win32: модуль win32.py не найден: %s', e)
         return None
@@ -233,7 +229,8 @@ def _start_linux_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
     """Запуск трей через pystray на Linux."""
     try:
         # Ленивый импорт: платформо-зависимый бэкенд
-        from server.tray.linux import LinuxTray  # pylint: disable=import-outside-toplevel
+        from server.tray.linux import \
+            LinuxTray  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error(
             'Linux: модуль linux.py не найден или '
@@ -270,7 +267,8 @@ def _start_macos_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
     """Запуск трей через pystray на macOS."""
     try:
         # Ленивый импорт: платформо-зависимый бэкенд
-        from server.tray.macos import MacosTray  # pylint: disable=import-outside-toplevel
+        from server.tray.macos import \
+            MacosTray  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error(
             'macOS: модуль macos.py не найден или '
@@ -307,7 +305,8 @@ def _start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
     """Запуск pystray с нативным меню (без tkinter)."""
     try:
         # Ленивый импорт: pystray может быть не установлен
-        from server.tray.fallback import start_pystray_fallback  # pylint: disable=import-outside-toplevel
+        from server.tray.fallback import \
+            start_pystray_fallback  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error('Fallback: модуль fallback.py не найден: %s', e)
         return None

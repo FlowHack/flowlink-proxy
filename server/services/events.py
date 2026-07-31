@@ -13,6 +13,9 @@ import asyncio
 import json
 import logging
 
+from server.services.extension_connection import (mark_connected,
+                                                  mark_disconnected)
+
 logger = logging.getLogger('flowlink.events')
 
 # Максимальный размер очереди (защита от утечки памяти при отключённом клиенте)
@@ -68,6 +71,8 @@ async def handle_sse(writer: asyncio.StreamWriter) -> None:
     queue = get_queue()
     peername = writer.get_extra_info('peername', ('?', 0))
     logger.debug('SSE: клиент %s подключился', peername)
+    # Регистрируем подключение расширения (для индикации в системном трее)
+    mark_connected()
 
     # Очищаем очередь при переподключении (убираем устаревшие события)
     cleared = 0
@@ -108,6 +113,8 @@ async def handle_sse(writer: asyncio.StreamWriter) -> None:
     except asyncio.CancelledError:
         pass
     finally:
+        # Регистрируем отключение расширения (для индикации в системном трее)
+        mark_disconnected()
         try:
             writer.close()
         except OSError:

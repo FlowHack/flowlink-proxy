@@ -9,15 +9,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from server.config.browser_config import (
-    auto_detect_browsers,
-    validate_browser_path,
-    validate_browser_path_detailed,
-    get_browser_config,
-    get_browser_path,
-    save_browser_path,
-    launch_browser,
-)
+from server.config.browser_config import (auto_detect_browsers,
+                                          get_browser_config, get_browser_path,
+                                          launch_browser, save_browser_path,
+                                          validate_browser_path,
+                                          validate_browser_path_detailed)
 
 
 class _TempSettingsMixin(unittest.TestCase):

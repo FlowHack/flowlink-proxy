@@ -575,6 +575,17 @@ body {
 }
 
 /* ───── Секции помощи (ext-раздел) ───── */
+/* Вводный текст в начале раздела помощи */
+.help-intro {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border-left: 3px solid var(--accent-red);
+  border-radius: var(--radius-sm);
+}
+
 .help-section {
   margin: 10px 0;
   padding: 10px 12px;
@@ -938,58 +949,6 @@ body {
   margin-bottom: 2px;
 }
 
-.browser-config-settings,
-.browser-path-settings {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.browser-config-settings .autostart-label,
-.browser-path-settings .autostart-label {
-  white-space: nowrap;
-  color: var(--text-secondary);
-  font-size: 12px;
-  min-width: 60px;
-}
-
-.browser-select {
-  flex: 1;
-  padding: 4px 6px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-family: var(--font);
-  outline: none;
-  cursor: pointer;
-}
-
-.browser-select:focus {
-  border-color: var(--accent-red);
-}
-
-.browser-path-settings .input-settings {
-  flex: 1;
-  width: auto;
-  text-align: left;
-}
-
-.browser-path-error {
-  font-size: 11px;
-  color: var(--accent-red);
-  padding: 2px 4px;
-}
-
-.browser-path-error.hidden {
-  display: none;
-}
-
-.browser-path-warning {
-  color: var(--accent-orange);
-}
-
 /* ===== Единый блок настроек ===== */
 .settings-block {
   display: flex;
@@ -1039,17 +998,6 @@ body {
   height: 16px;
   accent-color: var(--accent);
   cursor: pointer;
-}
-
-.browser-autostart-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-left: 24px;
-}
-
-.browser-autostart-fields.hidden {
-  display: none;
 }
 
 /* ───── Контакт для обратной связи ───── */
@@ -1167,19 +1115,20 @@ body {
   border-color: var(--text-muted);
 }
 
-/* Кнопка помощи в баннере */
+/* Кнопка помощи в баннере — тёмный фон, светлый текст (виден по умолчанию) */
 .banner-help {
   padding: 4px 10px;
   font-size: 12px;
-  background: transparent;
-  color: inherit;
-  border: 1px solid currentColor;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
 .banner-help:hover {
-  opacity: 0.8;
+  background: var(--bg-surface-hover);
+  opacity: 0.9;
 }
 
 .banner-dismiss {
@@ -1203,108 +1152,6 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
-}
-
-/* ───── Автозапуск браузера (внутри settings-row) ───── */
-.autostart-row-settings {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.autostart-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-/* ───── Баннер: браузер не выбран (внутри settings-row) ───── */
-.autostart-banner-settings {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  background: rgba(231, 76, 60, 0.15);
-  border: 1px solid var(--accent-red, #e74c3c);
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  color: var(--accent-red, #e74c3c);
-}
-
-.autostart-banner-settings.hidden {
-  display: none;
-}
-
-.autostart-banner-settings .autostart-banner-text {
-  flex: 1;
-  line-height: 1.4;
-}
-
-.autostart-banner-settings .btn-small {
-  background: var(--accent-red, #e74c3c);
-  color: #fff;
-  border: none;
-  flex-shrink: 0;
-}
-
-.autostart-banner-settings .btn-small:hover {
-  opacity: 0.85;
-}
-
-/* ───── Выбор браузера и путь (внутри settings-row) ───── */
-.browser-config-settings {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.browser-config-settings .autostart-label {
-  flex-shrink: 0;
-}
-
-.browser-select {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 6px;
-  font-size: 11px;
-}
-
-.browser-path-settings {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.browser-path-settings .autostart-label {
-  flex-shrink: 0;
-}
-
-.browser-path-settings .input-settings {
-  flex: 1;
-  min-width: 0;
-  font-size: 11px;
-}
-
-/* ───── Ошибка валидации пути к браузеру ───── */
-.browser-path-error {
-  padding: 4px 8px;
-  font-size: 11px;
-  color: var(--accent-red, #e74c3c);
-  line-height: 1.4;
-}
-
-.browser-path-error.hidden {
-  display: none;
-}
-
-.browser-path-error.browser-path-warning {
-  color: var(--accent-orange, #e67e22);
 }
 
 /* ───── Стили контента помощи (заменяют инлайн-стили для CSP) ───── */

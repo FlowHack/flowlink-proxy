@@ -9,15 +9,8 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from server.tray.platform import (
-    get_backend_info,
-    has_pil,
-    has_pystray,
-    has_tkinter,
-    is_linux,
-    is_macos,
-    is_windows,
-)
+from server.tray.platform import (get_backend_info, has_pil, has_pystray,
+                                  has_tkinter, is_linux, is_macos, is_windows)
 
 
 class TestIsPlatform(unittest.TestCase):

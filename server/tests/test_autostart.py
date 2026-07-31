@@ -9,16 +9,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from server.config.autostart import (
-    parse_settings,
-    format_settings,
-    get_autostart_browser,
-    set_autostart_browser,
-)
-from server.servers.handlers import (
-    handle_get_autostart_browser,
-    handle_post_autostart_browser,
-)
+from server.config.autostart import (format_settings, get_autostart_browser,
+                                     parse_settings, set_autostart_browser)
+from server.servers.handlers import (handle_get_autostart_browser,
+                                     handle_post_autostart_browser)
 
 
 class _TempSettingsMixin(unittest.TestCase):

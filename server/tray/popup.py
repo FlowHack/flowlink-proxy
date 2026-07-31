@@ -16,17 +16,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
-
 import logging
 import threading
 import tkinter as tk
-from queue import Queue, Empty
+from queue import Empty, Queue
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger('flowlink.tray.popup')
 
 
-from server.ui.theme import ThemeColors as PopupColors  # pylint: disable=wrong-import-position
+from server.ui.theme import \
+    ThemeColors as PopupColors  # pylint: disable=wrong-import-position
 
 
 class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
@@ -395,6 +395,15 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         # не сжимаются и не перекрываются.
         real_h = max(real_h, self.calc_height(items))
 
+        # Пересчитываем Y с учётом реальной высоты окна, чтобы кнопка
+        # «Выход» гарантированно помещалась на экране (real_h может
+        # оказаться больше расчётной height из-за переноса текста).
+        try:
+            sh = self._popup.winfo_screenheight()  # type: ignore[reportOptionalMemberAccess]
+        except tk.TclError:
+            sh = 1080
+        y = max(0, min(y, sh - real_h - 4))
+
         # Устанавливаем geometry с реальными размерами
         try:
             self._popup.geometry(
@@ -525,7 +534,12 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                         tooltip=item.get('tooltip'),
                     )
                 elif item_type == 'header':
-                    self._add_header(item.get('text', ''))
+                    self._add_header(
+                        text=item.get('text', ''),
+                        icon=item.get('icon', ''),
+                        color=item.get('color'),
+                        tooltip=item.get('tooltip'),
+                    )
 
             # Нижний padding
             tk.Frame(  # type: ignore[reportCallIssue]
@@ -540,19 +554,62 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 'Popup: ошибка данных при построении: %s', e,
             )
 
-    def _add_header(self, text: str) -> None:
-        """Добавляет заголовок в меню."""
-        lbl = tk.Label(
-            self._popup,
-            text=text,
-            bg=PopupColors.BG,
-            fg=PopupColors.ACCENT,
-            font=('Segoe UI', 11, 'bold'),
-            anchor='w',
-            padx=12,
-            pady=4,
-        )
-        lbl.pack(fill='x')
+    def _add_header(
+        self,
+        text: str,
+        icon: str = '',
+        color: Optional[str] = None,
+        tooltip: Optional[str] = None,
+    ) -> None:
+        """Добавляет заголовок в меню.
+
+        Args:
+            text: Текст заголовка.
+            icon: Unicode-иконка (опционально).
+            color: Цвет текста (опционально, по умолчанию акцентный).
+            tooltip: Инлайн-подсказка в статусбаре (опционально).
+        """
+        try:
+            frame = tk.Frame(  # type: ignore[reportCallIssue]
+                self._popup, bg=PopupColors.BG,
+            )
+            frame.pack(fill='x', padx=4, pady=(2, 2))
+
+            if icon:
+                icon_lbl = tk.Label(
+                    frame,
+                    text=icon,
+                    bg=PopupColors.BG,
+                    fg=color or PopupColors.ACCENT,
+                    font=('Segoe UI', 12),
+                    width=2,
+                    anchor='center',
+                )
+                icon_lbl.pack(side='left', padx=(4, 4))
+
+            lbl = tk.Label(
+                frame,
+                text=text,
+                bg=PopupColors.BG,
+                fg=color or PopupColors.ACCENT,
+                font=('Segoe UI', 9, 'bold'),
+                anchor='w',
+                padx=12,
+                pady=4,
+            )
+            lbl.pack(side='left', fill='x', expand=True, padx=4)
+
+            if tooltip:
+                self._bind_tooltip(frame, tooltip)
+                self._bind_tooltip(lbl, tooltip)
+        except tk.TclError as e:
+            logger.error(
+                'Popup: ошибка tkinter в _add_header: %s', e,
+            )
+        except (TypeError, ValueError) as e:
+            logger.error(
+                'Popup: ошибка данных в _add_header: %s', e,
+            )
 
     def _add_menu_item(
         self,

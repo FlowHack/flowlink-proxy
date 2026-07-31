@@ -7,8 +7,7 @@
 
 import logging
 
-from server.config import autostart
-from server.config import browser_config
+from server.config import autostart, browser_config
 from server.config import config as cfg
 from server.config import system_autostart
 from server.services.debug import log_config_state

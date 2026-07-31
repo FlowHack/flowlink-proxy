@@ -17,7 +17,6 @@ import { renderTabStatus } from './tab-status.js';
 import { checkBackendVersion, checkForUpdates, backendVersion, latestTag } from './updater.js';
 import { handleSettingsSave } from './settings.js';
 import { discoverPort } from '../shared/port_discovery.js';
-import { loadAutostartStatus, renderAutostartToggle, handleBrowserSelect, handleBrowserPathInput } from './autostart.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -27,6 +26,8 @@ const state = {
   pingResults: new Map(),
   connected: false,
   selectedProxyId: null,
+  autostartBrowser: false,
+  browserPath: '',
 };
 // Экспортируем только сброс selectedProxyId для modal.js (без exposure паролей)
 window.__flowlinkResetSelectedProxy = () => { state.selectedProxyId = null; };
@@ -203,10 +204,10 @@ function renderBanner(type, message, options = {}) {
   return banner;
 }
 
-// Глобальный доступ к renderBanner для autostart.js (избегает циклического импорта)
+// Глобальный доступ к renderBanner для других модулей (избегает циклического импорта)
 window.__flowlinkRenderBanner = renderBanner;
 
-/** Флаг соединения с бэкендом — глобальный для autostart.js и других модулей. */
+/** Флаг соединения с бэкендом — глобальный для других модулей. */
 window.__flowlinkConnected = false;
 
 /** Показывает/скрывает баннер ошибки соединения и блокирует кнопки. */
@@ -221,12 +222,9 @@ function showError(visible) {
       actionText: 'Повторить',
       actionCallback: handleRetry,
       helpText: 'Помощь',
-      helpCallback: () => openHelpModal('port'),
+      helpCallback: () => openHelpModal('backend', false, '', 'backend-error'),
     });
     // Скрываем всё, что требует бэкенд (нет данных — нет смысла показывать)
-    document.getElementById('browser-not-found-banner')?.classList.add('hidden');
-    document.getElementById('banner-warning-app')?.classList.add('hidden');
-    document.getElementById('browser-settings-block')?.classList.add('hidden');
     document.getElementById('status-bar')?.classList.add('hidden');
   } else {
     // Скрываем баннер ошибки
@@ -243,10 +241,18 @@ async function loadAndRender() {
     state.proxies = config.proxies || [];
     state.masks = config.masks || [];
     state.enabled = config.isEnabled !== undefined ? config.isEnabled : true;
+    // Загружаем конфигурацию браузера (автозапуск и выбранный путь)
+    try {
+      const browserConfig = await apiGet('/browser-config');
+      state.autostartBrowser = browserConfig.autostartBrowser === true;
+      state.browserPath = browserConfig.browserPath || '';
+    } catch (browserErr) {
+      // Не критично — баннер о браузере просто не покажется
+      console.warn('[FlowLink Proxy] Не удалось загрузить конфигурацию браузера:', browserErr);
+    }
     window.__flowlinkConnected = true;
     showError(false);
     render(state);
-    renderAutostartToggle();
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs[0]?.url) renderTabStatus(tabs[0].url, state);
   } catch (e) {
@@ -345,14 +351,32 @@ function stopPolling() {
 }
 
 /**
+ * Показывает предупреждение, если включён автозапуск браузера,
+ * но браузер не выбран. Предлагает помощь по настройке.
+ */
+function renderBrowserWarning() {
+  const showWarning = state.autostartBrowser && !state.browserPath;
+  const banner = document.getElementById('banner-browser-warning');
+  if (!showWarning) {
+    if (banner) banner.classList.add('hidden');
+    return;
+  }
+  renderBanner('warning', 'Включён автозапуск браузера, но браузер не выбран. Настройте его, чтобы автозапуск работал.', {
+    bannerId: 'banner-browser-warning',
+    helpText: 'Помощь',
+    helpCallback: () => openHelpModal('browser', false, '', 'browser-warning'),
+  });
+}
+
+/**
  * Отрисовывает UI на основе состояния.
  * @param {object} state — глобальное состояние.
  */
 function render(state) {
+  renderBrowserWarning();
   renderProxyList();
   renderVersion();
   renderGlobalToggle();
-  renderAutostartToggle();
   // Маски: фильтр по выбранному прокси или все
   const filtered = state.selectedProxyId
     ? state.masks.filter(m => m.proxyId === state.selectedProxyId)
@@ -415,7 +439,7 @@ function attachGlobalListeners() {
   attachModalOverlayClose();
   document.addEventListener('click', (e) => {
     // Открыть модалку помощи
-    if (e.target.id === 'btn-help') openHelpModal('port');
+    if (e.target.id === 'btn-help') openHelpModal('port', false, '', 'general');
     // Удаление прокси
     if (e.target.classList.contains('btn-delete')) {
       const proxyId = e.target.dataset.proxyId;
@@ -459,42 +483,6 @@ function attachGlobalListeners() {
     if (e.target.id === 'global-toggle-input') {
       handleGlobalToggle(e.target);
     }
-    // Чекбокс автозапуска браузера
-    if (e.target.id === 'browser-autostart-toggle') {
-      const enabled = e.target.checked;
-      document.getElementById('browser-autostart-fields').classList.toggle('hidden', !enabled);
-      apiPost('/autostart-browser', { autostartBrowser: enabled }).catch((err) => {
-        showToast('Ошибка сохранения: ' + err.message);
-        e.target.checked = !enabled;
-      });
-    }
-    // Чекбокс системного автозапуска
-    if (e.target.id === 'system-autostart-toggle') {
-      const enabled = e.target.checked;
-      apiPost('/system-autostart', { enabled }).catch((err) => {
-        showToast('Ошибка сохранения: ' + err.message);
-        e.target.checked = !enabled;
-      });
-    }
-  });
-
-  // Выбор браузера из выпадающего списка
-  document.getElementById('browser-select')?.addEventListener('change', (e) => {
-    handleBrowserSelect(e.target, showToast);
-  });
-
-  // Сохранение пути к браузеру (кнопка)
-  document.getElementById('btn-browser-path-save')?.addEventListener('click', () => {
-    const input = document.getElementById('browser-path-input');
-    handleBrowserPathInput(input, showToast);
-  });
-
-  // Сохранение пути к браузеру (Enter в поле ввода)
-  document.getElementById('browser-path-input')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleBrowserPathInput(e.target, showToast);
-    }
   });
 
   document.addEventListener('submit', (e) => {
@@ -516,7 +504,7 @@ function attachGlobalListeners() {
   document.getElementById('btn-update-close')?.addEventListener('click', () => {
     document.getElementById('update-banner').classList.add('hidden');
   });
-  document.getElementById('btn-update-help')?.addEventListener('click', () => openHelpModal('backend', true, false, latestTag));
+  document.getElementById('btn-update-help')?.addEventListener('click', () => openHelpModal('update-backend', true, latestTag, 'update'));
 
   document.getElementById('btn-ping-all')?.addEventListener('click', () => handlePingAll(state, renderProxyList));
   document.getElementById('btn-add-proxy')?.addEventListener('click', () => {
@@ -540,9 +528,11 @@ function attachGlobalListeners() {
     closeModal();
   });
   document.getElementById('tab-backend')?.addEventListener('click', () => switchHelpTab('backend'));
+  document.getElementById('tab-browser')?.addEventListener('click', () => switchHelpTab('browser'));
   document.getElementById('tab-port')?.addEventListener('click', () => switchHelpTab('port'));
-  document.getElementById('tab-ext')?.addEventListener('click', () => switchHelpTab('ext'));
   document.getElementById('tab-faq')?.addEventListener('click', () => switchHelpTab('faq'));
+  document.getElementById('tab-update-backend')?.addEventListener('click', () => switchHelpTab('update-backend'));
+  document.getElementById('tab-update-ext')?.addEventListener('click', () => switchHelpTab('update-ext'));
 
   // Переключение видимости пароля
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);
@@ -579,9 +569,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Первая загрузка — один раз, без поллинга
     await loadAndRender();
-    // Загружаем статус автозапуска браузера
-    await loadAutostartStatus();
-    renderAutostartToggle();
     // Если бэкенд ответил — проверяем версию и обновления
     const backendOk = await checkBackendVersion();
     if (backendOk) {

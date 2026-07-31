@@ -9,10 +9,10 @@ from __future__ import annotations
 import logging
 import threading
 import tkinter as tk
-from typing import Any, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
+from server.tray.menu import build_menu_items, load_icon
 from server.tray.popup import FlowLinkPopup
-from server.tray.menu import load_icon, build_menu_items
 
 if TYPE_CHECKING:
     import pystray  # type: ignore[reportMissingImports]

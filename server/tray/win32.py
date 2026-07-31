@@ -32,9 +32,8 @@ import os
 import threading
 import tkinter as tk
 
-
-from server.tray.popup import FlowLinkPopup
 from server.tray.menu import build_menu_items
+from server.tray.popup import FlowLinkPopup
 
 logger = logging.getLogger('flowlink.tray.win32')
 
@@ -580,7 +579,8 @@ class Win32Tray:
             HICON или 0 при ошибке.
         """
         try:
-            from PIL import Image, ImageDraw  # pylint: disable=import-outside-toplevel
+            from PIL import (Image,  # pylint: disable=import-outside-toplevel
+                             ImageDraw)
         except ImportError:
             logger.warning(
                 'Tray Win32: Pillow недоступен для дефолтной иконки',

@@ -11,14 +11,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from server.utils import (
-    _validate_port,
-    clear_all_data,
-    clear_data_only,
-    clear_logs_only,
-    get_data_dir,
-    write_port_file,
-)
+from server.utils import (_validate_port, clear_all_data, clear_data_only,
+                          clear_logs_only, get_data_dir, write_port_file)
 
 
 class TestGetDataDirEnvVar(unittest.TestCase):

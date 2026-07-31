@@ -8,11 +8,8 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from server.tray.menu import (
-    _select_browser,
-    build_menu_items,
-    get_autostart_state,
-)
+from server.tray.menu import (_select_browser, build_menu_items,
+                              get_autostart_state)
 
 
 class TestGetAutostartState(unittest.TestCase):

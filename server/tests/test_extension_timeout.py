@@ -11,14 +11,10 @@
 import asyncio
 import inspect
 import unittest
-import urllib.error
 from unittest.mock import patch
 
-from server.__main__ import (
-    _EXTENSION_CHECK_INTERVAL,
-    _EXTENSION_CONNECT_TIMEOUT,
-    _watch_api_connection,
-)
+from server.__main__ import (_EXTENSION_CHECK_INTERVAL,
+                             _EXTENSION_CONNECT_TIMEOUT, _watch_api_connection)
 
 
 class _SyncThread:  # pylint: disable=too-few-public-methods
@@ -87,8 +83,8 @@ class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
             patch('server.__main__._EXTENSION_CONNECT_TIMEOUT', 1),
             patch('server.__main__._EXTENSION_CHECK_INTERVAL', 1),
             patch(
-                'server.__main__.urllib.request.urlopen',
-                side_effect=urllib.error.URLError('нет соединения'),
+                'server.__main__.is_extension_connected',
+                return_value=False,
             ),
             patch(
                 'server.ui.dialogs.ask_yes_no',
@@ -97,7 +93,7 @@ class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
             patch('server.__main__.threading.Thread', new=_SyncThread),
         ):
             await asyncio.wait_for(
-                _watch_api_connection(api_port=1, server_dir='server'),
+                _watch_api_connection(server_dir='server'),
                 timeout=5,
             )
 
@@ -126,3 +122,36 @@ class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('Отметьте чекбокс "Запуск с расширением"', msg)
         self.assertNotIn('Нажмите "Запустить браузер" в меню трея', msg)
         self.assertNotIn('Укажите браузер через пункт "Выбрать браузер..."', msg)
+
+
+class TestWatchApiConnectionConnected(unittest.IsolatedAsyncioTestCase):
+    """Поведение _watch_api_connection при подключённом расширении."""
+
+    async def test_returns_when_extension_connected(self):
+        """При подключённом расширении watcher возвращается без уведомления."""
+        messages = []
+
+        def _fake_ask_yes_no(_title, message, **_kwargs):
+            messages.append(message)
+            return False
+
+        with (
+            patch('server.__main__._EXTENSION_CONNECT_TIMEOUT', 120),
+            patch('server.__main__._EXTENSION_CHECK_INTERVAL', 1),
+            patch(
+                'server.__main__.is_extension_connected',
+                return_value=True,
+            ),
+            patch(
+                'server.ui.dialogs.ask_yes_no',
+                side_effect=_fake_ask_yes_no,
+            ),
+            patch('server.__main__.threading.Thread', new=_SyncThread),
+        ):
+            await asyncio.wait_for(
+                _watch_api_connection(server_dir='server'),
+                timeout=5,
+            )
+
+        # Уведомление не должно показываться
+        self.assertEqual(len(messages), 0)

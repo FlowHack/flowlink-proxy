@@ -7,12 +7,11 @@ Linux, macOS и Win32 трей-модулями.
 
 from __future__ import annotations
 
-import types
-from typing import Any, Callable, Dict, List, Optional
-
 import logging
 import os
+import types
 import webbrowser
+from typing import Any, Callable, Dict, List, Optional
 
 from server.utils import get_data_dir
 
@@ -43,7 +42,8 @@ def load_icon(
     """
     icon_logger = logging.getLogger(logger_name)
     # Ленивый импорт: избегает циклических зависимостей
-    from server.utils import get_resource_dir  # pylint: disable=import-outside-toplevel
+    from server.utils import \
+        get_resource_dir  # pylint: disable=import-outside-toplevel
     icon_path = os.path.normpath(
         os.path.join(get_resource_dir(), _ICON_PATH),
     )
@@ -331,7 +331,8 @@ def _select_browser(
 
         if detected:
             # Используем кастомный диалог выбора из списка
-            from server.ui.dialogs import show_item_picker  # pylint: disable=import-outside-toplevel
+            from server.ui.dialogs import \
+                show_item_picker  # pylint: disable=import-outside-toplevel
 
             def _on_select(item: dict) -> None:
                 """Обработчик выбора браузера из списка."""
@@ -355,7 +356,9 @@ def _select_browser(
             # Если текущий браузер указан вручную и не найден детектором —
             # добавляем его в конец списка как выбранный элемент.
             if current_path:
-                from server.config import browser_config as _bc  # pylint: disable=import-outside-toplevel
+                from server.config import \
+                    browser_config as \
+                    _bc  # pylint: disable=import-outside-toplevel
                 not_detected = all(
                     b['path'] != current_path for b in detected
                 )
@@ -408,8 +411,11 @@ def _open_file_dialog(
     """
     try:
         import tkinter as tk  # pylint: disable=import-outside-toplevel
-        from tkinter import filedialog  # pylint: disable=import-outside-toplevel
-        from server.ui.dialogs import _set_window_icon  # pylint: disable=import-outside-toplevel
+        from tkinter import \
+            filedialog  # pylint: disable=import-outside-toplevel
+
+        from server.ui.dialogs import \
+            _set_window_icon  # pylint: disable=import-outside-toplevel
 
         owns_root = tk_root is None
         root = tk_root if tk_root is not None else tk.Tk()
@@ -429,7 +435,9 @@ def _open_file_dialog(
             root.destroy()
 
         if path:
-            from server.config import browser_config as _bc  # pylint: disable=import-outside-toplevel
+            from server.config import \
+                browser_config as \
+                _bc  # pylint: disable=import-outside-toplevel
             validation = _bc.validate_browser_path_detailed(path)
             if validation['valid']:
                 saver = callbacks.get('browser_path_saver')
@@ -567,10 +575,32 @@ def build_menu_items(
     # Определяем, выбран ли браузер: для валидного пути показываем
     # зелёную пометку у пункта «Выбрать браузер...».
     browser_path = callbacks.get('browser_path_getter', lambda: '')()
-    from server.config import browser_config as _bc  # pylint: disable=import-outside-toplevel
+    from server.config import \
+        browser_config as _bc  # pylint: disable=import-outside-toplevel
     browser_selected = bool(browser_path) and _bc.validate_browser_path(browser_path)
 
+    # Состояние подключения расширения (для индикатора в меню).
+    # По умолчанию считаем расширение отключённым, если callback не передан.
+    ext_connected = bool(
+        callbacks.get('extension_connected_getter', lambda: False)(),
+    )
+
     return [
+        {
+            'type': 'header',
+            'text': (
+                'Расширение: подключено' if ext_connected
+                else 'Расширение: не подключено'
+            ),
+            'icon': '\U0001f517' if ext_connected else '\u26a0\ufe0f',
+            'color': '#2ecc71' if ext_connected else '#e74c3c',
+            'tooltip': (
+                'Расширение FlowLink Proxy подключено к бэкенду'
+                if ext_connected
+                else 'Расширение FlowLink Proxy не подключено. '
+                     'Установите и запустите расширение в браузере'
+            ),
+        },
         {
             'type': 'item',
             'text': 'Посмотреть логи',

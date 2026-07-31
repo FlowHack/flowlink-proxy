@@ -6,10 +6,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
-
 import logging
 import sys
+from typing import Any, Dict
 
 logger = logging.getLogger('flowlink.tray')
 
@@ -43,7 +42,8 @@ def has_pystray() -> bool:
         # Xlib.error.DisplayNameError при отсутствии X-дисплея.
         # Ловим display-ошибки Xlib, остальное — пробрасываем.
         try:
-            from Xlib.error import DisplayError  # type: ignore[reportMissingModuleSource]  # Xlib — optional, headless CI  # pylint: disable=import-outside-toplevel
+            from Xlib.error import \
+                DisplayError  # type: ignore[reportMissingModuleSource]  # Xlib — optional, headless CI  # pylint: disable=import-outside-toplevel
             if isinstance(exc, DisplayError):
                 logger.debug('pystray: Xlib display-ошибка (headless?): %s', exc)
                 return False
@@ -57,7 +57,8 @@ def has_pil() -> bool:
     """Проверяет, доступен ли Pillow (нужен для иконки)."""
     try:
         # Runtime-проверка: нужен для иконки трея
-        from PIL import Image  # pylint: disable=import-outside-toplevel,unused-import
+        from PIL import \
+            Image  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
         return False

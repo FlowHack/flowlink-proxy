@@ -58,39 +58,6 @@
         </form>
       </div>
 
-      <!-- Секция: Браузер -->
-      <div class="settings-section">
-        <div class="settings-section-title">Браузер</div>
-        <div class="settings-row-item">
-          <label class="settings-checkbox-label">
-            <input type="checkbox" id="browser-autostart-toggle" class="settings-checkbox">
-            <span>Автозапуск браузера</span>
-          </label>
-        </div>
-        <div id="browser-autostart-fields" class="browser-autostart-fields hidden">
-          <div class="settings-row-item browser-config-settings">
-            <label class="autostart-label" for="browser-select">Браузер:</label>
-            <select id="browser-select" class="input-settings browser-select"></select>
-          </div>
-          <div class="settings-row-item browser-path-settings">
-            <label class="autostart-label" for="browser-path-input">Путь:</label>
-            <input id="browser-path-input" class="input-settings" type="text" placeholder="Путь к исполняемому файлу">
-            <button id="btn-browser-path-save" type="button" class="btn-settings-save">Сохранить</button>
-          </div>
-          <div id="browser-path-error" class="browser-path-error hidden"></div>
-        </div>
-      </div>
-
-      <!-- Секция: Система -->
-      <div class="settings-section">
-        <div class="settings-section-title">Система</div>
-        <div class="settings-row-item">
-          <label class="settings-checkbox-label">
-            <input type="checkbox" id="system-autostart-toggle" class="settings-checkbox">
-            <span>Запуск с системой</span>
-          </label>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -103,9 +70,11 @@
       </div>
       <div id="modal-tabs" class="help-tabs">
         <button id="tab-backend" class="help-tab active">Бэкенд</button>
+        <button id="tab-browser" class="help-tab">Браузер</button>
         <button id="tab-port" class="help-tab">Настройка порта</button>
-        <button id="tab-ext" class="help-tab">Расширение</button>
         <button id="tab-faq" class="help-tab">FAQ</button>
+        <button id="tab-update-backend" class="help-tab hidden">Обновление бэкенда</button>
+        <button id="tab-update-ext" class="help-tab hidden">Обновление расширения</button>
       </div>
       <div class="modal-body help-content" id="help-content">
         <!-- заполняется JS -->

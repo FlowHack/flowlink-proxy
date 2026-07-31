@@ -13,12 +13,11 @@ from server.config import repo as config_repo
 from server.servers.handlers import (_close_tunnels_on_config_change,
                                      _extract_masks_dict,
                                      _extract_proxies_dict,
-                                     _log_config_changes,
-                                     handle_get_config, handle_get_status,
-                                     handle_get_version, handle_post_config,
-                                     handle_post_enabled)
+                                     _log_config_changes, handle_get_config,
+                                     handle_get_status, handle_get_version,
+                                     handle_post_config, handle_post_enabled)
 from server.services.router import MaskRouter
-from server.tests.base import TempConfigMixin, TempConfigEnabledMixin
+from server.tests.base import TempConfigEnabledMixin, TempConfigMixin
 
 
 class TestExtractHelpers(unittest.TestCase):

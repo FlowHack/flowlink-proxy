@@ -25,19 +25,18 @@ import os
 import signal
 import sys
 import threading
-import urllib.request
-import urllib.error
 import webbrowser
 
+from server.config import browser_config as _browser_config
 from server.config import config as cfg
 from server.config import system_autostart as _system_autostart
-from server.config import browser_config as _browser_config
 from server.logging_config import setup_logging
 from server.protocols.mock_socks5 import MockSocks5Server
 from server.servers.api import ApiServer
 from server.servers.proxy import ProxyServer
 from server.services.debug import log_config_state
 from server.services.events import emit_event
+from server.services.extension_connection import is_extension_connected
 from server.services.fake_proxies import generate_fake_proxies
 from server.services.router import MaskRouter
 from server.utils import write_port_file
@@ -51,11 +50,7 @@ except ImportError:
 
 # Импорты для колбэков трей
 from server.config import autostart as _autostart
-from server.utils import (
-    clear_logs_only,
-    clear_all_data,
-    get_data_dir,
-)
+from server.utils import clear_all_data, clear_logs_only, get_data_dir
 
 logger = logging.getLogger('flowlink')
 
@@ -196,6 +191,7 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
             _browser_config.get_browser_path(),
             proxy_port=args.proxy_port,
         ),
+        'extension_connected_getter': is_extension_connected,
     }
     if not _HAS_TRAY:
         logger.warning('Модуль трея недоступен')
@@ -220,7 +216,8 @@ def _start_alt_tray(callbacks: dict):
     """
     try:
         # Ленивый импорт: функция обёрнута в server/tray/__init__.py
-        from server.tray import _start_pystray_fallback  # pylint: disable=import-outside-toplevel,protected-access
+        from server.tray import \
+            _start_pystray_fallback  # pylint: disable=import-outside-toplevel,protected-access
         return _start_pystray_fallback(callbacks)
     except ImportError as e:
         logger.error(
@@ -320,16 +317,16 @@ _EXTENSION_CONNECT_TIMEOUT = 120
 _EXTENSION_CHECK_INTERVAL = 10
 
 
-async def _watch_api_connection(api_port: int, server_dir: str) -> None:
+async def _watch_api_connection(server_dir: str) -> None:
     """
     Следит за подключением расширения к API-серверу.
 
-    Если за 2 минуты ни один запрос от расширения не был получен —
+    Если за 2 минуты расширение не установило SSE-соединение —
     показывает пользователю уведомление с инструкцией по установке.
-    Использует stdlib urllib (без внешних зависимостей).
+    Состояние подключения отслеживается через extension_connection
+    (активные SSE-соединения от расширения к /api/events).
 
     Args:
-        api_port: Порт API-сервера для проверки.
         server_dir: Директория server/ (для поиска help.html).
     """
     logger.debug('Ожидание подключения расширения (%d сек)...',
@@ -337,18 +334,13 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
 
     for elapsed in range(0, _EXTENSION_CONNECT_TIMEOUT, _EXTENSION_CHECK_INTERVAL):
         await asyncio.sleep(_EXTENSION_CHECK_INTERVAL)
-        try:
-            url = f'http://127.0.0.1:{api_port}/api/version'
-            req = urllib.request.Request(url, method='GET')
-            with urllib.request.urlopen(req, timeout=3):
-                # Сервер отвечает — расширение может подключиться
-                logger.debug(
-                    'API-сервер отвечает (прошло %d сек)',
-                    elapsed + _EXTENSION_CHECK_INTERVAL,
-                )
-                return
-        except (urllib.error.URLError, OSError):
-            continue
+        if is_extension_connected():
+            # Расширение установило SSE-соединение
+            logger.debug(
+                'Расширение подключено (прошло %d сек)',
+                elapsed + _EXTENSION_CHECK_INTERVAL,
+            )
+            return
 
     # 2 минуты прошли, расширение не подключилось
     logger.warning('Расширение не подключено к API-серверу за %d секунд',
@@ -360,7 +352,8 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
     def _show_notification():
         """Показывает уведомление в отдельном потоке (tkinter или webbrowser)."""
         try:
-            from server.ui.dialogs import ask_yes_no  # pylint: disable=import-outside-toplevel
+            from server.ui.dialogs import \
+                ask_yes_no  # pylint: disable=import-outside-toplevel
 
             message = (
                 'FlowLink Proxy запущен, но расширение не подключено.\n'
@@ -423,7 +416,6 @@ async def _run_server(args: argparse.Namespace) -> None:
         logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
         write_port_file(args.api_port, args.proxy_port)
         asyncio.create_task(_watch_api_connection(
-            args.api_port,
             os.path.dirname(os.path.abspath(__file__)),
         ))
     except OSError as e:

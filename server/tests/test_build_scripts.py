@@ -9,7 +9,6 @@ import os
 import subprocess
 import unittest
 
-
 # Путь к корню проекта (от server/tests/ поднимаемся на 2 уровня)
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', '..')
