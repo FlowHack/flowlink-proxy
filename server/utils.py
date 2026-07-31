@@ -54,6 +54,10 @@ def ensure_extension_dir() -> str | None:
     рестарты/обновления, содержимое источника копируется в
     <data_dir>/extension.
 
+    Из скопированного manifest.json удаляется поле key: оно маркирует
+    расширение как подписанное, и Chromium-движки (в т.ч. Яндекс.Браузер)
+    блокируют загрузку такого расширения через --load-extension.
+
     Returns:
         Путь к стабильной копии расширения или None, если источник
         не найден или копирование не удалось.
@@ -75,6 +79,28 @@ def ensure_extension_dir() -> str | None:
             src, dst, e,
         )
         return None
+
+    # Поле key в manifest.json маркирует расширение как подписанное,
+    # и Chromium-движки (в т.ч. Яндекс.Браузер) блокируют загрузку
+    # такого расширения через --load-extension. Поэтому в стабильной
+    # копии оно удаляется.
+    manifest_path = os.path.join(dst, 'manifest.json')
+    try:
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            manifest = json.load(f)
+        if 'key' in manifest:
+            del manifest['key']
+            with open(manifest_path, 'w', encoding='utf-8') as f:
+                json.dump(manifest, f, ensure_ascii=False, indent=2)
+            logger.debug(
+                'Поле key удалено из manifest.json расширения в %s',
+                manifest_path,
+            )
+    except (OSError, ValueError) as e:
+        logger.error(
+            'Не удалось обработать manifest.json расширения %s: %s',
+            manifest_path, e,
+        )
 
     logger.debug('Расширение скопировано из %s в %s', src, dst)
     return dst

@@ -19,7 +19,6 @@ from server.utils import (
     ensure_extension_dir,
     get_crx_path,
     get_data_dir,
-    get_extension_dir,
     write_port_file,
 )
 
@@ -447,6 +446,32 @@ class TestEnsureExtensionDir(unittest.TestCase):
             result = ensure_extension_dir()
         self.assertIsNone(result)
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'extension')))
+
+    @patch('server.utils.get_extension_dir')
+    def test_removes_key_from_manifest(self, mock_get_extension_dir):
+        """Поле key удаляется из manifest.json в скопированной папке.
+
+        Поле key маркирует расширение как подписанное, и Chromium-движки
+        блокируют загрузку такого расширения через --load-extension,
+        поэтому в стабильной копии оно должно быть удалено.
+        """
+        src = os.path.join(self.tmpdir, 'src-extension-key')
+        os.makedirs(src, exist_ok=True)
+        with open(os.path.join(src, 'manifest.json'), 'w', encoding='utf-8') as f:
+            json.dump({'name': 'FlowLink Proxy', 'key': 'SOME_RSA_KEY'}, f)
+        mock_get_extension_dir.return_value = src
+
+        with patch.dict(os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir}):
+            result = ensure_extension_dir()
+
+        expected = os.path.join(self.tmpdir, 'extension')
+        self.assertEqual(result, expected)
+        with open(
+            os.path.join(expected, 'manifest.json'), 'r', encoding='utf-8',
+        ) as f:
+            manifest = json.load(f)
+        self.assertNotIn('key', manifest)
+        self.assertEqual(manifest['name'], 'FlowLink Proxy')
 
     @patch('server.utils.shutil.copytree', side_effect=OSError('disk full'))
     @patch('server.utils.get_extension_dir')
