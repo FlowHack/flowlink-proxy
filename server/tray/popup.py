@@ -47,6 +47,8 @@ class FlowLinkPopup:
         self._queue = Queue()
         self._build_lock = threading.Lock()
         self._polling_active = False
+        self._focus_out_after_id: Optional[str] = None
+        self._command_running: bool = False
 
     def set_tk_root(self, root: tk.Tk) -> None:
         """
@@ -402,6 +404,8 @@ class FlowLinkPopup:
         # Автозакрытие при потере фокуса
         try:
             def _bind_focus_out() -> None:
+                if self._command_running:
+                    return
                 if (
                     self._popup
                     and self._popup.winfo_exists()
@@ -411,7 +415,9 @@ class FlowLinkPopup:
                         lambda _e: self.dismiss(),
                     )
 
-            self._popup.after(100, _bind_focus_out)
+            self._focus_out_after_id = self._popup.after(
+                100, _bind_focus_out,
+            )
         except tk.TclError as e:
             logger.warning(
                 'Popup: не удалось установить '
@@ -567,6 +573,18 @@ class FlowLinkPopup:
                 # Освобождаем grab popup, чтобы диалог мог установить свой grab,
                 # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
                 # в рабочем состоянии для диалогов (например, выбора браузера).
+                self._command_running = True
+                # Отменяем отложенный биндинг FocusOut (after(100, ...)),
+                # чтобы он не перевесился заново во время работы диалога
+                if self._focus_out_after_id is not None:
+                    try:
+                        if self._popup is not None:
+                            self._popup.after_cancel(
+                                self._focus_out_after_id,
+                            )
+                    except (tk.TclError, ValueError):
+                        pass
+                    self._focus_out_after_id = None
                 try:
                     if self._popup and self._popup.winfo_exists():
                         self._popup.grab_release()
@@ -585,6 +603,7 @@ class FlowLinkPopup:
                             'команды: %s',
                             e, exc_info=True,
                         )
+                self._command_running = False
                 # После завершения команды — полностью закрываем popup
                 self.dismiss()
 
@@ -683,6 +702,18 @@ class FlowLinkPopup:
                 # Освобождаем grab popup, чтобы диалог мог установить свой grab,
                 # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
                 # в рабочем состоянии для диалогов (например, выбора браузера).
+                self._command_running = True
+                # Отменяем отложенный биндинг FocusOut (after(100, ...)),
+                # чтобы он не перевесился заново во время работы диалога
+                if self._focus_out_after_id is not None:
+                    try:
+                        if self._popup is not None:
+                            self._popup.after_cancel(
+                                self._focus_out_after_id,
+                            )
+                    except (tk.TclError, ValueError):
+                        pass
+                    self._focus_out_after_id = None
                 try:
                     if self._popup and self._popup.winfo_exists():
                         self._popup.grab_release()
@@ -701,6 +732,7 @@ class FlowLinkPopup:
                             'команды: %s',
                             e, exc_info=True,
                         )
+                self._command_running = False
                 # После завершения команды — полностью закрываем popup
                 self.dismiss()
 
