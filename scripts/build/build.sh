@@ -141,6 +141,7 @@ $PYTHON -m PyInstaller \
     $ICON_FLAG \
     --add-data "server/requirements.txt${DATA_SEP}server/" \
     --add-data "server/icons${DATA_SEP}icons/" \
+    --add-data "extension${DATA_SEP}extension/" \
     $CRX_DATA \
     --hidden-import tkinter \
     --hidden-import _tkinter \

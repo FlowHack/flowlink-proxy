@@ -257,21 +257,36 @@ def _is_valid_extension_path(ext_path: str) -> bool:
     """
     Проверяет, является ли путь корректным расширением FlowLink Proxy.
 
-    Поддерживаются два варианта:
-      - Файл CRX (например, flowlink-proxy.crx)
-      - Распакованная папка расширения с manifest.json
+    Валидной считается ТОЛЬКО распакованная папка с manifest.json:
+    флаг --load-extension в Chromium-движках принимает исключительно
+    unpacked-директорию, а путь к .crx-файлу молча игнорируется.
 
     Args:
         ext_path: Путь к расширению.
 
     Returns:
-        True если путь валиден (файл CRX или папка с manifest.json).
+        True если путь — распакованная папка с manifest.json, иначе False.
     """
-    if os.path.isfile(ext_path):
-        return True
-    return os.path.isdir(ext_path) and os.path.isfile(
+    if not ext_path:
+        return False
+
+    if os.path.isdir(ext_path) and os.path.isfile(
         os.path.join(ext_path, 'manifest.json'),
-    )
+    ):
+        return True
+
+    if os.path.isfile(ext_path):
+        logger.debug(
+            'Расширение %s отклонено: --load-extension не поддерживает '
+            'CRX-файлы, только распакованную папку с manifest.json',
+            ext_path,
+        )
+    else:
+        logger.debug(
+            'Расширение %s отклонено: путь не является папкой с manifest.json',
+            ext_path,
+        )
+    return False
 
 
 def launch_browser(
@@ -285,8 +300,8 @@ def launch_browser(
     Args:
         browser_path: Путь к исполняемому файлу браузера.
         proxy_port: Порт HTTP-прокси (по умолчанию 8080).
-        ext_path: Путь к расширению (CRX-файл или распакованная папка
-            с manifest.json), опционально.
+        ext_path: Путь к распакованной папке расширения с manifest.json
+            (CRX-файл не поддерживается флагом --load-extension), опционально.
 
     Returns:
         True если браузер успешно запущен, False при ошибке.
@@ -319,10 +334,7 @@ def launch_browser(
             kwargs['start_new_session'] = True
 
         subprocess.Popen(**kwargs)  # pylint: disable=consider-using-with
-        logger.info(
-            'Браузер запущен: %s --proxy-server=127.0.0.1:%d',
-            browser_path, proxy_port,
-        )
+        logger.info('Браузер запущен: %s', ' '.join(args))
         return True
     except (OSError, ValueError) as e:
         logger.error('Не удалось запустить браузер %s: %s', browser_path, e)

@@ -49,14 +49,22 @@ def get_crx_path() -> str | None:
     Возвращает путь к расширению FlowLink Proxy.
 
     Порядок поиска:
-    1. CRX-файл рядом с бинарником (PyInstaller — CRX добавлен через --add-data)
-    2. CRX-файл в resource_dir (для отладки из исходников)
-    3. CRX-файл в data_dir (пользователь скопировал вручную)
-    4. Распакованная папка extension/ (fallback для запуска из исходников)
+    1. Распакованная папка extension/ — приоритетный вариант, т.к.
+       флаг --load-extension в Chromium-движках принимает только
+       unpacked-директорию с manifest.json (путь к .crx-файлу молча
+       игнорируется браузером).
+    2. CRX-файл рядом с бинарником (PyInstaller — CRX добавлен через --add-data)
+    3. CRX-файл в resource_dir (для отладки из исходников)
+    4. CRX-файл в data_dir (пользователь скопировал вручную)
 
     Returns:
-        Путь к CRX-файлу или к папке расширения, либо None, если не найдено.
+        Путь к распакованной папке расширения или к CRX-файлу,
+        либо None, если ничего не найдено.
     """
+    ext_dir = get_extension_dir()
+    if ext_dir:
+        return ext_dir
+
     candidates = []
 
     if getattr(sys, 'frozen', False):
@@ -70,7 +78,7 @@ def get_crx_path() -> str | None:
         if os.path.isfile(path):
             return path
 
-    return get_extension_dir()
+    return None
 
 
 def get_data_dir() -> str:

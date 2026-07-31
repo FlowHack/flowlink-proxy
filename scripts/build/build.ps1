@@ -170,6 +170,7 @@ $binaryName = "FlowLink Proxy.exe"
     $iconFlag `
     --add-data "server/requirements.txt;server/" `
     --add-data "server/icons;icons/" `
+    --add-data "extension;extension/" `
     @crxDataFlag `
     --hidden-import tkinter `
     --hidden-import _tkinter `

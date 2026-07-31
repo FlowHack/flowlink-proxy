@@ -210,17 +210,32 @@ class TestLaunchBrowser(unittest.TestCase):
         self.assertFalse(any('--load-extension' in a for a in args))
 
     @patch('server.config.browser_config.os.path.isfile', return_value=True)
+    @patch('server.config.browser_config.os.path.isdir', return_value=True)
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_extension(self, _mock_validate, mock_popen, _mock_isfile):
+    def test_launch_with_extension(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile):
         """Запуск браузера с расширением — добавляется --load-extension."""
         result = launch_browser(
             '/usr/bin/chrome', proxy_port=8080,
-            ext_path='/tmp/flowlink.crx',
+            ext_path='/tmp/flowlink-ext',
         )
         self.assertTrue(result)
         args = mock_popen.call_args[1]['args']
-        self.assertIn('--load-extension=/tmp/flowlink.crx', args)
+        self.assertIn('--load-extension=/tmp/flowlink-ext', args)
+
+    @patch('server.config.browser_config.os.path.isfile', return_value=True)
+    @patch('server.config.browser_config.os.path.isdir', return_value=False)
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_with_crx_rejected(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile):
+        """CRX-файл отклоняется: --load-extension не поддерживает .crx."""
+        result = launch_browser(
+            '/usr/bin/chrome', proxy_port=8080,
+            ext_path='/tmp/flowlink-proxy.crx',
+        )
+        self.assertTrue(result)
+        args = mock_popen.call_args[1]['args']
+        self.assertFalse(any('--load-extension' in a for a in args))
 
     @patch('server.config.browser_config.os.path.isfile', return_value=False)
     @patch('server.config.browser_config.subprocess.Popen')
@@ -241,7 +256,10 @@ class TestLaunchBrowser(unittest.TestCase):
         result = launch_browser('/nonexistent/browser')
         self.assertFalse(result)
 
-    @patch('server.config.browser_config.subprocess.Popen', side_effect=OSError('permission denied'))
+    @patch(
+        'server.config.browser_config.subprocess.Popen',
+        side_effect=OSError('permission denied'),
+    )
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
     def test_launch_os_error(self, _mock_validate, _mock_popen):
         """Ошибка запуска subprocess возвращает False."""
