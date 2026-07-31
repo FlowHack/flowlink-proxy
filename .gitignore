@@ -60,6 +60,8 @@ server/dist/
 server/FlowLink Proxy/
 build-tmp/
 *.spec
+# Исключение: RPM spec-файл проекта (в отличие от генерируемых PyInstaller'ом .spec-файлов)
+!scripts/build/flowlink.spec
 
 # --- Сборка релизов ---
 releases/
