@@ -597,7 +597,7 @@ class FlowLinkPopup:
                 if cmd:
                     try:
                         cmd()
-                    except (OSError, ValueError, RuntimeError) as e:
+                    except (OSError, ValueError, RuntimeError, tk.TclError) as e:
                         logger.error(
                             'Popup: ошибка при выполнении '
                             'команды: %s',
@@ -726,7 +726,7 @@ class FlowLinkPopup:
                 if cmd:
                     try:
                         cmd()
-                    except (OSError, ValueError, RuntimeError) as e:
+                    except (OSError, ValueError, RuntimeError, tk.TclError) as e:
                         logger.error(
                             'Popup: ошибка при выполнении '
                             'команды: %s',
