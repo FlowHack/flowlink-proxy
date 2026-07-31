@@ -52,7 +52,6 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         self._command_running: bool = False
         # Статусбар для тултипов (инлайн-подсказок)
         self._tooltip_label: Optional[tk.Label] = None
-        self._tooltip_after_id: Optional[str] = None
         self._tooltip_text = ''
 
     def set_tk_root(self, root: tk.Tk) -> None:
@@ -165,7 +164,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
     def dismiss(self) -> None:
         """Закрывает popup-меню, если оно открыто."""
         self._polling_active = False
-        # Отменяем таймер тултипа и очищаем статусбар
+        # Очищаем статусбар тултипа
         self._hide_tooltip()
         try:
             if self._popup is not None:
@@ -672,7 +671,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
                 widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
                 widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
-                # Тултип: показываем с задержкой при наведении,
+                # Тултип: показываем мгновенно при наведении,
                 # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
                 self._bind_tooltip(widget, tooltip)
         except tk.TclError as e:
@@ -813,7 +812,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
                 widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
                 widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
-                # Тултип: показываем с задержкой при наведении,
+                # Тултип: показываем мгновенно при наведении,
                 # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
                 self._bind_tooltip(widget, tooltip)
         except tk.TclError as e:
@@ -842,33 +841,20 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             )
 
     def _show_tooltip(self, text: str) -> None:
-        """Показывает инлайн-подсказку в статусбаре с задержкой.
+        """Показывает инлайн-подсказку в статусбаре мгновенно.
 
-        Текст отображается только если курсор задержался на пункте
-        600 мс — быстрый проезд по меню не мигает статусбаром.
+        Текст отображается сразу при наведении курсора на пункт,
+        без задержки — при быстром движении мыши статусбар
+        просто обновляется новым текстом.
 
         Args:
             text: Текст подсказки.
         """
         self._tooltip_text = text
-        # Отменяем предыдущий таймер перед установкой нового
-        self._cancel_tooltip_timer()
-        if self._popup is None:
-            return
-        try:
-            if not self._popup.winfo_exists():
-                return
-            self._tooltip_after_id = self._popup.after(
-                600, self._display_tooltip,
-            )
-        except tk.TclError as e:
-            logger.debug(
-                'Popup: не удалось запланировать тултип: %s', e,
-            )
+        self._display_tooltip()
 
     def _display_tooltip(self) -> None:
         """Отображает накопленный текст тултипа в статусбаре."""
-        self._tooltip_after_id = None
         if self._tooltip_label is None or self._popup is None:
             return
         try:
@@ -881,8 +867,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             )
 
     def _hide_tooltip(self) -> None:
-        """Скрывает подсказку и отменяет таймер её показа."""
-        self._cancel_tooltip_timer()
+        """Скрывает подсказку и очищает статусбар."""
         self._tooltip_text = ''
         if self._tooltip_label is not None:
             try:
@@ -892,19 +877,6 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                     'Popup: статусбар тултипа уже уничтожен — пропуск',
                 )
 
-    def _cancel_tooltip_timer(self) -> None:
-        """Отменяет отложенный показ тултипа, если он запланирован."""
-        if self._tooltip_after_id is None:
-            return
-        try:
-            if self._popup is not None and self._popup.winfo_exists():
-                self._popup.after_cancel(self._tooltip_after_id)
-        except (tk.TclError, ValueError):
-            logger.debug(
-                'Popup: не удалось отменить таймер тултипа',
-            )
-        self._tooltip_after_id = None
-
     def _bind_tooltip(
         self,
         widget: Any,
@@ -913,8 +885,8 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         """Привязывает показ/скрытие тултипа к виджету пункта меню.
 
         Использует add='+', чтобы не перезаписывать существующие
-        hover-биндинги (подсветку фона). Показ — с задержкой 600 мс,
-        скрытие — мгновенно при уходе курсора.
+        hover-биндинги (подсветку фона). Показ — мгновенно при
+        наведении, скрытие — при уходе курсора.
 
         Args:
             widget: Виджет пункта (frame или его label).

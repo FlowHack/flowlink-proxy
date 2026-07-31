@@ -8,6 +8,7 @@
 """
 
 import unittest
+from unittest.mock import patch
 
 try:
     from server.tray.popup import FlowLinkPopup, PopupColors
@@ -189,18 +190,23 @@ class TestFlowLinkPopupTooltip(unittest.TestCase):
     """Тесты логики тултипов (без реального tkinter-окна)."""
 
     def test_initial_tooltip_state(self):
-        """При создании статусбар и таймер тултипа пусты."""
+        """При создании статусбар и текст тултипа пусты."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         self.assertIsNone(popup._tooltip_label)  # pylint: disable=protected-access
-        self.assertIsNone(popup._tooltip_after_id)  # pylint: disable=protected-access
         self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access
 
     def test_show_tooltip_without_popup_sets_text(self):
-        """_show_tooltip без popup сохраняет текст, но не планирует таймер."""
+        """_show_tooltip без popup сохраняет текст."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
         self.assertEqual(popup._tooltip_text, 'Подсказка')  # pylint: disable=protected-access
-        self.assertIsNone(popup._tooltip_after_id)  # pylint: disable=protected-access
+
+    def test_show_tooltip_displayed_immediately(self):
+        """_show_tooltip сразу вызывает _display_tooltip (без after-задержки)."""
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        with patch.object(popup, '_display_tooltip') as display:
+            popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
+            display.assert_called_once_with()
 
     def test_hide_tooltip_clears_text(self):
         """_hide_tooltip очищает текст подсказки."""
