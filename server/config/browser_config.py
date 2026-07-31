@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 
 from server.config import autostart as _autostart_mod
 from server.services.cdp import find_free_port, load_unpacked_extension
@@ -305,16 +306,25 @@ def launch_browser(
     Базовые флаги (добавляются всегда):
         --no-first-run, --no-default-browser-check — подавление первого
         запуска и проверки браузера по умолчанию.
-        --user-data-dir — выделенный профиль, чтобы не перехватывать
-        уже запущенный процесс пользователя (handoff).
+        --user-data-dir — уникальный профиль на каждый запуск, чтобы
+        исключить handoff в уже запущенный процесс (Chromium передаёт
+        командную строку существующему процессу и игнорирует новые флаги).
 
-    При наличии валидного расширения добавляются:
-        --remote-debugging-port и --remote-allow-origins=* — открывают
-        CDP-эндпоинт, через который расширение загружается командой
-        Extensions.loadUnpacked. Такой способ обходит Developer Mode-гейт
-        Яндекс.Браузера 26.x (Chromium 148): расширение получает флаг
-        INSTALLED_VIA_CDP и загружается без --load-extension, который
-        браузер игнорирует для неподписанных расширений.
+    При наличии валидного расширения добавляются два набора флагов:
+        1. --load-extension и --disable-extensions-except — прямой путь
+           загрузки unpacked-расширения (работает в Edge/Chrome).
+           --disable-features=DisableLoadExtensionCommandLineSwitch
+           отключает фичу Chromium 137+, блокирующую --load-extension.
+        2. --remote-debugging-port и --remote-allow-origins=* — открывают
+           CDP-эндпоинт, через который расширение загружается командой
+           Extensions.loadUnpacked. Такой способ обходит Developer Mode-гейт
+           Яндекс.Браузера 26.x (Chromium 148): расширение получает флаг
+           INSTALLED_VIA_CDP и загружается без --load-extension, который
+           браузер игнорирует для неподписанных расширений.
+
+    Оба набора передаются одновременно: если CDP не откроется (политика
+    RemoteDebuggingAllowed или handoff), расширение загрузится напрямую
+    через --load-extension.
 
     Загрузка расширения через CDP выполняется в фоновом потоке: она не
     блокирует запуск браузера и не влияет на результат функции. Если
@@ -338,9 +348,15 @@ def launch_browser(
 
     proxy_arg = f'--proxy-server=127.0.0.1:{proxy_port}'
 
-    # Выделенный профиль браузера в data-директории: исключает handoff
-    # в уже запущенный процесс и изолирует настройки расширения.
-    profile_dir = os.path.join(get_data_dir(), 'browser-profile')
+    # Уникальный профиль браузера на каждый запуск: исключает handoff
+    # в уже запущенный процесс с тем же профилем (Chromium передаёт
+    # командную строку существующему процессу и игнорирует новые флаги,
+    # включая --remote-debugging-port). Уникальный профиль гарантирует
+    # создание нового процесса с полным набором флагов.
+    profile_dir = os.path.join(
+        get_data_dir(),
+        f'browser-profile-{int(time.time())}',
+    )
     try:
         os.makedirs(profile_dir, exist_ok=True)
     except OSError as e:
@@ -357,17 +373,31 @@ def launch_browser(
     ]
 
     # Валидность расширения проверяется один раз: результат используется
-    # и для формирования CDP-флагов, и для запуска фоновой загрузки.
+    # и для формирования CDP-флагов, и для прямого --load-extension.
     has_valid_ext = bool(ext_path and _is_valid_extension_path(ext_path))
 
     cdp_port: int | None = None
     if has_valid_ext:
+        # Двойная страховка загрузки расширения:
+        # 1. CDP Extensions.loadUnpacked — основной путь (обходит
+        #    Developer Mode-гейт Яндекс.Браузера 26.x).
+        # 2. --load-extension + --disable-extensions-except — прямой путь
+        #    для Edge/Chrome, которые поддерживают флаг. Флаг
+        #    --disable-features=DisableLoadExtensionCommandLineSwitch
+        #    отключает фичу Chromium 137+, блокирующую --load-extension.
+        # Оба набора флагов передаются одновременно: если CDP не откроется
+        # (политика RemoteDebuggingAllowed или handoff), расширение
+        # загрузится напрямую через --load-extension.
+        args.append(f'--load-extension={ext_path}')
+        args.append(f'--disable-extensions-except={ext_path}')
+        args.append('--disable-features=DisableLoadExtensionCommandLineSwitch')
+
         try:
             cdp_port = find_free_port()
         except OSError as exc:
             logger.warning(
                 'Не удалось найти свободный порт для CDP: %s. '
-                'Расширение не будет загружено через CDP.',
+                'Расширение будет загружено только через --load-extension.',
                 exc,
             )
         if cdp_port is not None:

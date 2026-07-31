@@ -213,10 +213,16 @@ class TestLaunchBrowser(unittest.TestCase):
         # Базовые флаги добавляются всегда
         self.assertIn('--no-first-run', args)
         self.assertIn('--no-default-browser-check', args)
-        self.assertIn('--user-data-dir=/tmp/flowlink-data/browser-profile', args)
-        # Не должно быть --load-extension и --disable-extensions-except
+        # Уникальный профиль имеет вид browser-profile-<timestamp> —
+        # проверяем префикс, а не точное совпадение
+        self.assertTrue(any(
+            a.startswith('--user-data-dir=/tmp/flowlink-data/browser-profile-')
+            for a in args
+        ))
+        # Без расширения не должно быть --load-extension и CDP-флагов
         self.assertFalse(any('--load-extension' in a for a in args))
         self.assertFalse(any('--disable-extensions-except' in a for a in args))
+        self.assertFalse(any('--remote-debugging-port' in a for a in args))
 
     @patch('server.config.browser_config.os.makedirs')
     @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
@@ -237,15 +243,21 @@ class TestLaunchBrowser(unittest.TestCase):
         )
         self.assertTrue(result)
         args = popen.call_args[1]['args']
-        # Вместо --load-extension добавляются CDP-флаги
+        # Двойная страховка: и CDP-флаги, и --load-extension
         self.assertIn('--remote-debugging-port=9222', args)
         self.assertIn('--remote-allow-origins=*', args)
-        self.assertFalse(any('--load-extension' in a for a in args))
-        self.assertFalse(any('--disable-extensions-except' in a for a in args))
+        self.assertIn('--load-extension=/tmp/flowlink-ext', args)
+        self.assertIn('--disable-extensions-except=/tmp/flowlink-ext', args)
+        self.assertIn('--disable-features=DisableLoadExtensionCommandLineSwitch', args)
         # Базовые флаги тоже присутствуют
         self.assertIn('--no-first-run', args)
         self.assertIn('--no-default-browser-check', args)
-        self.assertIn('--user-data-dir=/tmp/flowlink-data/browser-profile', args)
+        # Уникальный профиль имеет вид browser-profile-<timestamp> —
+        # проверяем префикс, а не точное совпадение
+        self.assertTrue(any(
+            a.startswith('--user-data-dir=/tmp/flowlink-data/browser-profile-')
+            for a in args
+        ))
         # Фоновая загрузка расширения запускается в daemon-потоке
         self.assertTrue(thr.called)
         self.assertTrue(thr.call_args.kwargs['daemon'])
@@ -271,8 +283,10 @@ class TestLaunchBrowser(unittest.TestCase):
         )
         self.assertTrue(result)
         args = popen.call_args[1]['args']
+        # CDP-флаги не добавляются, но --load-extension остаётся
         self.assertFalse(any('--remote-debugging-port' in a for a in args))
         self.assertFalse(any('--remote-allow-origins' in a for a in args))
+        self.assertIn('--load-extension=/tmp/flowlink-ext', args)
         self.assertIn('--proxy-server=127.0.0.1:8080', args)
 
     @patch('server.config.browser_config.os.makedirs')
@@ -295,7 +309,12 @@ class TestLaunchBrowser(unittest.TestCase):
         # --disable-extensions-except не должен добавляться без валидного расширения
         self.assertFalse(any('--disable-extensions-except' in a for a in args))
         # Базовые флаги всё равно присутствуют
-        self.assertIn('--user-data-dir=/tmp/flowlink-data/browser-profile', args)
+        # Уникальный профиль имеет вид browser-profile-<timestamp> —
+        # проверяем префикс, а не точное совпадение
+        self.assertTrue(any(
+            a.startswith('--user-data-dir=/tmp/flowlink-data/browser-profile-')
+            for a in args
+        ))
 
     @patch('server.config.browser_config.os.makedirs')
     @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
