@@ -570,6 +570,10 @@ class FlowLinkPopup:
                 try:
                     if self._popup and self._popup.winfo_exists():
                         self._popup.grab_release()
+                        try:
+                            self._popup.unbind('<FocusOut>')
+                        except tk.TclError:
+                            pass
                 except tk.TclError as e:
                     logger.debug('Popup: TclError при grab_release: %s', e)
                 if cmd:
@@ -682,6 +686,10 @@ class FlowLinkPopup:
                 try:
                     if self._popup and self._popup.winfo_exists():
                         self._popup.grab_release()
+                        try:
+                            self._popup.unbind('<FocusOut>')
+                        except tk.TclError:
+                            pass
                 except tk.TclError as e:
                     logger.debug('Popup: TclError при grab_release: %s', e)
                 if cmd:
