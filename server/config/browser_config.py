@@ -7,6 +7,7 @@
 
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -257,6 +258,47 @@ def _check_path_exists(path: str) -> str | None:
     return None
 
 
+def _cleanup_old_profiles(data_dir: str, keep: int = 3) -> None:
+    """
+    Удаляет старые профили браузера, оставляя последние `keep` штук.
+
+    Уникальные профили browser-profile-<timestamp> накапливаются при
+    каждом запуске браузера. Чтобы data-директория не разрасталась,
+    старые профили (кроме последних `keep`) удаляются.
+
+    Args:
+        data_dir: Путь к data-директории FlowLink Proxy.
+        keep: Сколько последних профилей оставить (по умолчанию 3).
+    """
+    try:
+        entries = os.listdir(data_dir)
+    except OSError as e:
+        logger.warning('Не удалось прочитать data-директорию %s: %s', data_dir, e)
+        return
+
+    profiles = []
+    for name in entries:
+        if not name.startswith('browser-profile-'):
+            continue
+        full = os.path.join(data_dir, name)
+        if not os.path.isdir(full):
+            continue
+        try:
+            ts = int(name[len('browser-profile-'):])
+        except ValueError:
+            continue
+        profiles.append((ts, full))
+
+    # Сортируем по времени создания (новые — в конце), удаляем старые.
+    profiles.sort(key=lambda item: item[0])
+    for _, full in profiles[:-keep]:
+        try:
+            shutil.rmtree(full, ignore_errors=True)
+            logger.debug('Удалён старый профиль браузера: %s', full)
+        except OSError as e:
+            logger.warning('Не удалось удалить профиль %s: %s', full, e)
+
+
 def _is_valid_extension_path(ext_path: str) -> bool:
     """
     Проверяет, является ли путь корректным расширением FlowLink Proxy.
@@ -347,6 +389,9 @@ def launch_browser(
         return False
 
     proxy_arg = f'--proxy-server=127.0.0.1:{proxy_port}'
+
+    # Удаляем старые профили, чтобы data-директория не разрасталась.
+    _cleanup_old_profiles(get_data_dir())
 
     # Уникальный профиль браузера на каждый запуск: исключает handoff
     # в уже запущенный процесс с тем же профилем (Chromium передаёт
