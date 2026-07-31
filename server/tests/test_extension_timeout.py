@@ -101,5 +101,7 @@ class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
         self.assertIn('FlowLink Proxy запущен, но расширение не подключено.', msg)
         self.assertIn('и установленное', msg)
         self.assertIn('и запущенное расширение FlowLink Proxy.', msg)
+        self.assertIn('«Выбрать браузер...»', msg)
+        self.assertIn('«Запуск с расширением»', msg)
         self.assertIn('«Запустить браузер»', msg)
-        self.assertIn('расширение подключится автоматически.', msg)
+        self.assertIn('расширение подключится', msg)
