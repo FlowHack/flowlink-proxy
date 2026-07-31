@@ -161,7 +161,7 @@ def _make_item_row(
         fg=ThemeColors.TEXT,
         anchor='w',
         padx=12,
-        pady=(6, 0),  # type: ignore[reportArgumentType]
+        pady='6 0',  # type: ignore[reportArgumentType]
     )
     lbl.pack(fill='x')
 
@@ -174,7 +174,7 @@ def _make_item_row(
         fg=ThemeColors.TEXT_SECONDARY,
         anchor='w',
         padx=12,
-        pady=(0, 6),  # type: ignore[reportArgumentType]
+        pady='0 6',  # type: ignore[reportArgumentType]
     )
     sub.pack(fill='x')
 
@@ -260,7 +260,7 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
         fg=ThemeColors.ACCENT,
         anchor='w',
         padx=16,
-        pady=(12, 4),  # type: ignore[reportArgumentType]
+        pady='12 4',  # type: ignore[reportArgumentType]
     )
     title_lbl.pack(fill='x')
 
@@ -278,13 +278,13 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
         anchor='w',
         justify='left',
         padx=16,
-        pady=(12, 16),  # type: ignore[reportArgumentType]
+        pady='12 16',  # type: ignore[reportArgumentType]
     )
     msg_lbl.pack(fill='x')
 
     # Контейнер для кнопок
     btn_frame = tk.Frame(inner, bg=ThemeColors.BG)
-    btn_frame.pack(fill='x', padx=16, pady=(0, 12))
+    btn_frame.pack(fill='x', padx=16, pady='0 12')
 
     # Создаём кнопки
     for btn_data in buttons:
@@ -308,7 +308,7 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
             command=_make_action(btn_data),
             primary=primary,
         )
-        btn.pack(side='right', padx=(4, 0))
+        btn.pack(side='right', padx='4 0')
 
     # Центрируем окно
     dialog.update_idletasks()
@@ -427,7 +427,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
         fg=ThemeColors.ACCENT,
         anchor='w',
         padx=16,
-        pady=(12, 4),  # type: ignore[reportArgumentType]
+        pady='12 4',  # type: ignore[reportArgumentType]
     )
     title_lbl.pack(fill='x')
 
@@ -446,13 +446,13 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
             anchor='w',
             justify='left',
             padx=16,
-            pady=(8, 4),  # type: ignore[reportArgumentType]
+            pady='8 4',  # type: ignore[reportArgumentType]
         )
         msg_lbl.pack(fill='x')
 
     # Контейнер для списка (с прокруткой если много элементов)
     list_container = tk.Frame(inner, bg=ThemeColors.BG)
-    list_container.pack(fill='both', expand=True, padx=8, pady=(4, 8))
+    list_container.pack(fill='both', expand=True, padx=8, pady='4 8')
 
     canvas = tk.Canvas(list_container, bg=ThemeColors.BG, highlightthickness=0)
     scrollbar = tk.Scrollbar(list_container, orient='vertical', command=canvas.yview)
@@ -493,7 +493,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
 
     # Нижняя панель с кнопками
     bottom_frame = tk.Frame(inner, bg=ThemeColors.BG)
-    bottom_frame.pack(fill='x', padx=16, pady=(0, 12))
+    bottom_frame.pack(fill='x', padx=16, pady='0 12')
 
     # Кнопка "Указать вручную"
     if allow_manual:
