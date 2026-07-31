@@ -116,6 +116,7 @@ const HELP_TEXTS = {
     </div>
   `,
   updateExe: (tag) => `
+    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
     <h3>Установщик</h3>
     <ol>
       <li>Скачайте новый установщик со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
@@ -131,6 +132,7 @@ const HELP_TEXTS = {
     ${_EMAIL_FOOTER}
   `,
   updateSource: (tag) => `
+    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
     <ol>
       <li><strong>Через Git:</strong> <code>git pull</code></li>
       <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
@@ -139,6 +141,7 @@ const HELP_TEXTS = {
     ${_EMAIL_FOOTER}
   `,
   updateExt: (tag) => `
+    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
     <ol>
       <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
       <li><strong>Unpacked:</strong> откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>), нажмите «Обновить» (круглая стрелка)</li>
@@ -164,6 +167,8 @@ const HELP_TEXTS = {
       <li>Выберите браузер из списка обнаруженных или укажите путь вручную.</li>
       <li>Бэкенд автоматически запустит выбранный браузер при старте.</li>
     </ol>
+    <h4>Альтернативный способ — через меню трея</h4>
+    <p>Тот же тумблер «Автозапуск браузера» доступен в меню системного трея бэкенда. Оба способа синхронизированы.</p>
     <h4>Как это работает</h4>
     <p>При запуске бэкенд проверяет настройки автозапуска. Если автозапуск включён и браузер выбран, бэкенд запускает браузер с необходимыми параметрами прокси. Вам не нужно запускать браузер вручную или использовать дополнительные скрипты.</p>
     <h4>Если браузер не запускается</h4>
@@ -416,6 +421,8 @@ const _EXT_SUB_CONTENT = {
 let _isUpdateMode = false;
 /** @type {boolean} True, когда модалка открыта в режиме «Автозапуск — помощь». */
 let _isAutostartHelpMode = false;
+/** @type {string} Тег доступного обновления (например 'v0.3.0') или пустая строка. */
+let _updateTag = '';
 
 /** Список вкладок help-модалки (порядок отображения). */
 const _TABS = ['backend', 'port', 'ext', 'faq'];
@@ -425,10 +432,12 @@ const _TABS = ['backend', 'port', 'ext', 'faq'];
  * @param {string} [tab] — вкладка для открытия (по умолчанию 'backend').
  * @param {boolean} [isUpdate] — режим обновления.
  * @param {boolean} [isAutostartHelp] — режим помощи по автозапуску.
+ * @param {string} [updateTag] — тег доступного обновления (например 'v0.3.0').
  */
-export function openHelpModal(tab, isUpdate, isAutostartHelp) {
+export function openHelpModal(tab, isUpdate, isAutostartHelp, updateTag) {
   _isUpdateMode = !!isUpdate;
   _isAutostartHelpMode = !!isAutostartHelp;
+  _updateTag = updateTag || '';
   const title = document.querySelector('#modal-help .modal-title');
   if (!title) return;
   if (isAutostartHelp) {
@@ -565,8 +574,9 @@ function _showAutostartHelpContent() {
 function _showUpdateContent(tab) {
   const content = document.getElementById('help-content');
   if (!content) return;
-  // Показываем универсальный контент обновления
-  content.innerHTML = HELP_TEXTS.updateExe('') + HELP_TEXTS.updateSource('') + HELP_TEXTS.updateExt('');
+  // Показываем универсальный контент обновления с версией (если известна)
+  const tag = _updateTag || '';
+  content.innerHTML = HELP_TEXTS.updateExe(tag) + HELP_TEXTS.updateSource(tag) + HELP_TEXTS.updateExt(tag);
 }
 
 // Экспорт только для тестов — в рантайме расширения не используется.

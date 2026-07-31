@@ -10,7 +10,10 @@ import { GITHUB_API_RELEASES, GITHUB_RELEASES_URL } from '../shared/constants.js
 
 let backendVersion = null;
 
-export { backendVersion };
+/** Тег последнего доступного обновления (например 'v0.3.0') или пустая строка. */
+let latestTag = null;
+
+export { backendVersion, latestTag };
 
 /**
  * Запрашивает версию бэкенда через /api/version.
@@ -41,6 +44,7 @@ export async function checkBackendVersion() {
 export async function checkForUpdates(simulate = false, simulateVersion = '') {
   if (simulate) {
     const tag = simulateVersion ? `v${simulateVersion}` : 'v0.0.0 (тест)';
+    latestTag = tag;
     showUpdateBanner(tag, GITHUB_RELEASES_URL);
     return;
   }
@@ -48,7 +52,7 @@ export async function checkForUpdates(simulate = false, simulateVersion = '') {
     const resp = await fetch(GITHUB_API_RELEASES);
     if (!resp.ok) return;
     const release = await resp.json();
-    const latestTag = release.tag_name || '';
+    latestTag = release.tag_name || '';
     if (!latestTag) return;
     const latestVer = latestTag.replace(/^v/, '');
     const currentVer = backendVersion || '0.0.0';

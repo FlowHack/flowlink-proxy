@@ -14,7 +14,7 @@ import { showModal, closeModal, attachModalOverlayClose } from './modal.js';
 import { openAddProxyModal, openEditProxyModal, handleSaveProxy, handleDeleteProxy, handleToggleProxy } from './crud-proxy.js';
 import { openAddMaskModal, openEditMaskModal, handleSaveMask, handleDeleteMask, handleClearMasks } from './crud-mask.js';
 import { renderTabStatus } from './tab-status.js';
-import { checkBackendVersion, checkForUpdates, backendVersion } from './updater.js';
+import { checkBackendVersion, checkForUpdates, backendVersion, latestTag } from './updater.js';
 import { handleSettingsSave } from './settings.js';
 import { discoverPort } from '../shared/port_discovery.js';
 import { loadAutostartStatus, renderAutostartToggle, handleBrowserSelect, handleBrowserPathInput } from './autostart.js';
@@ -516,7 +516,7 @@ function attachGlobalListeners() {
   document.getElementById('btn-update-close')?.addEventListener('click', () => {
     document.getElementById('update-banner').classList.add('hidden');
   });
-  document.getElementById('btn-update-help')?.addEventListener('click', () => openHelpModal('backend', true));
+  document.getElementById('btn-update-help')?.addEventListener('click', () => openHelpModal('backend', true, false, latestTag));
 
   document.getElementById('btn-ping-all')?.addEventListener('click', () => handlePingAll(state, renderProxyList));
   document.getElementById('btn-add-proxy')?.addEventListener('click', () => {
