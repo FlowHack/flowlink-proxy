@@ -52,10 +52,17 @@ def find_free_port(start: int = CDP_PORT_START, end: int = CDP_PORT_END) -> int:
     )
 
 
-def _build_handshake_request(host: str, port: int, key: str) -> bytes:
-    """Формирует HTTP-запрос рукопожатия WebSocket."""
+def _build_handshake_request(host: str, port: int, key: str, path: str) -> bytes:
+    """Формирует HTTP-запрос рукопожатия WebSocket.
+
+    Args:
+        host: Хост CDP-сервера.
+        port: Порт CDP-сервера.
+        key: Случайный Sec-WebSocket-Key.
+        path: Путь WebSocket-таргета (например /devtools/browser/<id>).
+    """
     return (
-        f'GET /devtools/browser HTTP/1.1\r\n'
+        f'GET {path} HTTP/1.1\r\n'
         f'Host: {host}:{port}\r\n'
         f'Upgrade: websocket\r\n'
         f'Connection: Upgrade\r\n'
@@ -143,8 +150,9 @@ async def _send_cdp_command(  # pylint: disable=too-many-locals
 
     reader, writer = await asyncio.open_connection(host, port)
     try:
-        # Рукопожатие WebSocket.
-        request = _build_handshake_request(host, port, key)
+        # Рукопожатие WebSocket: путь берём из webSocketDebuggerUrl,
+        # т.к. browser-таргет имеет путь /devtools/browser/<id>.
+        request = _build_handshake_request(host, port, key, path)
         writer.write(request)
         await writer.drain()
 

@@ -244,10 +244,13 @@ def _make_compact_item_row(
             fg=ThemeColors.GREEN,
             font=(ThemeColors.FONT_FAMILY[0], ThemeColors.FONT_SIZE_NORMAL, 'bold'),
             anchor='w',
-            padx='8 0',
+            padx=8,
             pady=6,
         )
-        selected_lbl.pack(side='left')
+        # Асимметричный отступ (слева больше) переносим в pack:
+        # опция виджета Label принимает только одно screen distance,
+        # а pack поддерживает два значения.
+        selected_lbl.pack(side='left', padx=(8, 0))
 
     # Название — слева
     name_lbl = tk.Label(

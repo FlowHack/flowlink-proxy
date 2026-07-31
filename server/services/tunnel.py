@@ -234,7 +234,12 @@ async def _tunnel_context(
         yield remote_reader, remote_writer, proxy_addr
 
     except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError) as e:
+        # Ошибка ДО первого yield: asynccontextmanager требует, чтобы
+        # первый __anext__ дошёл до yield. Если исключение проглотить,
+        # __aenter__ бросит RuntimeError "generator didn't yield".
+        # Поэтому после отправки 502 клиенту — перевыбрасываем ошибку.
         await _handle_tunnel_error(_client_writer, url, proxy_addr, e, prefix)
+        raise
     finally:
         if remote_writer:
             _all_writers.discard(remote_writer)
@@ -249,24 +254,30 @@ async def tunnel_connect(
     proxy: dict | None = None,
 ) -> None:
     """Устанавливает HTTPS-туннель через SOCKS5 (если proxy) или напрямую."""
-    async with _tunnel_context(
-        client, target, url, proxy,
-    ) as (remote_reader, remote_writer, proxy_addr):
-        client_reader, client_writer = client
-        target_host, target_port = target
+    try:
+        async with _tunnel_context(
+            client, target, url, proxy,
+        ) as (remote_reader, remote_writer, proxy_addr):
+            client_reader, client_writer = client
+            target_host, target_port = target
 
-        client_writer.write(b'HTTP/1.1 200 Connection Established\r\n\r\n')
-        await client_writer.drain()
+            client_writer.write(b'HTTP/1.1 200 Connection Established\r\n\r\n')
+            await client_writer.drain()
 
-        logger.debug(
-            'Туннель %s:%s через %s установлен, начало передачи данных',
-            target_host, target_port, proxy_addr,
-        )
-        await pipe(client_reader, client_writer, remote_reader, remote_writer)
-        logger.debug(
-            'Туннель %s:%s через %s завершён',
-            target_host, target_port, proxy_addr,
-        )
+            logger.debug(
+                'Туннель %s:%s через %s установлен, начало передачи данных',
+                target_host, target_port, proxy_addr,
+            )
+            await pipe(client_reader, client_writer, remote_reader, remote_writer)
+            logger.debug(
+                'Туннель %s:%s через %s завершён',
+                target_host, target_port, proxy_addr,
+            )
+    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError):
+        # Ошибка соединения уже обработана внутри _tunnel_context
+        # (клиенту отправлен 502). Здесь перехватываем перевыброшенную
+        # ошибку, чтобы не логировать её как неожиданную в proxy.py.
+        pass
 
 
 async def tunnel_http(
@@ -277,15 +288,21 @@ async def tunnel_http(
     proxy: dict | None = None,
 ) -> None:
     """Пересылает plain HTTP запрос через SOCKS5 (если proxy) или напрямую."""
-    async with _tunnel_context(
-        client, target, url, proxy, prefix='HTTP ',
-    ) as (remote_reader, remote_writer, proxy_addr):
-        client_reader, client_writer = client
+    try:
+        async with _tunnel_context(
+            client, target, url, proxy, prefix='HTTP ',
+        ) as (remote_reader, remote_writer, proxy_addr):
+            client_reader, client_writer = client
 
-        remote_writer.write(relative_line)
-        logger.debug(
-            'HTTP-запрос %s отправлен через %s, ожидание ответа',
-            url, proxy_addr,
-        )
-        await pipe_http_request(client_reader, remote_writer)
-        await pipe_http_response(remote_reader, client_writer)
+            remote_writer.write(relative_line)
+            logger.debug(
+                'HTTP-запрос %s отправлен через %s, ожидание ответа',
+                url, proxy_addr,
+            )
+            await pipe_http_request(client_reader, remote_writer)
+            await pipe_http_response(remote_reader, client_writer)
+    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError):
+        # Ошибка соединения уже обработана внутри _tunnel_context
+        # (клиенту отправлен 502). Здесь перехватываем перевыброшенную
+        # ошибку, чтобы не логировать её как неожиданную в proxy.py.
+        pass
