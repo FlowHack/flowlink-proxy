@@ -335,7 +335,6 @@ curl -X POST http://127.0.0.1:8081/api/ping \
 
 - `autostart_browser` — флаг автозапуска браузера при старте бэкенда (true/false)
 - `browser_path` — путь к исполняемому файлу браузера
-- `ext_enabled` — флаг загрузки расширения при запуске браузера (true/false)
 
 ---
 

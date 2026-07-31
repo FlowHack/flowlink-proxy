@@ -88,30 +88,6 @@ pip install -q pyinstaller
 VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)")
 info "Версия: $VERSION"
 
-# ─── Сборка CRX расширения ───
-CRX_DATA=""
-if [ -f "$SCRIPT_DIR/crx-private-key.pem" ]; then
-    info "Сборка CRX расширения..."
-    if ! command -v npx &>/dev/null; then
-        warn "npx не найден. Установите Node.js (npm) для сборки CRX."
-        warn "  Windows: https://nodejs.org (скачайте LTS, установите)"
-        warn "  Linux:   sudo apt install nodejs npm  (или аналог для вашего пакетного менеджера)"
-        warn "  macOS:   brew install node"
-    else
-        bash "$SCRIPT_DIR/build-crx.sh"
-    fi
-    if [ -f "$PROJECT_DIR/releases/flowlink-proxy.crx" ]; then
-        CRX_DATA="--add-data releases/flowlink-proxy.crx${DATA_SEP}."
-        info "CRX собран: releases/flowlink-proxy.crx"
-    else
-        warn "Не удалось собрать CRX"
-    fi
-else
-    warn "Приватный ключ CRX не найден ($SCRIPT_DIR/crx-private-key.pem)."
-    warn "CRX не будет включён в сборку. Расширение можно будет установить только из исходников."
-    warn "Сгенерируйте ключ: openssl genrsa -out $SCRIPT_DIR/crx-private-key.pem 2048"
-fi
-
 # --- Сборка ---
 info "Очистка предыдущей сборки..."
 rm -rf server/dist server/work
@@ -142,7 +118,6 @@ $PYTHON -m PyInstaller \
     --add-data "server/requirements.txt${DATA_SEP}server/" \
     --add-data "server/icons${DATA_SEP}icons/" \
     --add-data "extension${DATA_SEP}extension/" \
-    $CRX_DATA \
     --hidden-import tkinter \
     --hidden-import _tkinter \
     --hidden-import pystray \

@@ -55,7 +55,6 @@ from server.utils import (
     clear_logs_only,
     clear_all_data,
     get_data_dir,
-    get_crx_path,
 )
 
 logger = logging.getLogger('flowlink')
@@ -190,15 +189,12 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
         'clear_logs': _clear_logs,
         'clear_data': _clear_data,
         'test_fallback_icon': args.test_fallback_icon,
-        'ext_enabled_getter': _autostart.get_ext_enabled,
-        'ext_enabled_setter': _autostart.set_ext_enabled,
         'browser_path_getter': _browser_config.get_browser_path,
         'browser_path_saver': _browser_config.save_browser_path,
         'browser_detector': _browser_config.auto_detect_browsers,
         'browser_launcher': lambda: _browser_config.launch_browser(
             _browser_config.get_browser_path(),
             proxy_port=args.proxy_port,
-            ext_path=get_crx_path() if _autostart.get_ext_enabled() else None,
         ),
     }
     if not _HAS_TRAY:
@@ -366,48 +362,13 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
         try:
             from server.ui.dialogs import ask_yes_no  # pylint: disable=import-outside-toplevel
 
-            # Учитываем уже выполненные настройки: если браузер выбран и
-            # галочка «Запуск с расширением» стоит — не напоминаем о них.
-            browser_selected = bool(_browser_config.validate_browser_path(
-                _browser_config.get_browser_path(),
-            ))
-            ext_enabled = bool(_autostart.get_ext_enabled())
-
-            missing_steps = []
-            if not browser_selected:
-                missing_steps.append(
-                    'Укажите браузер через пункт "Выбрать браузер..." '
-                    'в меню трея',
-                )
-            if not ext_enabled:
-                missing_steps.append(
-                    'Отметьте чекбокс "Запуск с расширением" в меню трея',
-                )
-
             message = (
                 'FlowLink Proxy запущен, но расширение не подключено.\n'
                 'Для работы необходимы браузер на Chromium (Chrome, Edge,\n'
                 'Яндекс Браузер, Opera, Brave и др.) и установленное\n'
                 'и запущенное расширение FlowLink Proxy.\n\n'
-            )
-
-            if missing_steps:
-                steps = '\n'.join(
-                    f'{index}. {step}'
-                    for index, step in enumerate(missing_steps, start=1)
-                )
-                message += (
-                    'Чтобы запустить браузер с расширением автоматически:\n'
-                    f'{steps}\n\n'
-                )
-            else:
-                message += (
-                    'Нажмите "Запустить браузер" в меню трея — расширение '
-                    'подключится автоматически.\n\n'
-                )
-
-            message += (
-                'Либо установите расширение вручную и подключите его к серверу.'
+                'Установите расширение вручную и подключите его к серверу.\n'
+                'Инструкция доступна в справке расширения.'
             )
             answer = ask_yes_no(
                 'FlowLink Proxy',

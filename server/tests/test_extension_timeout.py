@@ -70,19 +70,9 @@ class TestWatchApiConnectionLoop(unittest.TestCase):
 class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
     """Поведение _watch_api_connection при неподключённом расширении."""
 
-    async def _run_and_capture(
-        self,
-        browser_path: str = '',
-        browser_valid: bool = False,
-        ext_enabled: bool = False,
-    ) -> str:
+    async def _run_and_capture(self) -> str:
         """
-        Запускает watcher с заданными настройками и возвращает текст уведомления.
-
-        Args:
-            browser_path: Значение _browser_config.get_browser_path().
-            browser_valid: Значение _browser_config.validate_browser_path().
-            ext_enabled: Значение _autostart.get_ext_enabled().
+        Запускает watcher и возвращает текст уведомления.
 
         Returns:
             Текст уведомления, переданный в ask_yes_no.
@@ -101,18 +91,6 @@ class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
                 side_effect=urllib.error.URLError('нет соединения'),
             ),
             patch(
-                'server.__main__._browser_config.get_browser_path',
-                return_value=browser_path,
-            ),
-            patch(
-                'server.__main__._browser_config.validate_browser_path',
-                return_value=browser_valid,
-            ),
-            patch(
-                'server.__main__._autostart.get_ext_enabled',
-                return_value=ext_enabled,
-            ),
-            patch(
                 'server.ui.dialogs.ask_yes_no',
                 side_effect=_fake_ask_yes_no,
             ),
@@ -126,49 +104,25 @@ class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(messages), 1)
         return messages[0]
 
-    async def test_notification_without_settings_lists_missing_steps(self):
-        """Без выбранного браузера и галочки текст перечисляет оба недостающих пункта."""
+    async def test_notification_mentions_manual_install(self):
+        """Уведомление советует установить расширение вручную."""
         msg = await self._run_and_capture()
         self.assertIn('FlowLink Proxy запущен, но расширение не подключено.', msg)
-        self.assertIn('и установленное', msg)
+        self.assertIn(
+            'Установите расширение вручную и подключите его к серверу.', msg,
+        )
+        self.assertIn('Инструкция доступна в справке расширения.', msg)
+
+    async def test_notification_mentions_chromium_browsers(self):
+        """Уведомление перечисляет браузеры на Chromium."""
+        msg = await self._run_and_capture()
+        self.assertIn('браузер на Chromium (Chrome, Edge,', msg)
+        self.assertIn('Яндекс Браузер, Opera, Brave и др.)', msg)
         self.assertIn('и запущенное расширение FlowLink Proxy.', msg)
-        self.assertIn('Укажите браузер через пункт "Выбрать браузер..."', msg)
-        self.assertIn('Отметьте чекбокс "Запуск с расширением"', msg)
-        self.assertIn('Либо установите расширение вручную', msg)
 
-    async def test_notification_with_all_settings_omits_done_steps(self):
-        """При выбранном браузере и включённом ext_enabled текст не содержит
-        пунктов про выбор браузера и галочку."""
-        msg = await self._run_and_capture(
-            browser_path='/usr/bin/google-chrome',
-            browser_valid=True,
-            ext_enabled=True,
-        )
-        self.assertNotIn('Укажите браузер', msg)
-        self.assertNotIn('Выбрать браузер', msg)
+    async def test_notification_has_no_old_steps(self):
+        """В уведомлении нет старых шагов про чекбокс и запуск браузера."""
+        msg = await self._run_and_capture()
         self.assertNotIn('Отметьте чекбокс "Запуск с расширением"', msg)
-        self.assertIn('Нажмите "Запустить браузер" в меню трея', msg)
-        self.assertIn('Либо установите расширение вручную', msg)
-
-    async def test_notification_with_browser_only_lists_ext_step(self):
-        """Браузер выбран, но галочка не стоит — текст упоминает только чекбокс."""
-        msg = await self._run_and_capture(
-            browser_path='/usr/bin/google-chrome',
-            browser_valid=True,
-            ext_enabled=False,
-        )
-        self.assertNotIn('Укажите браузер', msg)
-        self.assertNotIn('Выбрать браузер', msg)
-        self.assertIn('Отметьте чекбокс "Запуск с расширением"', msg)
-        self.assertIn('Либо установите расширение вручную', msg)
-
-    async def test_notification_with_ext_only_lists_browser_step(self):
-        """Галочка стоит, но браузер не выбран — текст упоминает только выбор браузера."""
-        msg = await self._run_and_capture(
-            browser_path='',
-            browser_valid=False,
-            ext_enabled=True,
-        )
-        self.assertIn('Укажите браузер через пункт "Выбрать браузер..."', msg)
-        self.assertNotIn('Отметьте чекбокс "Запуск с расширением"', msg)
-        self.assertIn('Либо установите расширение вручную', msg)
+        self.assertNotIn('Нажмите "Запустить браузер" в меню трея', msg)
+        self.assertNotIn('Укажите браузер через пункт "Выбрать браузер..."', msg)

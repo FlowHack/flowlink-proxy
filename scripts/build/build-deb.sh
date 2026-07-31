@@ -58,12 +58,6 @@ if [ -f "$PROJECT_DIR/scripts/autostart/flowlink.desktop" ]; then
         "$BUILD_DIR/usr/share/applications/flowlink-proxy.desktop"
 fi
 
-# CRX расширение
-if [ -f "$PROJECT_DIR/releases/flowlink-proxy.crx" ]; then
-    install -m 644 "$PROJECT_DIR/releases/flowlink-proxy.crx" \
-        "$BUILD_DIR/usr/local/share/$PKG_NAME/flowlink-proxy.crx"
-fi
-
 # --- DEBIAN/control ---
 cat > "$BUILD_DIR/DEBIAN/control" << EOF
 Package: $PKG_NAME

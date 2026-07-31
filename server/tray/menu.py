@@ -290,32 +290,6 @@ def _toggle_system_autostart(
         )
 
 
-def _toggle_ext_enabled(
-    callbacks: Dict[str, Any],
-    log: logging.Logger,
-    current_value: bool,
-) -> None:
-    """
-    Переключает флаг загрузки расширения при запуске браузера.
-
-    Args:
-        callbacks: Словарь коллбэков.
-        log: Логгер.
-        current_value: Текущее значение флага.
-    """
-    new_val = not current_value
-    try:
-        setter = callbacks.get('ext_enabled_setter')
-        if setter:
-            setter(new_val)
-            log.info(
-                'Запуск с расширением: %s',
-                'включён' if new_val else 'выключен',
-            )
-    except OSError as e:
-        log.error('Не удалось переключить загрузку расширения: %s', e)
-
-
 def _select_browser(
     callbacks: Dict[str, Any],
     log: logging.Logger,
@@ -476,7 +450,7 @@ def _launch_browser_now(
     log: logging.Logger,
 ) -> None:
     """
-    Запускает браузер с расширением (если включено).
+    Запускает выбранный браузер с флагом --proxy-server.
 
     Args:
         callbacks: Словарь коллбэков.
@@ -569,8 +543,6 @@ def build_menu_items(
                 системного автозапуска.
             system_autostart_setter: Callable(bool) — запись
                 системного автозапуска.
-            ext_enabled_getter: Callable → bool — чтение настройки расширения.
-            ext_enabled_setter: Callable(bool) — запись настройки расширения.
             browser_path_getter: Callable → str — чтение пути к браузеру.
             browser_path_saver: Callable(str) — сохранение пути к браузеру.
             browser_detector: Callable → list[dict] — обнаружение браузеров.
@@ -660,19 +632,6 @@ def build_menu_items(
             ),
         },
         {'type': 'separator'},
-        {
-            'type': 'check',
-            'text': 'Запуск с расширением',
-            'icon': '\U0001f4e6',
-            'checked': callbacks.get('ext_enabled_getter', lambda: False)(),
-            'tooltip': 'Запускать браузер с автоматическим подключением расширения',
-            'command': _make_action(
-                _toggle_ext_enabled, callbacks, log,
-                current_value=callbacks.get(
-                    'ext_enabled_getter', lambda: False,
-                )(),
-            ),
-        },
         {
             'type': 'item',
             'text': (

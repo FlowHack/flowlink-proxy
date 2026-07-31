@@ -93,11 +93,6 @@ elif [ "$OS_NAME" = "macos" ]; then
     fi
 fi
 
-# CRX расширение
-if [ -f "$PROJECT_DIR/releases/flowlink-proxy.crx" ]; then
-    cp "$PROJECT_DIR/releases/flowlink-proxy.crx" "$RELEASE_DIR/"
-fi
-
 # --- Создание tar.gz ---
 mkdir -p "$OUTPUT_DIR"
 TARBALL="$OUTPUT_DIR/$RELEASE_NAME.tar.gz"

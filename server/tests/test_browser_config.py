@@ -4,6 +4,7 @@
 
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -195,150 +196,39 @@ class TestGetBrowserConfig(_TempSettingsMixin):
 
 
 class TestLaunchBrowser(unittest.TestCase):
-    """Тесты запуска браузера с --proxy-server, базовыми флагами и расширением."""
+    """Тесты запуска браузера с флагом --proxy-server."""
 
-    @patch('server.config.browser_config.os.makedirs')
-    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_without_extension(
-        self, _v, popen, _dd, _mk,
-    ):
-        """Запуск браузера без расширения — базовые флаги, без --load-extension."""
+    def test_launch_basic_proxy_flag(self, _mock_validate, mock_popen):
+        """Базовый запуск: браузер получает --proxy-server=127.0.0.1:8080."""
+        result = launch_browser('/usr/bin/chrome')
+        self.assertTrue(result)
+        kwargs = mock_popen.call_args[1]
+        args = kwargs['args']
+        self.assertEqual(args[0], '/usr/bin/chrome')
+        self.assertEqual(len(args), 2)
+        self.assertIn('--proxy-server=127.0.0.1:8080', args)
+        # stdout/stderr перенаправляются в DEVNULL
+        self.assertEqual(kwargs['stdout'], subprocess.DEVNULL)
+        self.assertEqual(kwargs['stderr'], subprocess.DEVNULL)
+
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_custom_proxy_port(self, _mock_validate, mock_popen):
+        """Кастомный порт прокси попадает в --proxy-server."""
         result = launch_browser('/usr/bin/chrome', proxy_port=9090)
         self.assertTrue(result)
-        args = popen.call_args[1]['args']
-        self.assertEqual(args[0], '/usr/bin/chrome')
+        args = mock_popen.call_args[1]['args']
         self.assertIn('--proxy-server=127.0.0.1:9090', args)
-        # Базовые флаги добавляются всегда
-        self.assertIn('--no-first-run', args)
-        self.assertIn('--no-default-browser-check', args)
-        # Уникальный профиль имеет вид browser-profile-<timestamp> —
-        # проверяем префикс, а не точное совпадение
-        self.assertTrue(any(
-            a.startswith('--user-data-dir=/tmp/flowlink-data/browser-profile-')
-            for a in args
-        ))
-        # Без расширения не должно быть --load-extension и CDP-флагов
-        self.assertFalse(any('--load-extension' in a for a in args))
-        self.assertFalse(any('--disable-extensions-except' in a for a in args))
-        self.assertFalse(any('--remote-debugging-port' in a for a in args))
 
-    @patch('server.config.browser_config.os.makedirs')
-    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
-    @patch('server.config.browser_config.os.path.isfile', return_value=True)
-    @patch('server.config.browser_config.os.path.isdir', return_value=True)
-    @patch('server.config.browser_config.find_free_port', return_value=9222)
-    @patch('server.config.browser_config.load_unpacked_extension', return_value='fake-ext-id')
-    @patch('server.config.browser_config.threading.Thread')
     @patch('server.config.browser_config.subprocess.Popen')
-    @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_extension(
-        self, _v, popen, thr, _lxt, _port, _isdir, _isfile, _dd, _mk,
-    ):
-        """Запуск браузера с расширением — CDP-флаги и фоновая загрузка Extensions.loadUnpacked."""
-        result = launch_browser(
-            '/usr/bin/chrome', proxy_port=8080,
-            ext_path='/tmp/flowlink-ext',
-        )
-        self.assertTrue(result)
-        args = popen.call_args[1]['args']
-        # Двойная страховка: и CDP-флаги, и --load-extension
-        self.assertIn('--remote-debugging-port=9222', args)
-        self.assertIn('--remote-allow-origins=*', args)
-        self.assertIn('--load-extension=/tmp/flowlink-ext', args)
-        self.assertIn('--disable-extensions-except=/tmp/flowlink-ext', args)
-        self.assertIn('--disable-features=DisableLoadExtensionCommandLineSwitch', args)
-        # Базовые флаги тоже присутствуют
-        self.assertIn('--no-first-run', args)
-        self.assertIn('--no-default-browser-check', args)
-        # Уникальный профиль имеет вид browser-profile-<timestamp> —
-        # проверяем префикс, а не точное совпадение
-        self.assertTrue(any(
-            a.startswith('--user-data-dir=/tmp/flowlink-data/browser-profile-')
-            for a in args
-        ))
-        # Фоновая загрузка расширения запускается в daemon-потоке
-        self.assertTrue(thr.called)
-        self.assertTrue(thr.call_args.kwargs['daemon'])
-        thr.return_value.start.assert_called_once()
-
-    @patch('server.config.browser_config.os.makedirs')
-    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
-    @patch('server.config.browser_config.os.path.isfile', return_value=True)
-    @patch('server.config.browser_config.os.path.isdir', return_value=True)
-    @patch(
-        'server.config.browser_config.find_free_port',
-        side_effect=OSError('нет свободных портов'),
-    )
-    @patch('server.config.browser_config.subprocess.Popen')
-    @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_cdp_port_unavailable(
-        self, _v, popen, _port, _isdir, _isfile, _dd, _mk,
-    ):
-        """Если свободный CDP-порт не найден, браузер всё равно запускается без CDP-флагов."""
-        result = launch_browser(
-            '/usr/bin/chrome', proxy_port=8080,
-            ext_path='/tmp/flowlink-ext',
-        )
-        self.assertTrue(result)
-        args = popen.call_args[1]['args']
-        # CDP-флаги не добавляются, но --load-extension остаётся
-        self.assertFalse(any('--remote-debugging-port' in a for a in args))
-        self.assertFalse(any('--remote-allow-origins' in a for a in args))
-        self.assertIn('--load-extension=/tmp/flowlink-ext', args)
-        self.assertIn('--proxy-server=127.0.0.1:8080', args)
-
-    @patch('server.config.browser_config.os.makedirs')
-    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
-    @patch('server.config.browser_config.os.path.isfile', return_value=True)
-    @patch('server.config.browser_config.os.path.isdir', return_value=False)
-    @patch('server.config.browser_config.subprocess.Popen')
-    @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_crx_rejected(
-        self, _v, popen, _isdir, _isfile, _dd, _mk,
-    ):
-        """CRX-файл отклоняется: загрузка расширения требует распакованную папку."""
-        result = launch_browser(
-            '/usr/bin/chrome', proxy_port=8080,
-            ext_path='/tmp/flowlink-proxy.crx',
-        )
-        self.assertTrue(result)
-        args = popen.call_args[1]['args']
-        self.assertFalse(any('--load-extension' in a for a in args))
-        # --disable-extensions-except не должен добавляться без валидного расширения
-        self.assertFalse(any('--disable-extensions-except' in a for a in args))
-        # Базовые флаги всё равно присутствуют
-        # Уникальный профиль имеет вид browser-profile-<timestamp> —
-        # проверяем префикс, а не точное совпадение
-        self.assertTrue(any(
-            a.startswith('--user-data-dir=/tmp/flowlink-data/browser-profile-')
-            for a in args
-        ))
-
-    @patch('server.config.browser_config.os.makedirs')
-    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
-    @patch('server.config.browser_config.os.path.isfile', return_value=False)
-    @patch('server.config.browser_config.subprocess.Popen')
-    @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_nonexistent_extension(
-        self, _v, popen, _isfile, _dd, _mk,
-    ):
-        """Если расширение не существует, CDP-флаги не добавляются."""
-        result = launch_browser(
-            '/usr/bin/chrome', proxy_port=8080,
-            ext_path='/tmp/nonexistent.crx',
-        )
-        self.assertTrue(result)
-        args = popen.call_args[1]['args']
-        self.assertFalse(any('--load-extension' in a for a in args))
-        self.assertFalse(any('--disable-extensions-except' in a for a in args))
-
     @patch('server.config.browser_config.validate_browser_path', return_value=False)
-    def test_launch_invalid_path(self, _mock_validate):
-        """Невалидный путь возвращает False."""
+    def test_launch_invalid_path(self, _mock_validate, mock_popen):
+        """Невалидный путь к браузеру возвращает False, процесс не запускается."""
         result = launch_browser('/nonexistent/browser')
         self.assertFalse(result)
+        mock_popen.assert_not_called()
 
     @patch(
         'server.config.browser_config.subprocess.Popen',
@@ -349,3 +239,18 @@ class TestLaunchBrowser(unittest.TestCase):
         """Ошибка запуска subprocess возвращает False."""
         result = launch_browser('/usr/bin/chrome')
         self.assertFalse(result)
+
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_has_no_extension_and_cdp_flags(self, _mock_validate, mock_popen):
+        """В аргументах нет --user-data-dir, --load-extension и CDP-флагов."""
+        result = launch_browser('/usr/bin/chrome', proxy_port=8080)
+        self.assertTrue(result)
+        args = mock_popen.call_args[1]['args']
+        self.assertFalse(any('--user-data-dir' in a for a in args))
+        self.assertFalse(any('--load-extension' in a for a in args))
+        self.assertFalse(any('--disable-extensions-except' in a for a in args))
+        self.assertFalse(any('--remote-debugging-port' in a for a in args))
+        self.assertFalse(any('--remote-allow-origins' in a for a in args))
+        self.assertFalse(any('--no-first-run' in a for a in args))
+        self.assertFalse(any('--no-default-browser-check' in a for a in args))

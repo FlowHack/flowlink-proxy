@@ -36,23 +36,15 @@ if [ -f flowlink.desktop ]; then
     install -m 644 flowlink.desktop %{buildroot}/usr/share/applications/flowlink-proxy.desktop
 fi
 
-if [ -f flowlink-proxy.crx ]; then
-    install -m 644 flowlink-proxy.crx %{buildroot}/usr/local/share/%{name}/flowlink-proxy.crx
-fi
-
 %files
 %license LICENSE.txt
 %doc EULA.rtf
 /usr/local/bin/FlowLink Proxy
 /usr/local/share/%{name}/EULA.rtf
 /usr/local/share/%{name}/LICENSE.txt
-/usr/local/share/%{name}/flowlink-proxy.crx
 /usr/share/applications/flowlink-proxy.desktop
 
 %changelog
-* Fri Jul 31 2026 FlowLink Proxy <flowlink.proxy@atomicmail.io> - 0.3.0-1
-- Добавлена установка CRX-расширения в пакет
-
 * Sat Jul 13 2026 FlowLink Proxy <flowlink.proxy@atomicmail.io> - 0.3.0-1
 - System autostart support
 - Browser auto-detection

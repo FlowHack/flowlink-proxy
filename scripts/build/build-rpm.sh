@@ -60,11 +60,6 @@ if [ -f "$PROJECT_DIR/scripts/autostart/flowlink.desktop" ]; then
     install -m 644 "$PROJECT_DIR/scripts/autostart/flowlink.desktop" "$TARBALL_DIR/flowlink.desktop"
 fi
 
-# CRX расширение
-if [ -f "$PROJECT_DIR/releases/flowlink-proxy.crx" ]; then
-    install -m 644 "$PROJECT_DIR/releases/flowlink-proxy.crx" "$TARBALL_DIR/flowlink-proxy.crx"
-fi
-
 # Упаковка tarball
 cd "$RPMBUILD_DIR/SOURCES"
 tar czf "$PKG_NAME-$VERSION.tar.gz" "$PKG_NAME-$VERSION"

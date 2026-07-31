@@ -14,8 +14,6 @@ from server.config.autostart import (
     format_settings,
     get_autostart_browser,
     set_autostart_browser,
-    get_ext_enabled,
-    set_ext_enabled,
 )
 from server.servers.handlers import (
     handle_get_autostart_browser,
@@ -259,79 +257,3 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
             handle_post_autostart_browser('not a dict'),  # type: ignore[reportArgumentType]
         )
         self.assertIn('error', result)
-
-
-class TestGetExtEnabled(_TempSettingsMixin):
-    """Тесты чтения настройки ext_enabled."""
-
-    def test_default_when_no_file(self):
-        """По умолчанию False, если файл настроек не существует."""
-        self._mock_settings_file(os.path.join(self.tmpdir, 'nonexistent'))
-        self.assertFalse(get_ext_enabled())
-
-    def test_read_true(self):
-        """Чтение ext_enabled=true."""
-        path = os.path.join(self.tmpdir, '.flowlink-settings')
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write('ext_enabled=true\n')
-        self._mock_settings_file(path)
-        self.assertTrue(get_ext_enabled())
-
-    def test_read_false(self):
-        """Чтение ext_enabled=false."""
-        path = os.path.join(self.tmpdir, '.flowlink-settings')
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write('ext_enabled=false\n')
-        self._mock_settings_file(path)
-        self.assertFalse(get_ext_enabled())
-
-    def test_read_with_other_keys(self):
-        """Чтение ext_enabled не затрагивает другие ключи."""
-        path = os.path.join(self.tmpdir, '.flowlink-settings')
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write('autostart_browser=true\next_enabled=true\n')
-        self._mock_settings_file(path)
-        self.assertTrue(get_ext_enabled())
-
-
-class TestSetExtEnabled(_TempSettingsMixin):
-    """Тесты записи настройки ext_enabled."""
-
-    def test_set_true(self):
-        """Запись true создаёт файл с ext_enabled=true."""
-        path = os.path.join(self.tmpdir, '.flowlink-settings')
-        self._mock_settings_file(path)
-        set_ext_enabled(True)
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        self.assertIn('ext_enabled=true', content)
-
-    def test_set_false(self):
-        """Запись false создаёт файл с ext_enabled=false."""
-        path = os.path.join(self.tmpdir, '.flowlink-settings')
-        self._mock_settings_file(path)
-        set_ext_enabled(False)
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        self.assertIn('ext_enabled=false', content)
-
-    def test_set_preserves_other_keys(self):
-        """Запись сохраняет другие ключи в файле."""
-        path = os.path.join(self.tmpdir, '.flowlink-settings')
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write('autostart_browser=true\n')
-        self._mock_settings_file(path)
-        set_ext_enabled(True)
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        self.assertIn('autostart_browser=true', content)
-        self.assertIn('ext_enabled=true', content)
-
-    def test_roundtrip(self):
-        """Затем чтение — проверка консистентности."""
-        path = os.path.join(self.tmpdir, '.flowlink-settings')
-        self._mock_settings_file(path)
-        set_ext_enabled(True)
-        self.assertTrue(get_ext_enabled())
-        set_ext_enabled(False)
-        self.assertFalse(get_ext_enabled())

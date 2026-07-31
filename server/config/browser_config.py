@@ -7,15 +7,10 @@
 
 import logging
 import os
-import shutil
 import subprocess
 import sys
-import threading
-import time
 
 from server.config import autostart as _autostart_mod
-from server.services.cdp import find_free_port, load_unpacked_extension
-from server.utils import get_data_dir
 
 logger = logging.getLogger('flowlink.browser')
 
@@ -258,125 +253,20 @@ def _check_path_exists(path: str) -> str | None:
     return None
 
 
-def _cleanup_old_profiles(data_dir: str, keep: int = 3) -> None:
-    """
-    Удаляет старые профили браузера, оставляя последние `keep` штук.
-
-    Уникальные профили browser-profile-<timestamp> накапливаются при
-    каждом запуске браузера. Чтобы data-директория не разрасталась,
-    старые профили (кроме последних `keep`) удаляются.
-
-    Args:
-        data_dir: Путь к data-директории FlowLink Proxy.
-        keep: Сколько последних профилей оставить (по умолчанию 3).
-    """
-    try:
-        entries = os.listdir(data_dir)
-    except OSError as e:
-        logger.warning('Не удалось прочитать data-директорию %s: %s', data_dir, e)
-        return
-
-    profiles = []
-    for name in entries:
-        if not name.startswith('browser-profile-'):
-            continue
-        full = os.path.join(data_dir, name)
-        if not os.path.isdir(full):
-            continue
-        try:
-            ts = int(name[len('browser-profile-'):])
-        except ValueError:
-            continue
-        profiles.append((ts, full))
-
-    # Сортируем по времени создания (новые — в конце), удаляем старые.
-    profiles.sort(key=lambda item: item[0])
-    for _, full in profiles[:-keep]:
-        try:
-            shutil.rmtree(full, ignore_errors=True)
-            logger.debug('Удалён старый профиль браузера: %s', full)
-        except OSError as e:
-            logger.warning('Не удалось удалить профиль %s: %s', full, e)
-
-
-def _is_valid_extension_path(ext_path: str) -> bool:
-    """
-    Проверяет, является ли путь корректным расширением FlowLink Proxy.
-
-    Валидной считается ТОЛЬКО распакованная папка с manifest.json:
-    и CDP-команда Extensions.loadUnpacked, и флаг --load-extension
-    принимают исключительно unpacked-директорию, а путь к .crx-файлу
-    молча игнорируется.
-
-    Args:
-        ext_path: Путь к расширению.
-
-    Returns:
-        True если путь — распакованная папка с manifest.json, иначе False.
-    """
-    if not ext_path:
-        return False
-
-    if os.path.isdir(ext_path) and os.path.isfile(
-        os.path.join(ext_path, 'manifest.json'),
-    ):
-        return True
-
-    if os.path.isfile(ext_path):
-        logger.debug(
-            'Расширение %s отклонено: загрузка через CDP не поддерживает '
-            'CRX-файлы, только распакованную папку с manifest.json',
-            ext_path,
-        )
-    else:
-        logger.debug(
-            'Расширение %s отклонено: путь не является папкой с manifest.json',
-            ext_path,
-        )
-    return False
-
-
 def launch_browser(
     browser_path: str,
     proxy_port: int = 8080,
-    ext_path: str | None = None,
 ) -> bool:
     """
-    Запускает браузер с флагом --proxy-server, базовыми флагами запуска
-    и опционально загружает расширение через Chrome DevTools Protocol (CDP).
+    Запускает выбранный браузер с флагом --proxy-server.
 
-    Базовые флаги (добавляются всегда):
-        --no-first-run, --no-default-browser-check — подавление первого
-        запуска и проверки браузера по умолчанию.
-        --user-data-dir — уникальный профиль на каждый запуск, чтобы
-        исключить handoff в уже запущенный процесс (Chromium передаёт
-        командную строку существующему процессу и игнорирует новые флаги).
-
-    При наличии валидного расширения добавляются два набора флагов:
-        1. --load-extension и --disable-extensions-except — прямой путь
-           загрузки unpacked-расширения (работает в Edge/Chrome).
-           --disable-features=DisableLoadExtensionCommandLineSwitch
-           отключает фичу Chromium 137+, блокирующую --load-extension.
-        2. --remote-debugging-port и --remote-allow-origins=* — открывают
-           CDP-эндпоинт, через который расширение загружается командой
-           Extensions.loadUnpacked. Такой способ обходит Developer Mode-гейт
-           Яндекс.Браузера 26.x (Chromium 148): расширение получает флаг
-           INSTALLED_VIA_CDP и загружается без --load-extension, который
-           браузер игнорирует для неподписанных расширений.
-
-    Оба набора передаются одновременно: если CDP не откроется (политика
-    RemoteDebuggingAllowed или handoff), расширение загрузится напрямую
-    через --load-extension.
-
-    Загрузка расширения через CDP выполняется в фоновом потоке: она не
-    блокирует запуск браузера и не влияет на результат функции. Если
-    CDP-загрузка не удалась — браузер всё равно считается запущенным.
+    Браузер запускается как обычно, с профилем пользователя, но с
+    добавленным флагом --proxy-server, направляющим трафик через
+    локальный прокси FlowLink Proxy.
 
     Args:
         browser_path: Путь к исполняемому файлу браузера.
         proxy_port: Порт HTTP-прокси (по умолчанию 8080).
-        ext_path: Путь к распакованной папке расширения с manifest.json
-            (CRX-файл не поддерживается), опционально.
 
     Returns:
         True если браузер успешно запущен, False при ошибке.
@@ -390,65 +280,10 @@ def launch_browser(
 
     proxy_arg = f'--proxy-server=127.0.0.1:{proxy_port}'
 
-    # Удаляем старые профили, чтобы data-директория не разрасталась.
-    _cleanup_old_profiles(get_data_dir())
-
-    # Уникальный профиль браузера на каждый запуск: исключает handoff
-    # в уже запущенный процесс с тем же профилем (Chromium передаёт
-    # командную строку существующему процессу и игнорирует новые флаги,
-    # включая --remote-debugging-port). Уникальный профиль гарантирует
-    # создание нового процесса с полным набором флагов.
-    profile_dir = os.path.join(
-        get_data_dir(),
-        f'browser-profile-{int(time.time())}',
-    )
-    try:
-        os.makedirs(profile_dir, exist_ok=True)
-    except OSError as e:
-        logger.warning(
-            'Не удалось создать профиль браузера %s: %s', profile_dir, e,
-        )
-
     args = [
         browser_path,
         proxy_arg,
-        '--no-first-run',
-        '--no-default-browser-check',
-        f'--user-data-dir={profile_dir}',
     ]
-
-    # Валидность расширения проверяется один раз: результат используется
-    # и для формирования CDP-флагов, и для прямого --load-extension.
-    has_valid_ext = bool(ext_path and _is_valid_extension_path(ext_path))
-
-    cdp_port: int | None = None
-    if has_valid_ext:
-        # Двойная страховка загрузки расширения:
-        # 1. CDP Extensions.loadUnpacked — основной путь (обходит
-        #    Developer Mode-гейт Яндекс.Браузера 26.x).
-        # 2. --load-extension + --disable-extensions-except — прямой путь
-        #    для Edge/Chrome, которые поддерживают флаг. Флаг
-        #    --disable-features=DisableLoadExtensionCommandLineSwitch
-        #    отключает фичу Chromium 137+, блокирующую --load-extension.
-        # Оба набора флагов передаются одновременно: если CDP не откроется
-        # (политика RemoteDebuggingAllowed или handoff), расширение
-        # загрузится напрямую через --load-extension.
-        args.append(f'--load-extension={ext_path}')
-        args.append(f'--disable-extensions-except={ext_path}')
-        args.append('--disable-features=DisableLoadExtensionCommandLineSwitch')
-
-        try:
-            cdp_port = find_free_port()
-        except OSError as exc:
-            logger.warning(
-                'Не удалось найти свободный порт для CDP: %s. '
-                'Расширение будет загружено только через --load-extension.',
-                exc,
-            )
-        if cdp_port is not None:
-            args.append(f'--remote-debugging-port={cdp_port}')
-            args.append('--remote-allow-origins=*')
-            logger.debug('CDP-порт для загрузки расширения: %d', cdp_port)
 
     try:
         kwargs: dict = {
@@ -468,18 +303,6 @@ def launch_browser(
     except (OSError, ValueError) as e:
         logger.error('Не удалось запустить браузер %s: %s', browser_path, e)
         return False
-
-    # Загрузка расширения через CDP Extensions.loadUnpacked выполняется
-    # в фоновом daemon-потоке: не блокирует запуск браузера и не роняет
-    # функцию при ошибке CDP-загрузки.
-    if cdp_port is not None:
-        ext_dir = ext_path or ''
-
-        def _load_ext() -> None:
-            result = load_unpacked_extension(cdp_port, ext_dir)
-            logger.info('Результат загрузки расширения через CDP: %s', result)
-
-        threading.Thread(target=_load_ext, daemon=True).start()
 
     return True
 

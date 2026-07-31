@@ -104,22 +104,19 @@ class TestBuildMenuItems(unittest.TestCase):
         self.assertEqual(items[-2]['type'], 'separator')
 
     def test_has_autostart_checks(self):
-        """Меню содержит чекбоксы автозапуска, системного автозапуска и расширения."""
+        """Меню содержит два чекбокса: автозапуск браузера и запуск с системой."""
         items = build_menu_items(
             self._base_callbacks(), MagicMock(),
         )
         check_items = [
             item for item in items if item.get('type') == 'check'
         ]
-        self.assertEqual(len(check_items), 3)
+        self.assertEqual(len(check_items), 2)
         self.assertEqual(
             check_items[0]['text'], 'Автозапуск браузера',
         )
         self.assertEqual(
             check_items[1]['text'], 'Запуск с системой',
-        )
-        self.assertEqual(
-            check_items[2]['text'], 'Запуск с расширением',
         )
 
     def test_autostart_checked(self):
@@ -147,7 +144,7 @@ class TestBuildMenuItems(unittest.TestCase):
         self.assertFalse(check['checked'])
 
     def test_separator_count(self):
-        """Три разделителя в меню (до автозапуска, до расширения, перед выходом)."""
+        """Три разделителя в меню (после пунктов данных, после чекбоксов, перед выходом)."""
         items = build_menu_items(
             self._base_callbacks(), MagicMock(),
         )
@@ -386,59 +383,6 @@ class TestBuildMenuItemsCommands(unittest.TestCase):
                 continue
             self.assertIn('command', item)
             self.assertTrue(callable(item['command']))
-
-    def test_ext_enabled_check_exists(self):
-        """Чекбокс «Запуск с расширением» присутствует в меню."""
-        items = build_menu_items(
-            self._base_callbacks(), MagicMock(),
-        )
-        texts = [item.get('text') for item in items]
-        self.assertIn('Запуск с расширением', texts)
-
-    def test_ext_enabled_checked_when_getter_true(self):
-        """Чекбокс расширения отмечен когда ext_enabled_getter=True."""
-        callbacks = {
-            'stop': MagicMock(),
-            'autostart_getter': lambda: False,
-            'ext_enabled_getter': lambda: True,
-        }
-        items = build_menu_items(callbacks, MagicMock())
-        ext_check = next(
-            item for item in items
-            if item.get('text') == 'Запуск с расширением'
-        )
-        self.assertTrue(ext_check['checked'])
-
-    def test_ext_enabled_unchecked_when_getter_false(self):
-        """Чекбокс расширения не отмечен когда ext_enabled_getter=False."""
-        callbacks = {
-            'stop': MagicMock(),
-            'autostart_getter': lambda: False,
-            'ext_enabled_getter': lambda: False,
-        }
-        items = build_menu_items(callbacks, MagicMock())
-        ext_check = next(
-            item for item in items
-            if item.get('text') == 'Запуск с расширением'
-        )
-        self.assertFalse(ext_check['checked'])
-
-    def test_toggle_ext_enabled_calls_setter(self):
-        """Переключение расширения вызывает ext_enabled_setter."""
-        setter = MagicMock()
-        callbacks = {
-            'stop': MagicMock(),
-            'autostart_getter': lambda: False,
-            'ext_enabled_getter': lambda: False,
-            'ext_enabled_setter': setter,
-        }
-        items = build_menu_items(callbacks, MagicMock())
-        ext_check = next(
-            item for item in items
-            if item.get('text') == 'Запуск с расширением'
-        )
-        ext_check['command']()
-        setter.assert_called_once_with(True)
 
     def test_select_browser_exists(self):
         """Пункт «Выбрать браузер...» присутствует в меню."""
