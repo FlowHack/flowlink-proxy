@@ -44,15 +44,52 @@ def get_extension_dir() -> str | None:
     return None
 
 
+def ensure_extension_dir() -> str | None:
+    """
+    Обеспечивает стабильную копию распакованного расширения в data-директории.
+
+    В PyInstaller-сборке папка расширения лежит во временной директории
+    sys._MEIPASS (путь вида _MEI*), которая исчезает после перезапуска
+    приложения. Чтобы путь к расширению был стабильным и переживал
+    рестарты/обновления, содержимое источника копируется в
+    <data_dir>/extension.
+
+    Returns:
+        Путь к стабильной копии расширения или None, если источник
+        не найден или копирование не удалось.
+    """
+    src = get_extension_dir()
+    if not src:
+        logger.debug(
+            'Исходная папка расширения не найдена — стабильная копия не создана',
+        )
+        return None
+
+    dst = os.path.join(get_data_dir(), 'extension')
+    try:
+        os.makedirs(dst, exist_ok=True)
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+    except (OSError, shutil.Error) as e:
+        logger.error(
+            'Не удалось скопировать расширение из %s в %s: %s',
+            src, dst, e,
+        )
+        return None
+
+    logger.debug('Расширение скопировано из %s в %s', src, dst)
+    return dst
+
+
 def get_crx_path() -> str | None:
     """
     Возвращает путь к расширению FlowLink Proxy.
 
     Порядок поиска:
-    1. Распакованная папка extension/ — приоритетный вариант, т.к.
+    1. Стабильная копия распакованной папки extension/ в data-директории
+       (создаётся через ensure_extension_dir) — приоритетный вариант, т.к.
        флаг --load-extension в Chromium-движках принимает только
        unpacked-директорию с manifest.json (путь к .crx-файлу молча
-       игнорируется браузером).
+       игнорируется браузером). Копия не зависит от временной _MEI*-папки.
     2. CRX-файл рядом с бинарником (PyInstaller — CRX добавлен через --add-data)
     3. CRX-файл в resource_dir (для отладки из исходников)
     4. CRX-файл в data_dir (пользователь скопировал вручную)
@@ -61,9 +98,9 @@ def get_crx_path() -> str | None:
         Путь к распакованной папке расширения или к CRX-файлу,
         либо None, если ничего не найдено.
     """
-    ext_dir = get_extension_dir()
-    if ext_dir:
-        return ext_dir
+    stable_dir = ensure_extension_dir()
+    if stable_dir:
+        return stable_dir
 
     candidates = []
 

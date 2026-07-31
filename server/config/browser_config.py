@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 from server.config import autostart as _autostart_mod
+from server.utils import get_data_dir
 
 logger = logging.getLogger('flowlink.browser')
 
@@ -295,7 +296,19 @@ def launch_browser(
     ext_path: str | None = None,
 ) -> bool:
     """
-    Запускает браузер с флагом --proxy-server и опционально с расширением.
+    Запускает браузер с флагом --proxy-server, базовыми флагами запуска
+    и опционально с расширением.
+
+    Базовые флаги (добавляются всегда):
+        --no-first-run, --no-default-browser-check — подавление первого
+        запуска и проверки браузера по умолчанию.
+        --user-data-dir — выделенный профиль, чтобы не перехватывать
+        уже запущенный процесс пользователя (handoff).
+
+    При наличии валидного расширения добавляются:
+        --load-extension и --disable-extensions-except. Парный флаг
+        обязателен: без него Chromium 137+/Яндекс.Браузер 24.x
+        игнорирует неподписанные расширения из --load-extension.
 
     Args:
         browser_path: Путь к исполняемому файлу браузера.
@@ -314,10 +327,30 @@ def launch_browser(
         return False
 
     proxy_arg = f'--proxy-server=127.0.0.1:{proxy_port}'
-    args = [browser_path, proxy_arg]
+
+    # Выделенный профиль браузера в data-директории: исключает handoff
+    # в уже запущенный процесс и изолирует настройки расширения.
+    profile_dir = os.path.join(get_data_dir(), 'browser-profile')
+    try:
+        os.makedirs(profile_dir, exist_ok=True)
+    except OSError as e:
+        logger.warning(
+            'Не удалось создать профиль браузера %s: %s', profile_dir, e,
+        )
+
+    args = [
+        browser_path,
+        proxy_arg,
+        '--no-first-run',
+        '--no-default-browser-check',
+        f'--user-data-dir={profile_dir}',
+    ]
 
     if ext_path and _is_valid_extension_path(ext_path):
         args.append(f'--load-extension={ext_path}')
+        # Парный флаг обязателен: без --disable-extensions-except
+        # неподписанные расширения молча игнорируются (hardening).
+        args.append(f'--disable-extensions-except={ext_path}')
         logger.debug('Расширение будет загружено из: %s', ext_path)
 
     try:

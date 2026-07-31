@@ -16,7 +16,10 @@ from server.utils import (
     clear_all_data,
     clear_data_only,
     clear_logs_only,
+    ensure_extension_dir,
+    get_crx_path,
     get_data_dir,
+    get_extension_dir,
     write_port_file,
 )
 
@@ -404,6 +407,89 @@ class TestWritePortFile(unittest.TestCase):
         """Не-int порт вызывает TypeError."""
         with self.assertRaises(TypeError):
             write_port_file('8081', 8080)  # type: ignore[reportArgumentType]
+
+
+class TestEnsureExtensionDir(unittest.TestCase):
+    """Тесты ensure_extension_dir — стабильная копия расширения в data-директории."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+
+    def _make_source(self):
+        """Создаёт исходную папку расширения с manifest.json."""
+        src = os.path.join(self.tmpdir, 'src-extension')
+        os.makedirs(os.path.join(src, 'subdir'), exist_ok=True)
+        with open(os.path.join(src, 'manifest.json'), 'w', encoding='utf-8') as f:
+            f.write('{}')
+        with open(os.path.join(src, 'subdir', 'file.js'), 'w', encoding='utf-8') as f:
+            f.write('// test')
+        return src
+
+    @patch('server.utils.get_extension_dir')
+    def test_copies_source_to_data_dir(self, mock_get_extension_dir):
+        """Копирует содержимое источника в <data_dir>/extension."""
+        src = self._make_source()
+        mock_get_extension_dir.return_value = src
+
+        with patch.dict(os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir}):
+            result = ensure_extension_dir()
+
+        expected = os.path.join(self.tmpdir, 'extension')
+        self.assertEqual(result, expected)
+        self.assertTrue(os.path.isfile(os.path.join(expected, 'manifest.json')))
+        self.assertTrue(os.path.isfile(os.path.join(expected, 'subdir', 'file.js')))
+
+    @patch('server.utils.get_extension_dir', return_value=None)
+    def test_returns_none_when_source_missing(self, _mock_get_extension_dir):
+        """Если источник не найден — возвращается None."""
+        with patch.dict(os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir}):
+            result = ensure_extension_dir()
+        self.assertIsNone(result)
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'extension')))
+
+    @patch('server.utils.shutil.copytree', side_effect=OSError('disk full'))
+    @patch('server.utils.get_extension_dir')
+    def test_returns_none_on_copy_error(self, mock_get_extension_dir, _mock_copytree):
+        """При ошибке копирования возвращается None."""
+        src = self._make_source()
+        mock_get_extension_dir.return_value = src
+
+        with patch.dict(os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir}):
+            result = ensure_extension_dir()
+        self.assertIsNone(result)
+
+
+class TestGetCrxPath(unittest.TestCase):
+    """Тесты get_crx_path — приоритет стабильной копии расширения."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+
+    @patch('server.utils.ensure_extension_dir')
+    def test_stable_copy_has_priority(self, mock_ensure):
+        """Стабильная копия из ensure_extension_dir имеет приоритет."""
+        stable = os.path.join(self.tmpdir, 'extension')
+        mock_ensure.return_value = stable
+        self.assertEqual(get_crx_path(), stable)
+
+    @patch('server.utils.ensure_extension_dir', return_value=None)
+    @patch('server.utils.os.path.isfile', return_value=True)
+    def test_falls_back_to_crx_when_no_copy(self, _mock_isfile, _mock_ensure):
+        """Без стабильной копии ищется CRX-файл."""
+        with patch.dict(os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir}):
+            result = get_crx_path()
+        assert result is not None
+        self.assertTrue(result.endswith('.crx'))
+
+    @patch('server.utils.ensure_extension_dir', return_value=None)
+    @patch('server.utils.os.path.isfile', return_value=False)
+    def test_returns_none_when_nothing_found(self, _mock_isfile, _mock_ensure):
+        """Ничего не найдено — возвращается None."""
+        with patch.dict(os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir}):
+            result = get_crx_path()
+        self.assertIsNone(result)
 
 
 if __name__ == '__main__':

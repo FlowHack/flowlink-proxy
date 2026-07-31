@@ -195,26 +195,35 @@ class TestGetBrowserConfig(_TempSettingsMixin):
 
 
 class TestLaunchBrowser(unittest.TestCase):
-    """Тесты запуска браузера с флагом --proxy-server и --load-extension."""
+    """Тесты запуска браузера с --proxy-server, базовыми флагами и расширением."""
 
+    @patch('server.config.browser_config.os.makedirs')
+    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_without_extension(self, _mock_validate, mock_popen):
-        """Запуск браузера без расширения — только --proxy-server."""
+    def test_launch_without_extension(self, _mock_validate, mock_popen, _mock_data_dir, _mock_makedirs):
+        """Запуск браузера без расширения — базовые флаги, без --load-extension."""
         result = launch_browser('/usr/bin/chrome', proxy_port=9090)
         self.assertTrue(result)
         args = mock_popen.call_args[1]['args']
         self.assertEqual(args[0], '/usr/bin/chrome')
         self.assertIn('--proxy-server=127.0.0.1:9090', args)
-        # Не должно быть --load-extension
+        # Базовые флаги добавляются всегда
+        self.assertIn('--no-first-run', args)
+        self.assertIn('--no-default-browser-check', args)
+        self.assertIn('--user-data-dir=/tmp/flowlink-data/browser-profile', args)
+        # Не должно быть --load-extension и --disable-extensions-except
         self.assertFalse(any('--load-extension' in a for a in args))
+        self.assertFalse(any('--disable-extensions-except' in a for a in args))
 
+    @patch('server.config.browser_config.os.makedirs')
+    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
     @patch('server.config.browser_config.os.path.isfile', return_value=True)
     @patch('server.config.browser_config.os.path.isdir', return_value=True)
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_extension(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile):
-        """Запуск браузера с расширением — добавляется --load-extension."""
+    def test_launch_with_extension(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile, _mock_data_dir, _mock_makedirs):
+        """Запуск браузера с расширением — --load-extension и --disable-extensions-except."""
         result = launch_browser(
             '/usr/bin/chrome', proxy_port=8080,
             ext_path='/tmp/flowlink-ext',
@@ -222,12 +231,19 @@ class TestLaunchBrowser(unittest.TestCase):
         self.assertTrue(result)
         args = mock_popen.call_args[1]['args']
         self.assertIn('--load-extension=/tmp/flowlink-ext', args)
+        self.assertIn('--disable-extensions-except=/tmp/flowlink-ext', args)
+        # Базовые флаги тоже присутствуют
+        self.assertIn('--no-first-run', args)
+        self.assertIn('--no-default-browser-check', args)
+        self.assertIn('--user-data-dir=/tmp/flowlink-data/browser-profile', args)
 
+    @patch('server.config.browser_config.os.makedirs')
+    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
     @patch('server.config.browser_config.os.path.isfile', return_value=True)
     @patch('server.config.browser_config.os.path.isdir', return_value=False)
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_crx_rejected(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile):
+    def test_launch_with_crx_rejected(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile, _mock_data_dir, _mock_makedirs):
         """CRX-файл отклоняется: --load-extension не поддерживает .crx."""
         result = launch_browser(
             '/usr/bin/chrome', proxy_port=8080,
@@ -236,12 +252,18 @@ class TestLaunchBrowser(unittest.TestCase):
         self.assertTrue(result)
         args = mock_popen.call_args[1]['args']
         self.assertFalse(any('--load-extension' in a for a in args))
+        # --disable-extensions-except не должен добавляться без валидного расширения
+        self.assertFalse(any('--disable-extensions-except' in a for a in args))
+        # Базовые флаги всё равно присутствуют
+        self.assertIn('--user-data-dir=/tmp/flowlink-data/browser-profile', args)
 
+    @patch('server.config.browser_config.os.makedirs')
+    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
     @patch('server.config.browser_config.os.path.isfile', return_value=False)
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_nonexistent_extension(self, _mock_validate, mock_popen, _mock_isfile):
-        """Если CRX-файл не существует, --load-extension не добавляется."""
+    def test_launch_with_nonexistent_extension(self, _mock_validate, mock_popen, _mock_isfile, _mock_data_dir, _mock_makedirs):
+        """Если расширение не существует, --load-extension не добавляется."""
         result = launch_browser(
             '/usr/bin/chrome', proxy_port=8080,
             ext_path='/tmp/nonexistent.crx',
@@ -249,6 +271,7 @@ class TestLaunchBrowser(unittest.TestCase):
         self.assertTrue(result)
         args = mock_popen.call_args[1]['args']
         self.assertFalse(any('--load-extension' in a for a in args))
+        self.assertFalse(any('--disable-extensions-except' in a for a in args))
 
     @patch('server.config.browser_config.validate_browser_path', return_value=False)
     def test_launch_invalid_path(self, _mock_validate):
