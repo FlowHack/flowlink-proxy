@@ -8,7 +8,7 @@ Linux, macOS и Win32 трей-модулями.
 from __future__ import annotations
 
 import types
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import logging
 import os
@@ -323,13 +323,25 @@ def _select_browser(
     """
     Открывает диалог выбора браузера.
 
+    Использует tk_root из callbacks как parent_root для Toplevel-диалога,
+    чтобы избежать создания второго Tk() на Windows.
+
     Args:
         callbacks: Словарь коллбэков.
         log: Логгер.
     """
     try:
+        log.debug('_select_browser: вход')
         detector = callbacks.get('browser_detector')
         detected = detector() if detector else []
+        log.debug('_select_browser: обнаружено %s браузеров', len(detected))
+
+        # Получаем tk_root из callbacks (передаётся из трея).
+        # Нужен и для show_item_picker, и для _open_file_dialog.
+        tk_root = callbacks.get('tk_root')
+        if tk_root is None:
+            log.error('_select_browser: tk_root не передан в callbacks')
+            return
 
         if detected:
             # Используем кастомный диалог выбора из списка
@@ -343,6 +355,8 @@ def _select_browser(
                     saver(path)
                     log.info('Путь браузера изменён: %s', path)
 
+            # Передаём tk_root как parent_root — диалог создаётся
+            # как Toplevel существующего Tk() трея, без второго Tk()
             show_item_picker(
                 title='Выбор браузера',
                 message='Найденные браузеры:',
@@ -356,11 +370,14 @@ def _select_browser(
                 ],
                 on_select=_on_select,
                 allow_manual=True,
-                on_manual=lambda: _open_file_dialog(callbacks, log),
+                on_manual=lambda: _open_file_dialog(
+                    callbacks, log, tk_root,
+                ),
+                parent_root=tk_root,
             )
         else:
             # Браузеры не найдены — сразу открываем диалог выбора файла
-            _open_file_dialog(callbacks, log)
+            _open_file_dialog(callbacks, log, tk_root)
 
     except ImportError:
         log.error('tkinter недоступен для диалога выбора файла')
@@ -369,22 +386,31 @@ def _select_browser(
 def _open_file_dialog(
     callbacks: Dict[str, Any],
     log: logging.Logger,
+    tk_root: Optional[Any] = None,
 ) -> None:
     """Открывает системный диалог выбора исполняемого файла браузера.
+
+    Использует переданный tk_root из трея (если есть) вместо
+    создания нового tk.Tk(), чтобы избежать конфликта с mainloop
+    на Windows.
 
     Args:
         callbacks: Словарь коллбэков.
         log: Логгер.
+        tk_root: Существующий tk.Tk() трея. Если None — создаётся
+            новый (fallback, например из lambda в on_manual).
     """
     try:
         import tkinter as tk  # pylint: disable=import-outside-toplevel
         from tkinter import filedialog  # pylint: disable=import-outside-toplevel
         from server.ui.dialogs import _set_window_icon  # pylint: disable=import-outside-toplevel
 
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        _set_window_icon(root)
+        owns_root = tk_root is None
+        root = tk_root if tk_root is not None else tk.Tk()
+        if owns_root:
+            root.withdraw()
+            root.attributes('-topmost', True)
+            _set_window_icon(root)
 
         path = filedialog.askopenfilename(
             title='Выберите исполняемый файл браузера',
@@ -393,7 +419,8 @@ def _open_file_dialog(
                 ('Все файлы', '*'),
             ],
         )
-        root.destroy()
+        if owns_root:
+            root.destroy()
 
         if path:
             from server.config import browser_config as _bc  # pylint: disable=import-outside-toplevel

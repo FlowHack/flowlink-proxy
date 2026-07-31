@@ -257,8 +257,9 @@ class Win32Tray:
             SWP_NOSIZE = 0x0001
             SWP_NOZORDER = 0x0004
             SWP_NOACTIVATE = 0x0010
-            # type: ignore[reportAttributeAccessIssue]
-            ex_style = ctypes.windll.user32.GetWindowLongPtrW(
+            # Используем модульные алиасы Win32-функций (см. строки 61-63):
+            # так короче и не нужны type: ignore для pyright на Linux.
+            ex_style = _user32.GetWindowLongPtrW(
                 hwnd, GWL_EXSTYLE,
             )
             logger.debug(
@@ -270,18 +271,15 @@ class Win32Tray:
             )
             ex_style &= ~WS_EX_APPWINDOW
             ex_style |= WS_EX_TOOLWINDOW
-            # type: ignore[reportAttributeAccessIssue]
-            ctypes.windll.user32.SetWindowLongPtrW(
+            _user32.SetWindowLongPtrW(
                 hwnd, GWL_EXSTYLE, ex_style,
             )
-            # type: ignore[reportAttributeAccessIssue]
-            ctypes.windll.user32.SetWindowPos(
+            _user32.SetWindowPos(
                 hwnd, 0, 0, 0, 0, 0,
                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
             )
             # Проверяем, применились ли стили
-            # type: ignore[reportAttributeAccessIssue]
-            ex_style_after = ctypes.windll.user32.GetWindowLongPtrW(
+            ex_style_after = _user32.GetWindowLongPtrW(
                 hwnd, GWL_EXSTYLE,
             )
             logger.debug(

@@ -205,7 +205,7 @@ def _make_item_row(
     return row
 
 
-def show_info(  # pylint: disable=too-many-locals
+def show_info(  # pylint: disable=too-many-locals,too-many-statements
     title: str,
     message: str,
     buttons: Optional[list[dict[str, Any]]] = None,
