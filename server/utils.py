@@ -21,17 +21,41 @@ _PORT_MIN = 1
 _PORT_MAX = 65535
 
 
-def get_crx_path() -> str | None:
+def get_extension_dir() -> str | None:
     """
-    Возвращает путь к CRX-файлу расширения FlowLink Proxy.
+    Возвращает путь к распакованной папке расширения FlowLink Proxy.
 
-    Порядок поиска:
-    1. Рядом с бинарником (PyInstaller — CRX добавлен через --add-data)
-    2. В resource_dir (для отладки из исходников)
-    3. В data_dir (пользователь скопировал вручную)
+    Папка `extension/` лежит в корне проекта рядом с `server/`. Путь
+    вычисляется через __file__ (utils.py находится в server/), поэтому
+    работает и при запуске из исходников, и в PyInstaller-сборке
+    (при условии добавления папки через --add-data).
 
     Returns:
-        Путь к CRX-файлу или None, если файл не найден.
+        Путь к папке расширения или None, если manifest.json не найден.
+    """
+    ext_dir = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        '..',
+        'extension',
+    ))
+    if os.path.isfile(os.path.join(ext_dir, 'manifest.json')):
+        logger.debug('Найдена папка распакованного расширения: %s', ext_dir)
+        return ext_dir
+    return None
+
+
+def get_crx_path() -> str | None:
+    """
+    Возвращает путь к расширению FlowLink Proxy.
+
+    Порядок поиска:
+    1. CRX-файл рядом с бинарником (PyInstaller — CRX добавлен через --add-data)
+    2. CRX-файл в resource_dir (для отладки из исходников)
+    3. CRX-файл в data_dir (пользователь скопировал вручную)
+    4. Распакованная папка extension/ (fallback для запуска из исходников)
+
+    Returns:
+        Путь к CRX-файлу или к папке расширения, либо None, если не найдено.
     """
     candidates = []
 
@@ -46,7 +70,7 @@ def get_crx_path() -> str | None:
         if os.path.isfile(path):
             return path
 
-    return None
+    return get_extension_dir()
 
 
 def get_data_dir() -> str:

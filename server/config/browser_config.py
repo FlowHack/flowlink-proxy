@@ -253,6 +253,27 @@ def _check_path_exists(path: str) -> str | None:
     return None
 
 
+def _is_valid_extension_path(ext_path: str) -> bool:
+    """
+    Проверяет, является ли путь корректным расширением FlowLink Proxy.
+
+    Поддерживаются два варианта:
+      - Файл CRX (например, flowlink-proxy.crx)
+      - Распакованная папка расширения с manifest.json
+
+    Args:
+        ext_path: Путь к расширению.
+
+    Returns:
+        True если путь валиден (файл CRX или папка с manifest.json).
+    """
+    if os.path.isfile(ext_path):
+        return True
+    return os.path.isdir(ext_path) and os.path.isfile(
+        os.path.join(ext_path, 'manifest.json'),
+    )
+
+
 def launch_browser(
     browser_path: str,
     proxy_port: int = 8080,
@@ -264,7 +285,8 @@ def launch_browser(
     Args:
         browser_path: Путь к исполняемому файлу браузера.
         proxy_port: Порт HTTP-прокси (по умолчанию 8080).
-        ext_path: Путь к CRX-файлу расширения (опционально).
+        ext_path: Путь к расширению (CRX-файл или распакованная папка
+            с manifest.json), опционально.
 
     Returns:
         True если браузер успешно запущен, False при ошибке.
@@ -279,7 +301,7 @@ def launch_browser(
     proxy_arg = f'--proxy-server=127.0.0.1:{proxy_port}'
     args = [browser_path, proxy_arg]
 
-    if ext_path and os.path.isfile(ext_path):
+    if ext_path and _is_valid_extension_path(ext_path):
         args.append(f'--load-extension={ext_path}')
         logger.debug('Расширение будет загружено из: %s', ext_path)
 
