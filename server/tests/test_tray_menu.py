@@ -4,10 +4,15 @@
 Тестирует: get_autostart_state, build_menu_items, load_icon (через mock).
 """
 
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from server.tray.menu import build_menu_items, get_autostart_state
+from server.tray.menu import (
+    _select_browser,
+    build_menu_items,
+    get_autostart_state,
+)
 
 
 class TestGetAutostartState(unittest.TestCase):
@@ -496,6 +501,92 @@ class TestBrowserSelectedMarker(unittest.TestCase):
         item = self._browser_item(callbacks)
         self.assertEqual(item['text'], 'Выбрать браузер...')
         self.assertTrue(not item.get('color'))
+
+
+class TestSelectBrowserItems(unittest.TestCase):
+    """Тесты формирования списка браузеров в _select_browser."""
+
+    def _base_callbacks(self, detected, current_path):
+        """Минимальный набор колбэков для _select_browser."""
+        return {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+            'tk_root': MagicMock(),
+            'browser_detector': lambda: detected,
+            'browser_path_getter': lambda: current_path,
+            'browser_path_saver': MagicMock(),
+        }
+
+    def _capture_items(self, callbacks):
+        """Вызывает _select_browser и возвращает items из show_item_picker."""
+        captured = {}
+
+        def _fake_picker(**kwargs):
+            captured.update(kwargs)
+
+        with patch(
+            'server.ui.dialogs.show_item_picker',
+            side_effect=_fake_picker,
+        ):
+            _select_browser(callbacks, MagicMock())
+
+        return captured['items']
+
+    def test_adds_manually_selected_browser_to_items(self):
+        """Выбранный ненайденный браузер добавляется в конец списка выбранным."""
+        detected = [
+            {'name': 'Google Chrome', 'path': '/usr/bin/google-chrome'},
+        ]
+        current_path = '/opt/custom/chrome-browser'
+        callbacks = self._base_callbacks(detected, current_path)
+
+        with patch(
+            'server.config.browser_config.validate_browser_path',
+            return_value=True,
+        ):
+            items = self._capture_items(callbacks)
+
+        self.assertEqual(len(items), 2)
+        last = items[-1]
+        self.assertEqual(last['label'], os.path.basename(current_path))
+        self.assertEqual(last['subtitle'], current_path)
+        self.assertEqual(last['path'], current_path)
+        self.assertTrue(last['selected'])
+        # Найденный браузер — не выбран
+        self.assertFalse(items[0]['selected'])
+
+    def test_does_not_add_invalid_manual_path(self):
+        """Невалидный выбранный ненайденный путь не добавляется в список."""
+        detected = [
+            {'name': 'Google Chrome', 'path': '/usr/bin/google-chrome'},
+        ]
+        current_path = '/opt/custom/missing-browser'
+        callbacks = self._base_callbacks(detected, current_path)
+
+        with patch(
+            'server.config.browser_config.validate_browser_path',
+            return_value=False,
+        ):
+            items = self._capture_items(callbacks)
+
+        self.assertEqual(len(items), 1)
+        self.assertFalse(items[0]['selected'])
+
+    def test_marks_detected_browser_as_selected(self):
+        """Выбранный среди найденных браузер помечается selected=True."""
+        detected = [
+            {'name': 'Google Chrome', 'path': '/usr/bin/google-chrome'},
+            {'name': 'Mozilla Firefox', 'path': '/usr/bin/firefox'},
+        ]
+        current_path = '/usr/bin/firefox'
+        callbacks = self._base_callbacks(detected, current_path)
+
+        items = self._capture_items(callbacks)
+
+        self.assertEqual(len(items), 2)
+        by_path = {item['path']: item['selected'] for item in items}
+        self.assertTrue(by_path['/usr/bin/firefox'])
+        self.assertFalse(by_path['/usr/bin/google-chrome'])
 
 
 if __name__ == '__main__':

@@ -211,29 +211,50 @@ def _make_compact_item_row(
     label: str,
     subtitle: str,
     command: Optional[Callable[[], None]] = None,
+    selected: bool = False,
 ) -> tk.Frame:
     """Создаёт компактную однострочную строку элемента списка.
 
     Название отображается слева, путь — справа. Если путь не
     помещается в строку, он обрезается многоточием.
+    При selected=True строка подсвечивается приглушённым зелёным
+    фоном и получает зелёную галочку слева от названия.
 
     Args:
         parent: Родительский виджет.
         label: Основной текст (название).
         subtitle: Дополнительный текст (путь).
         command: Функция при клике.
+        selected: True — элемент выбран (подсветка и галочка).
 
     Returns:
         Frame с элементами строки.
     """
-    row = tk.Frame(parent, bg=ThemeColors.SURFACE, cursor='hand2')
+    # Фон строки: приглушённый зелёный для выбранного элемента
+    row_bg = ThemeColors.GREEN_DIM if selected else ThemeColors.SURFACE
+    row = tk.Frame(parent, bg=row_bg, cursor='hand2')
+
+    selected_lbl: Optional[tk.Label] = None
+    # Зелёная галочка — пометка выбранного элемента
+    if selected:
+        selected_lbl = tk.Label(
+            row,
+            text='\u2713',
+            bg=row_bg,
+            fg=ThemeColors.GREEN,
+            font=(ThemeColors.FONT_FAMILY[0], ThemeColors.FONT_SIZE_NORMAL, 'bold'),
+            anchor='w',
+            padx='8 0',
+            pady=6,
+        )
+        selected_lbl.pack(side='left')
 
     # Название — слева
     name_lbl = tk.Label(
         row,
         text=label,
         font=(ThemeColors.FONT_FAMILY[0], ThemeColors.FONT_SIZE_NORMAL, 'bold'),
-        bg=ThemeColors.SURFACE,
+        bg=row_bg,
         fg=ThemeColors.TEXT,
         anchor='w',
         padx=12,
@@ -246,7 +267,7 @@ def _make_compact_item_row(
         row,
         text=subtitle,
         font=(ThemeColors.FONT_FAMILY[0], ThemeColors.FONT_SIZE_SMALL),
-        bg=ThemeColors.SURFACE,
+        bg=row_bg,
         fg=ThemeColors.TEXT_SECONDARY,
         anchor='e',
         padx=8,
@@ -280,11 +301,15 @@ def _make_compact_item_row(
         row.configure(bg=ThemeColors.SURFACE_HOVER)
         name_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
         path_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
+        if selected_lbl is not None:
+            selected_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
 
     def _on_leave(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
-        row.configure(bg=ThemeColors.SURFACE)
-        name_lbl.configure(bg=ThemeColors.SURFACE)
-        path_lbl.configure(bg=ThemeColors.SURFACE)
+        row.configure(bg=row_bg)
+        name_lbl.configure(bg=row_bg)
+        path_lbl.configure(bg=row_bg)
+        if selected_lbl is not None:
+            selected_lbl.configure(bg=row_bg)
 
     def _on_click(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
         if command:
@@ -299,6 +324,10 @@ def _make_compact_item_row(
     path_lbl.bind('<Enter>', _on_enter)
     path_lbl.bind('<Leave>', _on_leave)
     path_lbl.bind('<Button-1>', _on_click)
+    if selected_lbl is not None:
+        selected_lbl.bind('<Enter>', _on_enter)
+        selected_lbl.bind('<Leave>', _on_leave)
+        selected_lbl.bind('<Button-1>', _on_click)
 
     return row
 
@@ -578,6 +607,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
             label=item.get('label', ''),
             subtitle=item.get('subtitle', ''),
             command=_make_item_action(item),
+            selected=bool(item.get('selected')),
         )
         row.pack(fill='x')
 

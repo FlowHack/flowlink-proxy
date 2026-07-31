@@ -343,6 +343,10 @@ def _select_browser(
         detected = detector() if detector else []
         log.debug('_select_browser: обнаружено %s браузеров', len(detected))
 
+        # Текущий путь к браузеру — для подсветки выбранного элемента.
+        current_path = callbacks.get('browser_path_getter', lambda: '')()
+        log.debug('_select_browser: текущий путь: %r', current_path)
+
         # Получаем tk_root из callbacks (передаётся из трея).
         tk_root = callbacks.get('tk_root')
         if tk_root is None:
@@ -363,20 +367,39 @@ def _select_browser(
                     saver(path)
                     log.info('Путь браузера изменён: %s', path)
 
+            # Строим список из найденных браузеров, помечая выбранный.
+            items = [
+                {
+                    'label': b['name'],
+                    'subtitle': b['path'],
+                    'path': b['path'],
+                    'selected': b['path'] == current_path,
+                }
+                for b in detected
+            ]
+
+            # Если текущий браузер указан вручную и не найден детектором —
+            # добавляем его в конец списка как выбранный элемент.
+            if current_path:
+                from server.config import browser_config as _bc  # pylint: disable=import-outside-toplevel
+                not_detected = all(
+                    b['path'] != current_path for b in detected
+                )
+                if not_detected and _bc.validate_browser_path(current_path):
+                    items.append({
+                        'label': os.path.basename(current_path),
+                        'subtitle': current_path,
+                        'path': current_path,
+                        'selected': True,
+                    })
+
             # Передаём parent_root=tk_root — диалог использует root трея
             # через wait_window вместо создания второго tk.Tk() root
             # (два mainloop в одном потоке не поддерживаются Tcl/Tk).
             show_item_picker(
                 title='Выбор браузера',
                 message='Найденные браузеры:',
-                items=[
-                    {
-                        'label': b['name'],
-                        'subtitle': b['path'],
-                        'path': b['path'],
-                    }
-                    for b in detected
-                ],
+                items=items,
                 on_select=_on_select,
                 allow_manual=True,
                 on_manual=lambda: _open_file_dialog(
