@@ -323,8 +323,14 @@ def _select_browser(
     """
     Открывает диалог выбора браузера.
 
-    Использует tk_root из callbacks как parent_root для Toplevel-диалога,
-    чтобы избежать создания второго Tk() на Windows.
+    Диалог show_item_picker НЕ получает parent_root: он создаёт
+    собственный tk.Tk() root через _get_or_create_root. Передавать
+    withdrawn root трея как parent_root нельзя — Toplevel-ребёнок
+    от скрытого корня отображается некорректно (окно 1×1).
+
+    tk_root из callbacks используется только для _open_file_dialog
+    (системного диалога выбора файла); если его нет — тот создаст
+    свой root сам.
 
     Args:
         callbacks: Словарь коллбэков.
@@ -337,11 +343,11 @@ def _select_browser(
         log.debug('_select_browser: обнаружено %s браузеров', len(detected))
 
         # Получаем tk_root из callbacks (передаётся из трея).
-        # Нужен и для show_item_picker, и для _open_file_dialog.
+        # Используется только для _open_file_dialog. show_item_picker
+        # сам создаёт собственный tk.Tk() root (parent_root=None),
+        # так как withdrawn root трея не позволяет корректно
+        # отобразить Toplevel-диалог (окно 1×1).
         tk_root = callbacks.get('tk_root')
-        if tk_root is None:
-            log.error('_select_browser: tk_root не передан в callbacks')
-            return
 
         if detected:
             # Используем кастомный диалог выбора из списка
@@ -355,8 +361,10 @@ def _select_browser(
                     saver(path)
                     log.info('Путь браузера изменён: %s', path)
 
-            # Передаём tk_root как parent_root — диалог создаётся
-            # как Toplevel существующего Tk() трея, без второго Tk()
+            # НЕ передаём parent_root — show_item_picker создаст
+            # собственный tk.Tk() root через _get_or_create_root
+            # и корректно отобразит диалог (withdrawn root трея
+            # порождает окно 1×1 при Toplevel-ребёнке).
             show_item_picker(
                 title='Выбор браузера',
                 message='Найденные браузеры:',
@@ -373,7 +381,6 @@ def _select_browser(
                 on_manual=lambda: _open_file_dialog(
                     callbacks, log, tk_root,
                 ),
-                parent_root=tk_root,
             )
         else:
             # Браузеры не найдены — сразу открываем диалог выбора файла
