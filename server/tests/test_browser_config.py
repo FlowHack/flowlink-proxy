@@ -201,11 +201,13 @@ class TestLaunchBrowser(unittest.TestCase):
     @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_without_extension(self, _mock_validate, mock_popen, _mock_data_dir, _mock_makedirs):
+    def test_launch_without_extension(
+        self, _v, popen, _dd, _mk,
+    ):
         """Запуск браузера без расширения — базовые флаги, без --load-extension."""
         result = launch_browser('/usr/bin/chrome', proxy_port=9090)
         self.assertTrue(result)
-        args = mock_popen.call_args[1]['args']
+        args = popen.call_args[1]['args']
         self.assertEqual(args[0], '/usr/bin/chrome')
         self.assertIn('--proxy-server=127.0.0.1:9090', args)
         # Базовые флаги добавляются всегда
@@ -220,22 +222,58 @@ class TestLaunchBrowser(unittest.TestCase):
     @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
     @patch('server.config.browser_config.os.path.isfile', return_value=True)
     @patch('server.config.browser_config.os.path.isdir', return_value=True)
+    @patch('server.config.browser_config.find_free_port', return_value=9222)
+    @patch('server.config.browser_config.load_unpacked_extension', return_value='fake-ext-id')
+    @patch('server.config.browser_config.threading.Thread')
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_extension(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile, _mock_data_dir, _mock_makedirs):
-        """Запуск браузера с расширением — --load-extension и --disable-extensions-except."""
+    def test_launch_with_extension(
+        self, _v, popen, thr, _lxt, _port, _isdir, _isfile, _dd, _mk,
+    ):
+        """Запуск браузера с расширением — CDP-флаги и фоновая загрузка Extensions.loadUnpacked."""
         result = launch_browser(
             '/usr/bin/chrome', proxy_port=8080,
             ext_path='/tmp/flowlink-ext',
         )
         self.assertTrue(result)
-        args = mock_popen.call_args[1]['args']
-        self.assertIn('--load-extension=/tmp/flowlink-ext', args)
-        self.assertIn('--disable-extensions-except=/tmp/flowlink-ext', args)
+        args = popen.call_args[1]['args']
+        # Вместо --load-extension добавляются CDP-флаги
+        self.assertIn('--remote-debugging-port=9222', args)
+        self.assertIn('--remote-allow-origins=*', args)
+        self.assertFalse(any('--load-extension' in a for a in args))
+        self.assertFalse(any('--disable-extensions-except' in a for a in args))
         # Базовые флаги тоже присутствуют
         self.assertIn('--no-first-run', args)
         self.assertIn('--no-default-browser-check', args)
         self.assertIn('--user-data-dir=/tmp/flowlink-data/browser-profile', args)
+        # Фоновая загрузка расширения запускается в daemon-потоке
+        self.assertTrue(thr.called)
+        self.assertTrue(thr.call_args.kwargs['daemon'])
+        thr.return_value.start.assert_called_once()
+
+    @patch('server.config.browser_config.os.makedirs')
+    @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
+    @patch('server.config.browser_config.os.path.isfile', return_value=True)
+    @patch('server.config.browser_config.os.path.isdir', return_value=True)
+    @patch(
+        'server.config.browser_config.find_free_port',
+        side_effect=OSError('нет свободных портов'),
+    )
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_cdp_port_unavailable(
+        self, _v, popen, _port, _isdir, _isfile, _dd, _mk,
+    ):
+        """Если свободный CDP-порт не найден, браузер всё равно запускается без CDP-флагов."""
+        result = launch_browser(
+            '/usr/bin/chrome', proxy_port=8080,
+            ext_path='/tmp/flowlink-ext',
+        )
+        self.assertTrue(result)
+        args = popen.call_args[1]['args']
+        self.assertFalse(any('--remote-debugging-port' in a for a in args))
+        self.assertFalse(any('--remote-allow-origins' in a for a in args))
+        self.assertIn('--proxy-server=127.0.0.1:8080', args)
 
     @patch('server.config.browser_config.os.makedirs')
     @patch('server.config.browser_config.get_data_dir', return_value='/tmp/flowlink-data')
@@ -243,14 +281,16 @@ class TestLaunchBrowser(unittest.TestCase):
     @patch('server.config.browser_config.os.path.isdir', return_value=False)
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_crx_rejected(self, _mock_validate, mock_popen, _mock_isdir, _mock_isfile, _mock_data_dir, _mock_makedirs):
-        """CRX-файл отклоняется: --load-extension не поддерживает .crx."""
+    def test_launch_with_crx_rejected(
+        self, _v, popen, _isdir, _isfile, _dd, _mk,
+    ):
+        """CRX-файл отклоняется: загрузка расширения требует распакованную папку."""
         result = launch_browser(
             '/usr/bin/chrome', proxy_port=8080,
             ext_path='/tmp/flowlink-proxy.crx',
         )
         self.assertTrue(result)
-        args = mock_popen.call_args[1]['args']
+        args = popen.call_args[1]['args']
         self.assertFalse(any('--load-extension' in a for a in args))
         # --disable-extensions-except не должен добавляться без валидного расширения
         self.assertFalse(any('--disable-extensions-except' in a for a in args))
@@ -262,14 +302,16 @@ class TestLaunchBrowser(unittest.TestCase):
     @patch('server.config.browser_config.os.path.isfile', return_value=False)
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_with_nonexistent_extension(self, _mock_validate, mock_popen, _mock_isfile, _mock_data_dir, _mock_makedirs):
-        """Если расширение не существует, --load-extension не добавляется."""
+    def test_launch_with_nonexistent_extension(
+        self, _v, popen, _isfile, _dd, _mk,
+    ):
+        """Если расширение не существует, CDP-флаги не добавляются."""
         result = launch_browser(
             '/usr/bin/chrome', proxy_port=8080,
             ext_path='/tmp/nonexistent.crx',
         )
         self.assertTrue(result)
-        args = mock_popen.call_args[1]['args']
+        args = popen.call_args[1]['args']
         self.assertFalse(any('--load-extension' in a for a in args))
         self.assertFalse(any('--disable-extensions-except' in a for a in args))
 
