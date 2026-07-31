@@ -366,17 +366,47 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
         try:
             from server.ui.dialogs import ask_yes_no  # pylint: disable=import-outside-toplevel
 
+            # Учитываем уже выполненные настройки: если браузер выбран и
+            # галочка «Запуск с расширением» стоит — не напоминаем о них.
+            browser_selected = bool(_browser_config.validate_browser_path(
+                _browser_config.get_browser_path(),
+            ))
+            ext_enabled = bool(_autostart.get_ext_enabled())
+
+            missing_steps = []
+            if not browser_selected:
+                missing_steps.append(
+                    'Укажите браузер через пункт "Выбрать браузер..." '
+                    'в меню трея',
+                )
+            if not ext_enabled:
+                missing_steps.append(
+                    'Отметьте чекбокс "Запуск с расширением" в меню трея',
+                )
+
             message = (
                 'FlowLink Proxy запущен, но расширение не подключено.\n'
                 'Для работы необходимы браузер на Chromium (Chrome, Edge,\n'
                 'Яндекс Браузер, Opera, Brave и др.) и установленное\n'
                 'и запущенное расширение FlowLink Proxy.\n\n'
-                'Чтобы запустить браузер с расширением автоматически:\n'
-                '1. Укажите браузер через пункт «Выбрать браузер...»\n'
-                '   в меню трея (если он ещё не выбран).\n'
-                '2. Отметьте чекбокс «Запуск с расширением» в меню трея.\n'
-                '3. Нажмите «Запустить браузер» — расширение подключится\n'
-                '   автоматически.\n\n'
+            )
+
+            if missing_steps:
+                steps = '\n'.join(
+                    f'{index}. {step}'
+                    for index, step in enumerate(missing_steps, start=1)
+                )
+                message += (
+                    'Чтобы запустить браузер с расширением автоматически:\n'
+                    f'{steps}\n\n'
+                )
+            else:
+                message += (
+                    'Нажмите "Запустить браузер" в меню трея — расширение '
+                    'подключится автоматически.\n\n'
+                )
+
+            message += (
                 'Либо установите расширение вручную и подключите его к серверу.'
             )
             answer = ask_yes_no(

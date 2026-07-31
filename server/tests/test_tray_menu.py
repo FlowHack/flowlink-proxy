@@ -452,5 +452,51 @@ class TestBuildMenuItemsCommands(unittest.TestCase):
         self.assertIn('Запустить браузер', texts)
 
 
+class TestBrowserSelectedMarker(unittest.TestCase):
+    """Тесты зелёной пометки у пункта «Выбрать браузер...»."""
+
+    def _browser_item(self, callbacks):
+        """Возвращает пункт «Выбрать браузер...» из построенного меню."""
+        items = build_menu_items(callbacks, MagicMock())
+        return next(
+            item for item in items
+            if item.get('text', '').startswith('Выбрать браузер')
+        )
+
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_marker_present_when_path_valid(self, _mock_validate):
+        """При валидном browser_path пункт получает пометку и зелёный цвет."""
+        callbacks = {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+            'browser_path_getter': lambda: '/usr/bin/google-chrome',
+        }
+        item = self._browser_item(callbacks)
+        self.assertEqual(item['text'], 'Выбрать браузер... ✓')
+        self.assertEqual(item.get('color'), '#2ecc71')
+
+    def test_marker_absent_without_path(self):
+        """Без browser_path пункт «Выбрать браузер...» остаётся без пометки."""
+        callbacks = {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+        }
+        item = self._browser_item(callbacks)
+        self.assertEqual(item['text'], 'Выбрать браузер...')
+        self.assertTrue(not item.get('color'))
+
+    @patch('server.config.browser_config.validate_browser_path', return_value=False)
+    def test_marker_absent_when_path_invalid(self, _mock_validate):
+        """При невалидном browser_path пометка не добавляется."""
+        callbacks = {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+            'browser_path_getter': lambda: '/nonexistent/browser',
+        }
+        item = self._browser_item(callbacks)
+        self.assertEqual(item['text'], 'Выбрать браузер...')
+        self.assertTrue(not item.get('color'))
+
+
 if __name__ == '__main__':
     unittest.main()

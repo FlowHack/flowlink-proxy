@@ -569,6 +569,12 @@ def build_menu_items(
         callbacks, logger_name,
     )
 
+    # Определяем, выбран ли браузер: для валидного пути показываем
+    # зелёную пометку у пункта «Выбрать браузер...».
+    browser_path = callbacks.get('browser_path_getter', lambda: '')()
+    from server.config import browser_config as _bc  # pylint: disable=import-outside-toplevel
+    browser_selected = bool(browser_path) and _bc.validate_browser_path(browser_path)
+
     return [
         {
             'type': 'item',
@@ -646,8 +652,12 @@ def build_menu_items(
         },
         {
             'type': 'item',
-            'text': 'Выбрать браузер...',
+            'text': (
+                'Выбрать браузер... ✓' if browser_selected
+                else 'Выбрать браузер...'
+            ),
             'icon': '\U0001f4c1',
+            'color': '#2ecc71' if browser_selected else None,
             'tooltip': 'Указать, какой браузер использовать',
             'command': _make_action(
                 _select_browser, callbacks, log,
