@@ -564,14 +564,14 @@ class FlowLinkPopup:
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
                 logger.debug('Popup: клик по пункту меню')
-                # Скрываем popup (withdraw), но НЕ уничтожаем — это сохраняет
-                # tk_root в рабочем состоянии для диалогов (например, выбора браузера).
+                # Освобождаем grab popup, чтобы диалог мог установить свой grab,
+                # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
+                # в рабочем состоянии для диалогов (например, выбора браузера).
                 try:
                     if self._popup and self._popup.winfo_exists():
                         self._popup.grab_release()
-                        self._popup.withdraw()
                 except tk.TclError as e:
-                    logger.debug('Popup: TclError при скрытии popup: %s', e)
+                    logger.debug('Popup: TclError при grab_release: %s', e)
                 if cmd:
                     try:
                         cmd()
@@ -676,14 +676,14 @@ class FlowLinkPopup:
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
                 logger.debug('Popup: клик по пункту с чекбоксом')
-                # Скрываем popup (withdraw), но НЕ уничтожаем — это сохраняет
-                # tk_root в рабочем состоянии для диалогов (например, выбора браузера).
+                # Освобождаем grab popup, чтобы диалог мог установить свой grab,
+                # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
+                # в рабочем состоянии для диалогов (например, выбора браузера).
                 try:
                     if self._popup and self._popup.winfo_exists():
                         self._popup.grab_release()
-                        self._popup.withdraw()
                 except tk.TclError as e:
-                    logger.debug('Popup: TclError при скрытии popup: %s', e)
+                    logger.debug('Popup: TclError при grab_release: %s', e)
                 if cmd:
                     try:
                         cmd()

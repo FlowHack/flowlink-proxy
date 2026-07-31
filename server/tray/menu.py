@@ -323,12 +323,13 @@ def _select_browser(
     """
     Открывает диалог выбора браузера.
 
-    Диалог show_item_picker НЕ получает parent_root: он создаёт
-    собственный tk.Tk() root через _get_or_create_root. Передавать
-    withdrawn root трея как parent_root нельзя — Toplevel-ребёнок
-    от скрытого корня отображается некорректно (окно 1×1).
+    Диалог show_item_picker получает parent_root=tk_root: он использует
+    root трея через wait_window вместо создания второго tk.Tk().
+    Создание второго Tk() в том же потоке, где уже работает mainloop
+    трея, не поддерживается Tcl/Tk — mainloop возвращается сразу,
+    и диалог не обрабатывается (окно 150×25 без содержимого).
 
-    tk_root из callbacks используется только для _open_file_dialog
+    tk_root из callbacks также используется для _open_file_dialog
     (системного диалога выбора файла); если его нет — тот создаст
     свой root сам.
 
@@ -343,11 +344,12 @@ def _select_browser(
         log.debug('_select_browser: обнаружено %s браузеров', len(detected))
 
         # Получаем tk_root из callbacks (передаётся из трея).
-        # Используется только для _open_file_dialog. show_item_picker
-        # сам создаёт собственный tk.Tk() root (parent_root=None),
-        # так как withdrawn root трея не позволяет корректно
-        # отобразить Toplevel-диалог (окно 1×1).
         tk_root = callbacks.get('tk_root')
+        if tk_root is None:
+            # Без tk_root диалог не может использовать wait_window:
+            # создание второго tk.Tk() root в том же потоке, где уже
+            # работает mainloop трея, не поддерживается Tcl/Tk.
+            return
 
         if detected:
             # Используем кастомный диалог выбора из списка
@@ -361,10 +363,9 @@ def _select_browser(
                     saver(path)
                     log.info('Путь браузера изменён: %s', path)
 
-            # НЕ передаём parent_root — show_item_picker создаст
-            # собственный tk.Tk() root через _get_or_create_root
-            # и корректно отобразит диалог (withdrawn root трея
-            # порождает окно 1×1 при Toplevel-ребёнке).
+            # Передаём parent_root=tk_root — диалог использует root трея
+            # через wait_window вместо создания второго tk.Tk() root
+            # (два mainloop в одном потоке не поддерживаются Tcl/Tk).
             show_item_picker(
                 title='Выбор браузера',
                 message='Найденные браузеры:',
@@ -381,6 +382,7 @@ def _select_browser(
                 on_manual=lambda: _open_file_dialog(
                     callbacks, log, tk_root,
                 ),
+                parent_root=tk_root,
             )
         else:
             # Браузеры не найдены — сразу открываем диалог выбора файла
