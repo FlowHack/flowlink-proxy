@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     import pystray  # type: ignore[reportMissingImports]
 
 
-class PystrayTray:
+class PystrayTray:  # pylint: disable=too-many-instance-attributes
     """
     Базовый класс pystray-бэкенда для Linux и macOS.
 
@@ -38,6 +38,8 @@ class PystrayTray:
         self._popup = FlowLinkPopup()
         self._tk_root = None
         self._tk_thread = None
+        # Защита от дублей popup (аналог _popup_open в win32.py)
+        self._popup_open = False
 
     def start(self) -> None:
         """Запускает трей в отдельном потоке."""
@@ -119,10 +121,38 @@ class PystrayTray:
             )
 
     def _show_popup(self) -> None:
-        """Показывает popup-меню при позиции курсора."""
+        """Показывает popup-меню при позиции курсора.
+
+        Защищён от дублей и исключений: повторный клик по иконке
+        не создаст второй popup, а ошибка рендера не уронит
+        обработчик клика pystray (аналог _safe_show_popup в win32).
+        Перед построением меню передаёт tk_root в callbacks —
+        иначе «Выбрать браузер...» молча выходит (см. menu.py).
+        """
         if not self._tk_root:
             return
-        items = build_menu_items(
-            self._callbacks, self.stop, f'Tray {self._platform_name}',
-        )
-        self._popup.show(items=items)
+        if self._popup_open:
+            self._logger.debug(
+                'Tray %s: popup уже показывается — пропуск',
+                self._platform_name,
+            )
+            return
+
+        self._popup_open = True
+        try:
+            # Передаём tk_root в callbacks для диалогов выбора браузера
+            # (аналог win32.py: callbacks['tk_root'] = self._tk_root).
+            self._callbacks['tk_root'] = self._tk_root
+            items = build_menu_items(
+                self._callbacks, self.stop,
+                f'Tray {self._platform_name}',
+            )
+            self._popup.show(items=items)
+        except (tk.TclError, KeyError, TypeError, ValueError,
+                OSError, RuntimeError) as e:
+            self._logger.error(
+                'Tray %s: ошибка показа popup: %s',
+                self._platform_name, e, exc_info=True,
+            )
+        finally:
+            self._popup_open = False

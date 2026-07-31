@@ -542,6 +542,7 @@ function attachGlobalListeners() {
   document.getElementById('tab-backend')?.addEventListener('click', () => switchHelpTab('backend'));
   document.getElementById('tab-port')?.addEventListener('click', () => switchHelpTab('port'));
   document.getElementById('tab-ext')?.addEventListener('click', () => switchHelpTab('ext'));
+  document.getElementById('tab-faq')?.addEventListener('click', () => switchHelpTab('faq'));
 
   // Переключение видимости пароля
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);

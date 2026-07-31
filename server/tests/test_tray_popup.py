@@ -70,28 +70,28 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
         self.assertEqual(result, 40)
 
     def test_single_item(self):
-        """Один пункт: 6 (padding) + 28 (item) + 6 (padding) = 40."""
+        """Один пункт: 6 (padding) + 28 (item) + 6 (padding) + 20 (статусбар) = 60."""
         items = [{'type': 'item', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 40)
+        self.assertEqual(result, 60)
 
     def test_two_items(self):
-        """Два пункта: 6 + 28 + 28 + 6 = 68."""
+        """Два пункта: 6 + 28 + 28 + 6 + 20 = 88."""
         items = [
             {'type': 'item', 'text': 'First'},
             {'type': 'item', 'text': 'Second'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 68)
+        self.assertEqual(result, 88)
 
     def test_separator_height(self):
-        """Разделитель: 6 + 8 + 28 + 6 = 48."""
+        """Разделитель: 6 + 8 + 28 + 6 + 20 = 68."""
         items = [
             {'type': 'separator'},
             {'type': 'item', 'text': 'Test'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 48)
+        self.assertEqual(result, 68)
 
     def test_menu_7_items_2_separators(self):
         """Полное меню (6 пунктов + 2 разделителя)."""
@@ -105,16 +105,16 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
             {'type': 'separator'},
             {'type': 'item', 'text': '6'},
         ]
-        # 6 + 28*6 + 8*2 + 6 = 196
+        # 6 + 28*6 + 8*2 + 6 + 20 (статусбар) = 216
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 196)
+        self.assertEqual(result, 216)
 
     def test_unknown_type_treated_as_item(self):
         """Неизвестный тип обрабатывается как пункт."""
         items = [{'type': 'unknown', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        # Высота как для обычного item: 6 + 28 + 6 = 40
-        self.assertEqual(result, 40)
+        # Высота как для обычного item: 6 + 28 + 6 + 20 (статусбар) = 60
+        self.assertEqual(result, 60)
 
     def test_min_height_floor(self):
         """Минимальная высота — 40, даже если calculation меньше."""
@@ -166,6 +166,37 @@ class TestFlowLinkPopupInit(unittest.TestCase):
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         # _polling_active — internal tkinter: проверка начального состояния
         self.assertFalse(popup._polling_active)  # pylint: disable=protected-access
+
+
+@unittest.skipUnless(_HAS_TKINTER, 'tkinter не установлен')
+class TestFlowLinkPopupTooltip(unittest.TestCase):
+    """Тесты логики тултипов (без реального tkinter-окна)."""
+
+    def test_initial_tooltip_state(self):
+        """При создании статусбар и таймер тултипа пусты."""
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        self.assertIsNone(popup._tooltip_label)  # pylint: disable=protected-access
+        self.assertIsNone(popup._tooltip_after_id)  # pylint: disable=protected-access
+        self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access
+
+    def test_show_tooltip_without_popup_sets_text(self):
+        """_show_tooltip без popup сохраняет текст, но не планирует таймер."""
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
+        self.assertEqual(popup._tooltip_text, 'Подсказка')  # pylint: disable=protected-access
+        self.assertIsNone(popup._tooltip_after_id)  # pylint: disable=protected-access
+
+    def test_hide_tooltip_clears_text(self):
+        """_hide_tooltip очищает текст подсказки."""
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
+        popup._hide_tooltip()  # pylint: disable=protected-access
+        self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access
+
+    def test_hide_tooltip_on_empty_no_crash(self):
+        """_hide_tooltip на пустом popup не бросает исключение."""
+        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        popup._hide_tooltip()  # pylint: disable=protected-access
 
 
 if __name__ == '__main__':

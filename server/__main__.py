@@ -208,10 +208,50 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
     return _try_start_tray(callbacks, args.no_tkinter)
 
 
+def _start_alt_tray(callbacks: dict):
+    """
+    Запускает альтернативный трей-бэкенд: pystray с нативным меню.
+
+    Второй шаг цепочки отказоустойчивости: вызывается, когда основной
+    платформенный бэкенд (start_tray) вернул None или бросил исключение.
+    Нативное меню pystray не зависит от tkinter и работает на всех ОС.
+
+    Args:
+        callbacks: Словарь с коллбэками трея.
+
+    Returns:
+        Объект трей-иконки или None при ошибке.
+    """
+    try:
+        # Ленивый импорт: функция обёрнута в server/tray/__init__.py
+        from server.tray import _start_pystray_fallback  # pylint: disable=import-outside-toplevel,protected-access
+        return _start_pystray_fallback(callbacks)
+    except ImportError as e:
+        logger.error(
+            'Альтернативный трей: модуль fallback недоступен: %s', e,
+        )
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error(
+            'Альтернативный трей: непредвиденная ошибка: %s',
+            e, exc_info=True,
+        )
+    return None
+
+
 def _try_start_tray(
     callbacks: dict, no_tkinter: bool,
 ):
-    """Запуск start_tray с обработкой ошибок."""
+    """
+    Запуск start_tray с обработкой ошибок и цепочкой fallback.
+
+    Цепочка отказоустойчивости:
+    1. Основной трей (платформенный бэкенд, start_tray).
+    2. Если основной вернул None или бросил исключение — pystray
+       с нативным меню (_start_alt_tray). Шаг пропускается при
+       --no-tkinter: start_tray уже использовал нативный fallback.
+    3. Если все бэкенды недоступны — _handle_tray_error
+       (critical + sys.exit(1) в standalone, warning в исходниках).
+    """
     _labels: dict[type, str] = {
         ImportError: 'импорт',
         OSError: 'системная ошибка',
@@ -220,24 +260,45 @@ def _try_start_tray(
         TypeError: 'некорректные данные',
         AttributeError: 'атрибут не найден',
     }
+
+    # Шаг 1: основной платформенный бэкенд
     try:
         # _HAS_TRAY=True гарантирует импорт start_tray
         assert start_tray is not None  # type: ignore[reportPossiblyUnbound]
         icon = start_tray(  # type: ignore[reportPossiblyUnbound]
             callbacks, no_tkinter=no_tkinter,
         )
-        if icon:
-            logger.info('Иконка в трее запущена')
-        else:
-            _handle_tray_error(
-                RuntimeError('start_tray вернул None'),
-                'запуск',
-            )
-        return icon
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        icon = None
         label = _labels.get(type(exc), 'непредвиденная ошибка')
-        _handle_tray_error(exc, label)
-        return None
+        logger.warning(
+            'Основной трей не запустился (%s): %s',
+            label, exc, exc_info=True,
+        )
+
+    if icon:
+        logger.info('Иконка в трее запущена')
+        return icon
+
+    # Шаг 2: альтернативный бэкенд — pystray с нативным меню
+    if not no_tkinter:
+        logger.info(
+            'Основной трей недоступен, попытка pystray '
+            'с нативным меню...',
+        )
+        alt_icon = _start_alt_tray(callbacks)
+        if alt_icon:
+            logger.info(
+                'Альтернативный трей (pystray, нативное меню) запущен',
+            )
+            return alt_icon
+
+    # Шаг 3: все трей-бэкенды недоступны
+    _handle_tray_error(
+        RuntimeError('Все трей-бэкенды недоступны'),
+        'запуск',
+    )
+    return None
 
 
 def _setup_signal_handlers(loop: asyncio.AbstractEventLoop, stop_event: asyncio.Event) -> None:
@@ -259,7 +320,7 @@ def _on_signal(sig: signal.Signals, stop_event: asyncio.Event) -> None:
 
 
 # Таймаут ожидания подключения расширения (секунды)
-_EXTENSION_CONNECT_TIMEOUT = 300
+_EXTENSION_CONNECT_TIMEOUT = 120
 _EXTENSION_CHECK_INTERVAL = 10
 
 
@@ -267,7 +328,7 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
     """
     Следит за подключением расширения к API-серверу.
 
-    Если за 5 минут ни один запрос от расширения не был получен —
+    Если за 2 минуты ни один запрос от расширения не был получен —
     показывает пользователю уведомление с инструкцией по установке.
     Использует stdlib urllib (без внешних зависимостей).
 
@@ -293,7 +354,7 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
         except (urllib.error.URLError, OSError):
             continue
 
-    # 5 минут прошли, расширение не подключилось
+    # 2 минуты прошли, расширение не подключилось
     logger.warning('Расширение не подключено к API-серверу за %d секунд',
                    _EXTENSION_CONNECT_TIMEOUT)
 
@@ -306,10 +367,13 @@ async def _watch_api_connection(api_port: int, server_dir: str) -> None:
             from server.ui.dialogs import ask_yes_no  # pylint: disable=import-outside-toplevel
 
             message = (
-                'FlowLink Proxy запущен. Для работы необходимы также\n'
-                'браузер на Chromium (Chrome, Edge, Яндекс Браузер,\n'
-                'Opera, Brave и др.) и расширение FlowLink Proxy.\n\n'
-                'Установите расширение и подключите его к серверу.'
+                'FlowLink Proxy запущен, но расширение не подключено.\n'
+                'Для работы необходимы браузер на Chromium (Chrome, Edge,\n'
+                'Яндекс Браузер, Opera, Brave и др.) и установленное\n'
+                'и запущенное расширение FlowLink Proxy.\n\n'
+                'Установите расширение и подключите его к серверу.\n'
+                'Либо запустите браузер через меню трея\n'
+                '«Запустить браузер» — расширение подключится автоматически.'
             )
             answer = ask_yes_no(
                 'FlowLink Proxy',

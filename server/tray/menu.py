@@ -531,6 +531,7 @@ def build_menu_items(
       icon: Unicode-символ (опционально)
       command: Callable, вызываемый при клике
       color: Цвет текста (для 'item') или галочки (для 'check')
+      tooltip: Всплывающая подсказка в статусбаре popup (опционально)
 
     Замыкания внутри формируются динамически и привязаны к callbacks
     на момент построения меню. Autostart читается один раз —
@@ -573,6 +574,7 @@ def build_menu_items(
             'type': 'item',
             'text': 'Посмотреть логи',
             'icon': '\U0001f4dc',
+            'tooltip': 'Открыть папку с логами FlowLink Proxy',
             'command': _make_action(
                 _open_logs, callbacks, log,
             ),
@@ -581,6 +583,7 @@ def build_menu_items(
             'type': 'item',
             'text': 'Очистить логи',
             'icon': '\U0001f5d1',
+            'tooltip': 'Удалить все файлы логов',
             'command': _make_action(
                 _clear_logs, callbacks, log,
             ),
@@ -589,6 +592,7 @@ def build_menu_items(
             'type': 'item',
             'text': 'Посмотреть данные',
             'icon': '\U0001f4c2',
+            'tooltip': 'Открыть папку с данными (конфиг, ключи)',
             'command': _make_action(
                 _open_data, callbacks, log,
             ),
@@ -597,6 +601,7 @@ def build_menu_items(
             'type': 'item',
             'text': 'Очистить данные',
             'icon': '\u26a0\ufe0f',
+            'tooltip': 'Удалить конфигурацию и все данные',
             'command': _make_action(
                 _clear_data, callbacks, log,
             ),
@@ -607,6 +612,7 @@ def build_menu_items(
             'text': 'Автозапуск браузера',
             'icon': '\U0001f310',
             'checked': autostart,
+            'tooltip': 'Запускать браузер автоматически при старте системы',
             'command': _make_action(
                 _toggle_autostart, callbacks, log,
                 current_value=autostart,
@@ -617,6 +623,7 @@ def build_menu_items(
             'text': 'Запуск с системой',
             'icon': '\U0001f50a',
             'checked': sys_autostart,
+            'tooltip': 'Автозапуск FlowLink Proxy вместе с системой',
             'command': _make_action(
                 _toggle_system_autostart,
                 callbacks, log,
@@ -629,6 +636,7 @@ def build_menu_items(
             'text': 'Запуск с расширением',
             'icon': '\U0001f4e6',
             'checked': callbacks.get('ext_enabled_getter', lambda: False)(),
+            'tooltip': 'Запускать браузер с автоматическим подключением расширения',
             'command': _make_action(
                 _toggle_ext_enabled, callbacks, log,
                 current_value=callbacks.get(
@@ -640,6 +648,7 @@ def build_menu_items(
             'type': 'item',
             'text': 'Выбрать браузер...',
             'icon': '\U0001f4c1',
+            'tooltip': 'Указать, какой браузер использовать',
             'command': _make_action(
                 _select_browser, callbacks, log,
             ),
@@ -648,6 +657,7 @@ def build_menu_items(
             'type': 'item',
             'text': 'Запустить браузер',
             'icon': '\U0001f310',
+            'tooltip': 'Запустить выбранный браузер сейчас',
             'command': _make_action(
                 _launch_browser_now, callbacks, log,
             ),
@@ -658,6 +668,7 @@ def build_menu_items(
             'text': 'Выход',
             'icon': '\u274c',
             'color': '#e74c3c',
+            'tooltip': 'Завершить работу FlowLink Proxy',
             'command': lambda: _exit(
                 stop_fn, callbacks, log,
             ),

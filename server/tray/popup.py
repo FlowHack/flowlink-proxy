@@ -29,12 +29,13 @@ logger = logging.getLogger('flowlink.tray.popup')
 from server.ui.theme import ThemeColors as PopupColors  # pylint: disable=wrong-import-position
 
 
-class FlowLinkPopup:
+class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
     """
     Кастомное popup-меню для системного трей.
 
     Создаёт borderless tkinter-окно с тёмной темой.
-    Поддерживает пункты меню, чекбоксы, разделители.
+    Поддерживает пункты меню, чекбоксы, разделители,
+    статусбар с инлайн-подсказками (тултипами).
 
     Использование:
         popup = FlowLinkPopup()
@@ -49,6 +50,10 @@ class FlowLinkPopup:
         self._polling_active = False
         self._focus_out_after_id: Optional[str] = None
         self._command_running: bool = False
+        # Статусбар для тултипов (инлайн-подсказок)
+        self._tooltip_label: Optional[tk.Label] = None
+        self._tooltip_after_id: Optional[str] = None
+        self._tooltip_text = ''
 
     def set_tk_root(self, root: tk.Tk) -> None:
         """
@@ -160,6 +165,8 @@ class FlowLinkPopup:
     def dismiss(self) -> None:
         """Закрывает popup-меню, если оно открыто."""
         self._polling_active = False
+        # Отменяем таймер тултипа и очищаем статусбар
+        self._hide_tooltip()
         try:
             if self._popup is not None:
                 try:
@@ -433,6 +440,7 @@ class FlowLinkPopup:
         item_height = 28  # высота одного пункта (уменьшено)
         separator_height = 8  # высота разделителя (уменьшено)
         padding = 6  # верхний + нижний padding (3+3) — совпадает с _build_items
+        statusbar_height = 20  # высота статусбара для тултипов
 
         height = padding
         for item in items:
@@ -441,6 +449,7 @@ class FlowLinkPopup:
             else:
                 height += item_height
         height += padding
+        height += statusbar_height
         return max(height, 40)
 
     def _build_items(self, items: List[Dict[str, Any]]) -> None:
@@ -465,6 +474,7 @@ class FlowLinkPopup:
                         icon=item.get('icon', ''),
                         command=item.get('command'),
                         color=item.get('color'),
+                        tooltip=item.get('tooltip'),
                     )
                 elif item_type == 'check':
                     self._add_check_item(
@@ -472,6 +482,7 @@ class FlowLinkPopup:
                         icon=item.get('icon', ''),
                         checked=item.get('checked', False),
                         command=item.get('command'),
+                        tooltip=item.get('tooltip'),
                     )
                 elif item_type == 'header':
                     self._add_header(item.get('text', ''))
@@ -480,6 +491,22 @@ class FlowLinkPopup:
             tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, height=3,
             ).pack(fill='x')
+
+            # Статусбар для тултипов (нижняя строка)
+            self._tooltip_label = tk.Label(
+                self._popup,
+                text='',
+                bg=PopupColors.BG,
+                fg=PopupColors.TEXT_MUTED,
+                font=('Segoe UI', 9),
+                anchor='w',
+                padx=12,
+                pady=3,
+                height=1,
+            )
+            self._tooltip_label.pack(
+                fill='x', side='bottom', padx=4, pady=(0, 3),
+            )
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter при построении: %s', e,
@@ -499,7 +526,7 @@ class FlowLinkPopup:
             font=('Segoe UI', 11, 'bold'),
             anchor='w',
             padx=12,
-            pady=(4, 2),  # type: ignore[reportArgumentType]
+            pady=4,
         )
         lbl.pack(fill='x')
 
@@ -509,8 +536,17 @@ class FlowLinkPopup:
         icon: str = '',
         command: Optional[Callable[[], None]] = None,
         color: Optional[str] = None,
+        tooltip: Optional[str] = None,
     ) -> None:
-        """Добавляет пункт меню."""
+        """Добавляет пункт меню.
+
+        Args:
+            text: Текст пункта.
+            icon: Unicode-иконка (опционально).
+            command: Обработчик клика (опционально).
+            color: Цвет текста (опционально).
+            tooltip: Инлайн-подсказка в статусбаре (опционально).
+        """
         try:
             frame = tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, cursor='hand2',
@@ -611,6 +647,9 @@ class FlowLinkPopup:
                 widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
                 widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
                 widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
+                # Тултип: показываем с задержкой при наведении,
+                # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
+                self._bind_tooltip(widget, tooltip)
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_menu_item: %s', e,
@@ -620,14 +659,23 @@ class FlowLinkPopup:
                 'Popup: ошибка данных в _add_menu_item: %s', e,
             )
 
-    def _add_check_item(
+    def _add_check_item(  # pylint: disable=too-many-locals
         self,
         text: str,
         icon: str = '',
         checked: bool = False,
         command: Optional[Callable[[], None]] = None,
+        tooltip: Optional[str] = None,
     ) -> None:
-        """Добавляет пункт с чекбоксом."""
+        """Добавляет пункт с чекбоксом.
+
+        Args:
+            text: Текст пункта.
+            icon: Unicode-иконка (опционально).
+            checked: Состояние чекбокса.
+            command: Обработчик клика (опционально).
+            tooltip: Инлайн-подсказка в статусбаре (опционально).
+        """
         try:
             frame = tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, cursor='hand2',
@@ -740,6 +788,9 @@ class FlowLinkPopup:
                 widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
                 widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
                 widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
+                # Тултип: показываем с задержкой при наведении,
+                # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
+                self._bind_tooltip(widget, tooltip)
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_check_item: %s', e,
@@ -763,6 +814,103 @@ class FlowLinkPopup:
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_separator: %s', e,
+            )
+
+    def _show_tooltip(self, text: str) -> None:
+        """Показывает инлайн-подсказку в статусбаре с задержкой.
+
+        Текст отображается только если курсор задержался на пункте
+        600 мс — быстрый проезд по меню не мигает статусбаром.
+
+        Args:
+            text: Текст подсказки.
+        """
+        self._tooltip_text = text
+        # Отменяем предыдущий таймер перед установкой нового
+        self._cancel_tooltip_timer()
+        if self._popup is None:
+            return
+        try:
+            if not self._popup.winfo_exists():
+                return
+            self._tooltip_after_id = self._popup.after(
+                600, self._display_tooltip,
+            )
+        except tk.TclError as e:
+            logger.debug(
+                'Popup: не удалось запланировать тултип: %s', e,
+            )
+
+    def _display_tooltip(self) -> None:
+        """Отображает накопленный текст тултипа в статусбаре."""
+        self._tooltip_after_id = None
+        if self._tooltip_label is None or self._popup is None:
+            return
+        try:
+            if not self._popup.winfo_exists():
+                return
+            self._tooltip_label.configure(text=self._tooltip_text)
+        except tk.TclError:
+            logger.debug(
+                'Popup: статусбар тултипа недоступен — пропуск',
+            )
+
+    def _hide_tooltip(self) -> None:
+        """Скрывает подсказку и отменяет таймер её показа."""
+        self._cancel_tooltip_timer()
+        self._tooltip_text = ''
+        if self._tooltip_label is not None:
+            try:
+                self._tooltip_label.configure(text='')
+            except tk.TclError:
+                logger.debug(
+                    'Popup: статусбар тултипа уже уничтожен — пропуск',
+                )
+
+    def _cancel_tooltip_timer(self) -> None:
+        """Отменяет отложенный показ тултипа, если он запланирован."""
+        if self._tooltip_after_id is None:
+            return
+        try:
+            if self._popup is not None and self._popup.winfo_exists():
+                self._popup.after_cancel(self._tooltip_after_id)
+        except (tk.TclError, ValueError):
+            logger.debug(
+                'Popup: не удалось отменить таймер тултипа',
+            )
+        self._tooltip_after_id = None
+
+    def _bind_tooltip(
+        self,
+        widget: Any,
+        tooltip: Optional[str],
+    ) -> None:
+        """Привязывает показ/скрытие тултипа к виджету пункта меню.
+
+        Использует add='+', чтобы не перезаписывать существующие
+        hover-биндинги (подсветку фона). Показ — с задержкой 600 мс,
+        скрытие — мгновенно при уходе курсора.
+
+        Args:
+            widget: Виджет пункта (frame или его label).
+            tooltip: Текст подсказки (None — биндинг не ставится).
+        """
+        if not tooltip:
+            return
+        try:
+            widget.bind(  # type: ignore[reportArgumentType]
+                '<Enter>',
+                lambda _e, t=tooltip: self._show_tooltip(t),
+                add='+',
+            )
+            widget.bind(  # type: ignore[reportArgumentType]
+                '<Leave>',
+                lambda _e: self._hide_tooltip(),
+                add='+',
+            )
+        except tk.TclError as e:
+            logger.debug(
+                'Popup: не удалось привязать тултип: %s', e,
             )
 
     def _fade_in(self, alpha: float = 0.0) -> None:

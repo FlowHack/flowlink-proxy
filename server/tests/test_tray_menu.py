@@ -298,6 +298,66 @@ class TestBuildMenuItems(unittest.TestCase):
         # Не должен бросить исключение
         item['command']()
 
+
+class TestBuildMenuItemsTooltipFields(unittest.TestCase):
+    """Тесты поля tooltip в пунктах меню."""
+
+    def _items(self):
+        """Строит меню с базовыми колбэками."""
+        return build_menu_items(
+            {
+                'stop': MagicMock(),
+                'autostart_getter': lambda: False,
+            },
+            MagicMock(),
+        )
+
+    def test_all_items_and_checks_have_tooltip(self):
+        """Каждый пункт type=item/check содержит непустой tooltip."""
+        items = self._items()
+        for item in items:
+            if item.get('type') in ('item', 'check'):
+                self.assertIn('tooltip', item, f'нет tooltip у {item.get("text")!r}')
+                self.assertTrue(
+                    item['tooltip'],
+                    f'пустой tooltip у {item.get("text")!r}',
+                )
+
+    def test_separators_have_no_tooltip(self):
+        """Разделители не содержат tooltip."""
+        items = self._items()
+        for item in items:
+            if item.get('type') == 'separator':
+                self.assertNotIn('tooltip', item)
+
+    def test_specific_tooltip_texts(self):
+        """Ключевые пункты имеют ожидаемые подсказки."""
+        items = self._items()
+        by_text = {i.get('text'): i for i in items}
+        self.assertEqual(
+            by_text['Выход']['tooltip'],
+            'Завершить работу FlowLink Proxy',
+        )
+        self.assertEqual(
+            by_text['Автозапуск браузера']['tooltip'],
+            'Запускать браузер автоматически при старте системы',
+        )
+        self.assertEqual(
+            by_text['Выбрать браузер...']['tooltip'],
+            'Указать, какой браузер использовать',
+        )
+
+
+class TestBuildMenuItemsCommands(unittest.TestCase):
+    """Тесты команд пунктов меню (поведение без tkinter)."""
+
+    def _base_callbacks(self):
+        """Минимальный набор колбэков для тестов."""
+        return {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+        }
+
     def test_clear_logs_no_crash_when_no_callback(self):
         """«Очистить логи» не крашнется без clear_logs."""
         callbacks = {

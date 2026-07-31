@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import tkinter as tk
+from tkinter import font as tkfont
 from typing import Any, Callable, Optional
 
 from server.ui.theme import ThemeColors
@@ -161,7 +162,7 @@ def _make_item_row(
         fg=ThemeColors.TEXT,
         anchor='w',
         padx=12,
-        pady='6 0',  # type: ignore[reportArgumentType]
+        pady=6,
     )
     lbl.pack(fill='x')
 
@@ -174,7 +175,7 @@ def _make_item_row(
         fg=ThemeColors.TEXT_SECONDARY,
         anchor='w',
         padx=12,
-        pady='0 6',  # type: ignore[reportArgumentType]
+        pady=6,
     )
     sub.pack(fill='x')
 
@@ -201,6 +202,103 @@ def _make_item_row(
     row.bind('<Button-1>', _on_click)
     lbl.bind('<Button-1>', _on_click)
     sub.bind('<Button-1>', _on_click)
+
+    return row
+
+
+def _make_compact_item_row(
+    parent: tk.Widget,
+    label: str,
+    subtitle: str,
+    command: Optional[Callable[[], None]] = None,
+) -> tk.Frame:
+    """Создаёт компактную однострочную строку элемента списка.
+
+    Название отображается слева, путь — справа. Если путь не
+    помещается в строку, он обрезается многоточием.
+
+    Args:
+        parent: Родительский виджет.
+        label: Основной текст (название).
+        subtitle: Дополнительный текст (путь).
+        command: Функция при клике.
+
+    Returns:
+        Frame с элементами строки.
+    """
+    row = tk.Frame(parent, bg=ThemeColors.SURFACE, cursor='hand2')
+
+    # Название — слева
+    name_lbl = tk.Label(
+        row,
+        text=label,
+        font=(ThemeColors.FONT_FAMILY[0], ThemeColors.FONT_SIZE_NORMAL, 'bold'),
+        bg=ThemeColors.SURFACE,
+        fg=ThemeColors.TEXT,
+        anchor='w',
+        padx=12,
+        pady=6,
+    )
+    name_lbl.pack(side='left')
+
+    # Путь — справа
+    path_lbl = tk.Label(
+        row,
+        text=subtitle,
+        font=(ThemeColors.FONT_FAMILY[0], ThemeColors.FONT_SIZE_SMALL),
+        bg=ThemeColors.SURFACE,
+        fg=ThemeColors.TEXT_SECONDARY,
+        anchor='e',
+        padx=8,
+        pady=6,
+    )
+    path_lbl.pack(side='right')
+
+    def _fit_path() -> None:
+        """Обрезает путь многоточием, если он не помещается."""
+        if not subtitle:
+            return
+        font = tkfont.Font(font=path_lbl.cget('font'))
+        # Доступная ширина для текста пути:
+        # ширина строки минус название и отступы пути
+        available = max(0, row.winfo_width() - name_lbl.winfo_reqwidth() - 16)
+        if font.measure(subtitle) <= available:
+            if path_lbl.cget('text') != subtitle:
+                path_lbl.configure(text=subtitle)
+            return
+        truncated = subtitle
+        while truncated and font.measure(truncated + '...') > available:
+            truncated = truncated[:-1]
+        new_text = truncated + '...' if truncated else '...'
+        if path_lbl.cget('text') != new_text:
+            path_lbl.configure(text=new_text)
+
+    # Пересчитываем обрезку при изменении размера строки
+    row.bind('<Configure>', lambda _e: _fit_path())
+
+    def _on_enter(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        row.configure(bg=ThemeColors.SURFACE_HOVER)
+        name_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
+        path_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
+
+    def _on_leave(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        row.configure(bg=ThemeColors.SURFACE)
+        name_lbl.configure(bg=ThemeColors.SURFACE)
+        path_lbl.configure(bg=ThemeColors.SURFACE)
+
+    def _on_click(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        if command:
+            command()
+
+    row.bind('<Enter>', _on_enter)
+    row.bind('<Leave>', _on_leave)
+    row.bind('<Button-1>', _on_click)
+    name_lbl.bind('<Enter>', _on_enter)
+    name_lbl.bind('<Leave>', _on_leave)
+    name_lbl.bind('<Button-1>', _on_click)
+    path_lbl.bind('<Enter>', _on_enter)
+    path_lbl.bind('<Leave>', _on_leave)
+    path_lbl.bind('<Button-1>', _on_click)
 
     return row
 
@@ -260,7 +358,7 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
         fg=ThemeColors.ACCENT,
         anchor='w',
         padx=16,
-        pady='12 4',  # type: ignore[reportArgumentType]
+        pady=12,
     )
     title_lbl.pack(fill='x')
 
@@ -278,7 +376,7 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
         anchor='w',
         justify='left',
         padx=16,
-        pady='12 16',  # type: ignore[reportArgumentType]
+        pady=12,
     )
     msg_lbl.pack(fill='x')
 
@@ -418,23 +516,6 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     inner = tk.Frame(outer, bg=ThemeColors.BG)
     inner.pack(fill='both', expand=True)
 
-    # Заголовок
-    title_lbl = tk.Label(
-        inner,
-        text=title,
-        font=(ThemeColors.FONT_FAMILY[0], ThemeColors.FONT_SIZE_TITLE, 'bold'),
-        bg=ThemeColors.BG,
-        fg=ThemeColors.ACCENT,
-        anchor='w',
-        padx=16,
-        pady='12 4',  # type: ignore[reportArgumentType]
-    )
-    title_lbl.pack(fill='x')
-
-    # Разделитель
-    title_sep = tk.Frame(inner, height=1, bg=ThemeColors.BORDER)
-    title_sep.pack(fill='x', padx=16)
-
     # Текст сообщения
     if message:
         msg_lbl = tk.Label(
@@ -446,25 +527,41 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
             anchor='w',
             justify='left',
             padx=16,
-            pady='8 4',  # type: ignore[reportArgumentType]
+            pady=8,
         )
         msg_lbl.pack(fill='x')
 
-    # Контейнер для списка (с прокруткой если много элементов)
+    # Контейнер для списка (с прокруткой если элементов много)
     list_container = tk.Frame(inner, bg=ThemeColors.BG)
     list_container.pack(fill='both', expand=True, padx=8, pady='4 8')
 
-    canvas = tk.Canvas(list_container, bg=ThemeColors.BG, highlightthickness=0)
-    scrollbar = tk.Scrollbar(list_container, orient='vertical', command=canvas.yview)
-    scrollable_frame = tk.Frame(canvas, bg=ThemeColors.BG)
+    # Прокрутка нужна только при большом количестве элементов.
+    # В остальных случаях строки размещаются напрямую в контейнере.
+    many_items = len(items) > 8
 
-    scrollable_frame.bind(
-        '<Configure>',
-        lambda e: canvas.configure(scrollregion=canvas.bbox('all')),  # pylint: disable=undefined-variable
-    )
+    if many_items:
+        canvas = tk.Canvas(
+            list_container, bg=ThemeColors.BG, highlightthickness=0,
+        )
+        scrollbar = tk.Scrollbar(
+            list_container, orient='vertical', command=canvas.yview,
+        )
+        scrollable_frame = tk.Frame(canvas, bg=ThemeColors.BG)
 
-    canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
-    canvas.configure(yscrollcommand=scrollbar.set)
+        scrollable_frame.bind(
+            '<Configure>',
+            lambda e: canvas.configure(scrollregion=canvas.bbox('all')),  # pylint: disable=undefined-variable
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+        # Родитель для строк — прокручиваемый фрейм
+        row_parent = scrollable_frame
+    else:
+        # Без прокрутки строки размещаются прямо в контейнере
+        row_parent = list_container
 
     # Добавляем элементы списка
     for item in items:
@@ -476,20 +573,13 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
                     root.quit()
             return _action
 
-        row = _make_item_row(
-            scrollable_frame,
+        row = _make_compact_item_row(
+            row_parent,
             label=item.get('label', ''),
             subtitle=item.get('subtitle', ''),
             command=_make_item_action(item),
         )
         row.pack(fill='x')
-
-    # Если элементов много — показываем скроллбар
-    if len(items) > 8:
-        canvas.pack(side='left', fill='both', expand=True)
-        scrollbar.pack(side='right', fill='y')
-    else:
-        canvas.pack(side='left', fill='both', expand=True)
 
     # Нижняя панель с кнопками
     bottom_frame = tk.Frame(inner, bg=ThemeColors.BG)
@@ -532,8 +622,9 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     # окно маппится с вырожденным размером (обрезок 1.5см×0.5см).
     dialog.update_idletasks()
     width = max(480, dialog.winfo_reqwidth())
-    # Высота рассчитывается по количеству элементов: ~44px на строку + ~120px overhead
-    content_height = len(items) * 44 + 120
+    # Высота рассчитывается по количеству элементов:
+    # ~32px на компактную строку + ~100px на сообщение и кнопки
+    content_height = len(items) * 32 + 100
     height = min(500, max(200, content_height))
     _center_window(dialog, width, height)
     dialog.deiconify()
