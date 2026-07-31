@@ -527,14 +527,17 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     )
     cancel_btn.pack(side='right')
 
-    # Отображаем окно и центрируем его
-    dialog.deiconify()
-    dialog.update()
+    # Отображаем окно и центрируем его.
+    # ВАЖНО: geometry ДО deiconify — иначе на withdrawn root
+    # окно маппится с вырожденным размером (обрезок 1.5см×0.5см).
+    dialog.update_idletasks()
     width = max(480, dialog.winfo_reqwidth())
     # Высота рассчитывается по количеству элементов: ~44px на строку + ~120px overhead
     content_height = len(items) * 44 + 120
     height = min(500, max(200, content_height))
     _center_window(dialog, width, height)
+    dialog.deiconify()
+    dialog.update()
 
     # Модальность
     try:
