@@ -390,6 +390,12 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         except tk.TclError:
             real_w, real_h = width, height
 
+        # Высота окна резервирует место под многострочный тултип
+        # (до 3 строк): calc_height включает высоту статусбара, поэтому
+        # при появлении перенесённого текста подсказки пункты меню
+        # не сжимаются и не перекрываются.
+        real_h = max(real_h, self.calc_height(items))
+
         # Устанавливаем geometry с реальными размерами
         try:
             self._popup.geometry(
@@ -440,7 +446,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         item_height = 28  # высота одного пункта (уменьшено)
         separator_height = 8  # высота разделителя (уменьшено)
         padding = 6  # верхний + нижний padding (3+3) — совпадает с _build_items
-        statusbar_height = 20  # высота статусбара для тултипов
+        # Статусбар для тултипов: резервируем место под многострочный
+        # текст (до 3 строк). Метка создаётся с height=3 (фиксированные
+        # 3 строки, измерено ~53px) плюс разделитель под ней (~3px).
+        # При переносе текста пункты меню не сжимаются и не перекрываются.
+        statusbar_height = 56
 
         height = padding
         for item in items:
@@ -462,6 +472,37 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, height=3,
             ).pack(fill='x')
+
+            # Статусбар для тултипов (верхняя строка).
+            # Перенос строки включён через wraplength: текст подсказки
+            # переносится на несколько строк вместо обрезания.
+            # justify='left' выравнивает перенесённые строки по левому краю,
+            # padx=6 — компактный левый отступ.
+            # height=3 резервирует фиксированные 3 строки: окно строится
+            # сразу с учётом многострочного тултипа, пункты меню при
+            # появлении подсказки не сжимаются и не перекрываются
+            # (высота метки не меняется динамически).
+            self._tooltip_label = tk.Label(
+                self._popup,
+                text='',
+                bg=PopupColors.BG,
+                fg=PopupColors.TEXT_MUTED,
+                font=('Segoe UI', 9),
+                anchor='w',
+                justify='left',
+                padx=6,
+                pady=3,
+                height=3,
+                wraplength=200,
+            )
+            self._tooltip_label.pack(
+                fill='x', side='top', padx=4, pady=(2, 0),
+            )
+
+            # Разделитель под статусбаром
+            tk.Frame(  # type: ignore[reportCallIssue]
+                self._popup, bg=PopupColors.BORDER, height=1,
+            ).pack(fill='x', padx=8, pady=(1, 1))
 
             for item in items:
                 item_type = item.get('type', 'item')
@@ -491,22 +532,6 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, height=3,
             ).pack(fill='x')
-
-            # Статусбар для тултипов (нижняя строка)
-            self._tooltip_label = tk.Label(
-                self._popup,
-                text='',
-                bg=PopupColors.BG,
-                fg=PopupColors.TEXT_MUTED,
-                font=('Segoe UI', 9),
-                anchor='w',
-                padx=12,
-                pady=3,
-                height=1,
-            )
-            self._tooltip_label.pack(
-                fill='x', side='bottom', padx=4, pady=(0, 3),
-            )
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter при построении: %s', e,

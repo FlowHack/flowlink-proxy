@@ -65,33 +65,33 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
     """Тесты calc_height (статический метод, чистая функция)."""
 
     def test_empty_list(self):
-        """Пустой список — минимальная высота 40."""
+        """Пустой список — только статусбар: 6 (padding) + 6 (padding) + 56 = 68."""
         result = FlowLinkPopup.calc_height([])  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 40)
+        self.assertEqual(result, 68)
 
     def test_single_item(self):
-        """Один пункт: 6 (padding) + 28 (item) + 6 (padding) + 20 (статусбар) = 60."""
+        """Один пункт: 6 (padding) + 28 (item) + 6 (padding) + 56 (статусбар) = 96."""
         items = [{'type': 'item', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 60)
+        self.assertEqual(result, 96)
 
     def test_two_items(self):
-        """Два пункта: 6 + 28 + 28 + 6 + 20 = 88."""
+        """Два пункта: 6 + 28 + 28 + 6 + 56 = 124."""
         items = [
             {'type': 'item', 'text': 'First'},
             {'type': 'item', 'text': 'Second'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 88)
+        self.assertEqual(result, 124)
 
     def test_separator_height(self):
-        """Разделитель: 6 + 8 + 28 + 6 + 20 = 68."""
+        """Разделитель: 6 + 8 + 28 + 6 + 56 = 104."""
         items = [
             {'type': 'separator'},
             {'type': 'item', 'text': 'Test'},
         ]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 68)
+        self.assertEqual(result, 104)
 
     def test_menu_7_items_2_separators(self):
         """Полное меню (6 пунктов + 2 разделителя)."""
@@ -105,16 +105,32 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
             {'type': 'separator'},
             {'type': 'item', 'text': '6'},
         ]
-        # 6 + 28*6 + 8*2 + 6 + 20 (статусбар) = 216
+        # 6 + 28*6 + 8*2 + 6 + 56 (статусбар) = 252
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        self.assertEqual(result, 216)
+        self.assertEqual(result, 252)
 
     def test_unknown_type_treated_as_item(self):
         """Неизвестный тип обрабатывается как пункт."""
         items = [{'type': 'unknown', 'text': 'Test'}]
         result = FlowLinkPopup.calc_height(items)  # type: ignore[reportPossiblyUnbound]
-        # Высота как для обычного item: 6 + 28 + 6 + 20 (статусбар) = 60
-        self.assertEqual(result, 60)
+        # Высота как для обычного item: 6 + 28 + 6 + 56 (статусбар) = 96
+        self.assertEqual(result, 96)
+
+    def test_statusbar_reserves_multiline_space(self):
+        """Статусбар резервирует место под многострочный тултип (до 3 строк).
+
+        Проверяем, что увеличение статусбара не зависит от количества
+        пунктов: разница между 3 и 1 пунктом остаётся ровно 2 * item_height.
+        """
+        result_single = FlowLinkPopup.calc_height(
+            [{'type': 'item', 'text': 'X'}],  # type: ignore[reportPossiblyUnbound]
+        )
+        result_multi = FlowLinkPopup.calc_height([
+            {'type': 'item', 'text': 'X'},
+            {'type': 'item', 'text': 'Y'},
+            {'type': 'item', 'text': 'Z'},
+        ])  # type: ignore[reportPossiblyUnbound]
+        self.assertEqual(result_multi - result_single, 2 * 28)
 
     def test_min_height_floor(self):
         """Минимальная высота — 40, даже если calculation меньше."""
