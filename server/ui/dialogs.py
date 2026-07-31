@@ -527,8 +527,9 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     )
     cancel_btn.pack(side='right')
 
-    # Центрируем окно
-    dialog.update_idletasks()
+    # Отображаем окно и центрируем его
+    dialog.deiconify()
+    dialog.update()
     width = max(480, dialog.winfo_reqwidth())
     # Высота рассчитывается по количеству элементов: ~44px на строку + ~120px overhead
     content_height = len(items) * 44 + 120
@@ -536,7 +537,10 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     _center_window(dialog, width, height)
 
     # Модальность
-    dialog.grab_set()
+    try:
+        dialog.grab_set()
+    except tk.TclError as e:
+        logger.warning('Диалог: не удалось установить grab: %s', e)
     dialog.focus_force()
 
     # Обработка закрытия окна
