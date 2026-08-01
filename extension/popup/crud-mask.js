@@ -113,9 +113,9 @@ export async function handleSaveMask(state, loadAndRender) {
     // Проверка пересечения масок (исключаем редактируемую)
     const overlap = checkMaskOverlap(pattern, masks, maskId);
     if (overlap) {
+      console.warn('[FlowLink Proxy] Маска пересекается с существующей:', overlap);
       errorEl.textContent = overlap;
       errorEl.classList.remove('hidden');
-      setLoading(saveBtn, false);
       return;
     }
 
@@ -140,7 +140,12 @@ export async function handleSaveMask(state, loadAndRender) {
     await loadAndRender();
     showModal('modal-masks');
   } catch (e) {
-    const msg = e.message.includes('Failed to fetch') || e.message.includes('HTTP')
+    console.error('[FlowLink Proxy] Ошибка сохранения маски:', e);
+    let isNetworkError = false;
+    if (e.message.startsWith('NETWORK:') || e.message.includes('Failed to fetch')) {
+      isNetworkError = true;
+    }
+    const msg = isNetworkError
       ? 'Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy.'
       : e.message;
     errorEl.textContent = msg;

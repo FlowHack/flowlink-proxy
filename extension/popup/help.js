@@ -697,7 +697,9 @@ function _renderSubTabContent(tab, sub) {
   }
   // Вложенные подвкладки linux/macos
   if (tab === 'linux') {
-    return _LINUX_SUB_TEXTS[sub] || '<p>Раздел в разработке.</p>';
+    const text = _LINUX_SUB_TEXTS[sub];
+    if (!text) return '<p>Раздел в разработке.</p>';
+    return text + _EMAIL_FOOTER;
   }
   if (tab === 'macos') {
     const text = _MACOS_SUB_TEXTS[sub];
@@ -708,7 +710,7 @@ function _renderSubTabContent(tab, sub) {
   if (tab === 'macos-intel' || tab === 'macos-arm') {
     const text = _MACOS_SUB_TEXTS[sub];
     if (!text) return '<p>Раздел в разработке.</p>';
-    return typeof text === 'function' ? text() : text;
+    return (typeof text === 'function' ? text() : text) + _EMAIL_FOOTER;
   }
   return '<p>Раздел в разработке.</p>';
 }

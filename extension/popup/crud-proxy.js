@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPost } from '../shared/api.js';
-import { isValidIP, isValidPort, setLoading } from '../shared/utils.js';
+import { isValidHost, isValidPort, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
 import { showToast } from './popup.js';
 
@@ -109,7 +109,7 @@ export async function handleSaveProxy(loadAndRender) {
     hasError = true;
   }
   if (hasError) return;
-  if (!isValidIP(host)) { showFieldError('proxy-host', 'Неверный формат IP'); return; }
+  if (!isValidHost(host)) { showFieldError('proxy-host', 'Неверный формат хоста (IP или домен)'); return; }
 
   const saveBtn = document.getElementById('btn-proxy-save');
   setLoading(saveBtn, true);
