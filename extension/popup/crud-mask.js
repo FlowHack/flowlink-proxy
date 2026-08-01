@@ -165,7 +165,7 @@ export async function handleDeleteMask(maskId, loadAndRender, btn) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления маски:', e);
-    showToast('Не удалось удалить маску. Проверьте соединение с бэкендом.');
+    showToast('Не удалось удалить маску. Проверьте соединение с бэкендом.', 'error');
   } finally {
     setLoading(btn, false);
   }
@@ -185,7 +185,7 @@ export async function handleClearMasks(loadAndRender) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка очистки масок:', e);
-    showToast('Не удалось очистить маски. Проверьте соединение с бэкендом.');
+    showToast('Не удалось очистить маски. Проверьте соединение с бэкендом.', 'error');
   } finally {
     setLoading(btn, false);
   }

@@ -19,7 +19,7 @@ export async function handleSettingsSave(loadAndRender, showToast) {
 
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     input.focus();
-    if (showToast) showToast('Порт должен быть числом от 1 до 65535');
+    if (showToast) showToast('Порт должен быть числом от 1 до 65535', 'error');
     return;
   }
 
@@ -32,7 +32,7 @@ export async function handleSettingsSave(loadAndRender, showToast) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка сохранения порта:', e);
-    if (showToast) showToast('Не удалось сохранить настройки. Проверьте соединение с бэкендом.');
+    if (showToast) showToast('Не удалось сохранить настройки. Проверьте соединение с бэкендом.', 'error');
   } finally {
     setLoading(saveBtn, false);
   }
