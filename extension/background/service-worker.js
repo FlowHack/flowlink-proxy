@@ -23,7 +23,7 @@ chrome.alarms.get('flowlink-keepalive').then((a) => {
   if (!a) {
     chrome.alarms.create('flowlink-keepalive', { periodInMinutes: 0.5 });
   }
-}).catch(() => {});
+}).catch(e => console.warn('[FlowLink Proxy] Ошибка проверки keepalive-alarm:', e));
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'flowlink-keepalive') {
