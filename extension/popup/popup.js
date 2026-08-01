@@ -416,7 +416,7 @@ function renderBrowserWarning() {
  * Отрисовывает UI на основе состояния.
  * @param {object} state — глобальное состояние.
  */
-function render() {
+function render(state) {
   renderBrowserWarning();
   renderProxyList();
   renderVersion();
@@ -473,7 +473,7 @@ function renderProxyList() {
         <span class="slider"></span>
       </label>
       <button class="btn btn-icon btn-edit" data-proxy-id="${escapedProxyId}" title="Редактировать">✎</button>
-      <span class="proxy-ip">${escapeHtml(label)}</span>
+      <span class="proxy-ip">${label}</span>
       ${pingHtml}
       <button class="btn btn-icon btn-delete" data-proxy-id="${escapedProxyId}" title="Удалить">✕</button>
     </div>`;
@@ -625,7 +625,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Проверяем, не изменился ли конфиг с прошлого открытия popup (SSE-уведомление)
     const storage = await chrome.storage.local.get(['configChanged']);
     if (storage.configChanged) {
-      await chrome.storage.local.remove('configChanged');
+      await chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления configChanged из storage:', e));
     }
 
     // Первая загрузка — один раз, без поллинга
