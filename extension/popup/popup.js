@@ -62,7 +62,8 @@ export function showNotification(type, message, options = {}) {
 
 /** Показывает toast-уведомление на 2 секунды (алиас для обратной совместимости). */
 export function showToast(msg) {
-  showNotification('error', msg, { duration: 2000 });
+export function showToast(msg, type = 'info') {
+  showNotification(type, msg, { duration: 2000 });
 }
 
 // Глобальный доступ для help.js (избегает циклического импорта)
@@ -105,10 +106,8 @@ async function handleRetry() {
   // Показываем спиннер на кнопке
   const btn = document.querySelector('#banner-connection-error .banner-action');
   if (btn) btn.classList.add('btn-loading');
-
   try {
     let ok = await quickPing();
-
     // Если текущий порт не отвечает — пробуем найти бэкенд на другом порту
     if (!ok) {
       console.log(
@@ -118,7 +117,6 @@ async function handleRetry() {
       // После смены порта — проверяем снова
       ok = await quickPing();
     }
-
     if (ok) {
       stopPolling();
       _pollInterval = POLL_INTERVAL;
@@ -129,8 +127,9 @@ async function handleRetry() {
     } else {
       showError(true);
     }
+  } catch (e) {
+    console.error('[FlowLink Proxy] Ошибка в handleRetry:', e);
   } finally {
-    // Убираем спиннер в любом случае
     if (btn) btn.classList.remove('btn-loading');
   }
 }
@@ -286,7 +285,7 @@ async function handleGlobalToggle(checkbox) {
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения:', e);
     showNotification('error', 'Не удалось переключить состояние. Проверьте соединение с бэкендом.');
-    chrome.storage.local.set({ extEnabled: !enabled });
+    chrome.storage.local.set({ extEnabled: !enabled }).catch(e => console.warn('[FlowLink Proxy] Ошибка записи в storage:', e));
     checkbox.checked = !enabled;
   } finally {
     checkbox.disabled = false;
@@ -391,7 +390,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     return;
   }
   console.log('[FlowLink Proxy] storage.onChanged: флаг configChanged установлен, перезагружаю данные');
-  chrome.storage.local.remove('configChanged');
+  chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления из storage:', e));
   if (document.readyState === 'loading') {
     // DOM ещё не готов — пропускаем: первичная загрузка в DOMContentLoaded
     // сама перечитает свежий конфиг.
@@ -423,6 +422,7 @@ function renderBrowserWarning() {
  * @param {object} state — глобальное состояние.
  */
 function render(state) {
+function render() {
   renderBrowserWarning();
   renderProxyList();
   renderVersion();
@@ -433,10 +433,11 @@ function render(state) {
     : state.masks;
   const masksContainer = document.getElementById('mask-list');
   const maskRows = filtered.map(m => {
+    const escapedMaskId = escapeHtml(m.maskId);
     return `<div class="mask-row">
-      <button class="btn btn-icon btn-edit-mask" data-mask-id="${m.maskId}" title="Редактировать маску">✎</button>
+      <button class="btn btn-icon btn-edit-mask" data-mask-id="${escapedMaskId}" title="Редактировать маску">✎</button>
       <span class="mask-pattern">${escapeHtml(m.pattern)}</span>
-      <button class="btn btn-icon btn-danger-mask" data-mask-id="${m.maskId}" title="Удалить маску">✕</button>
+      <button class="btn btn-icon btn-danger-mask" data-mask-id="${escapedMaskId}" title="Удалить маску">✕</button>
     </div>`;
   }).join('');
   masksContainer.innerHTML = maskRows || '<div class="mask-row list-empty">Масок нет</div>';
@@ -445,7 +446,8 @@ function render(state) {
 /** Отрисовывает версию расширения в футере. */
 function renderVersion() {
   const ver = chrome.runtime.getManifest().version;
-  document.getElementById('version-text').textContent = `Версия: ${ver}`;
+  const el = document.getElementById('version-text');
+  if (el) el.textContent = `Версия: ${ver}`;
 }
 
 /** Отрисовывает глобальный тоггл (on/off). */
@@ -465,20 +467,21 @@ function renderProxyList() {
       pingHtml = '<span class="proxy-ping ping-none">...</span>';
     } else if (ping.alive) {
       const ms = ping.latency != null ? `${ping.latency}ms` : '0ms';
-      pingHtml = `<span class="proxy-ping ping-ok">${ms}</span>`;
+      pingHtml = `<span class="proxy-ping ping-ok">${escapeHtml(ms)}</span>`;
     } else {
       pingHtml = '<span class="proxy-ping ping-fail">н/д</span>';
     }
     const label = escapeHtml(p.label || `${p.host}:${p.port}`);
+    const escapedProxyId = escapeHtml(p.proxyId);
     return `<div class="proxy-row ${!p.isEnabled ? 'proxy-disabled' : ''}" title="Клик — маски для ${label}">
       <label class="switch proxy-toggle-wrap">
-        <input type="checkbox" class="proxy-toggle" data-proxy-id="${p.proxyId}" ${p.isEnabled ? 'checked' : ''}>
+        <input type="checkbox" class="proxy-toggle" data-proxy-id="${escapedProxyId}" ${p.isEnabled ? 'checked' : ''}>
         <span class="slider"></span>
       </label>
-      <button class="btn btn-icon btn-edit" data-proxy-id="${p.proxyId}" title="Редактировать">✎</button>
-      <span class="proxy-ip">${label}</span>
+      <button class="btn btn-icon btn-edit" data-proxy-id="${escapedProxyId}" title="Редактировать">✎</button>
+      <span class="proxy-ip">${escapeHtml(label)}</span>
       ${pingHtml}
-      <button class="btn btn-icon btn-delete" data-proxy-id="${p.proxyId}" title="Удалить">✕</button>
+      <button class="btn btn-icon btn-delete" data-proxy-id="${escapedProxyId}" title="Удалить">✕</button>
     </div>`;
   }).join('');
   container.innerHTML = rows || '<div class="proxy-row list-empty">Прокси не добавлены</div>';
@@ -507,7 +510,7 @@ function attachGlobalListeners() {
       const proxyId = proxyRow.querySelector('.proxy-toggle')?.dataset?.proxyId;
       if (proxyId) {
         state.selectedProxyId = proxyId;
-        render(state);
+        render();
         showModal('modal-masks');
       }
     }
@@ -635,7 +638,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (status.needUpdate) {
           await checkForUpdates(true, backendVersion || '');
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[FlowLink Proxy] Ошибка проверки статуса при инициализации:', e);
+      }
     }
     // Запускаем поллинг для отслеживания изменений
     startPolling();
