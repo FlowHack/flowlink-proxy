@@ -38,16 +38,20 @@ export async function apiGet(endpoint) {
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
-      throw new Error(await _handleApiError(res, 'GET'));
+      throw Object.assign(new Error(await _handleApiError(res, 'GET')), { _apiError: true });
     }
     try {
       return await res.json();
     } catch (e) {
       console.warn('[FlowLink Proxy] apiGet: невалидный JSON:', e);
-      throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+      throw Object.assign(new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.'), { _apiError: true });
     }
   } catch (e) {
-    throw new Error('NETWORK:' + e.message);
+    // Если ошибка возникла внутри нашего try (HTTP/JSON) — пробрасываем без префикса NETWORK
+    if (e._apiError) {
+      throw e;
+    }
+    throw new Error('NETWORK:' + (e.message || String(e)));
   }
 }
 
@@ -66,16 +70,20 @@ export async function apiPost(endpoint, body) {
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
-      throw new Error(await _handleApiError(res, 'POST'));
+      throw Object.assign(new Error(await _handleApiError(res, 'POST')), { _apiError: true });
     }
     try {
       return await res.json();
     } catch (e) {
       console.warn('[FlowLink Proxy] apiPost: невалидный JSON:', e);
-      throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+      throw Object.assign(new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.'), { _apiError: true });
     }
   } catch (e) {
-    throw new Error('NETWORK:' + e.message);
+    // Если ошибка возникла внутри нашего try (HTTP/JSON) — пробрасываем без префикса NETWORK
+    if (e._apiError) {
+      throw e;
+    }
+    throw new Error('NETWORK:' + (e.message || String(e)));
   }
 }
 
@@ -102,6 +110,7 @@ export async function apiPostRaw(endpoint, body) {
       return { status: res.status, data: {} };
     }
   } catch (e) {
-    throw new Error('NETWORK:' + e.message);
+    // Сетевая ошибка или непредвиденное исключение — добавляем префикс NETWORK
+    throw new Error('NETWORK:' + (e.message || String(e)));
   }
 }
