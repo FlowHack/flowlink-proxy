@@ -32,6 +32,10 @@ export function isValidPort(port) {
  * @returns {number} — 1 если a > b, -1 если a < b, 0 если равны.
  */
 export function compareVersions(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') {
+    console.warn('[FlowLink Proxy] compareVersions: неверный тип аргумента', { a, b });
+    return 0;
+  }
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -49,6 +53,7 @@ export function compareVersions(a, b) {
  * @param {boolean} loading — true для блокировки, false для разблокировки.
  */
 export function setLoading(btnEl, loading) {
+  if (!btnEl) return;
   if (loading) {
     btnEl.classList.add('btn-loading');
     btnEl.disabled = true;
@@ -64,7 +69,12 @@ export function setLoading(btnEl, loading) {
  * @returns {string} — эквивалентный regex ('.*\\.example\\.com').
  */
 export function convertWildcardToRegex(pattern) {
-  let chars = pattern.split('');
+  if (typeof pattern !== 'string') return '';
+  // Ограничиваем длину паттерна 255 символами для предотвращения ReDoS
+  const truncated = pattern.slice(0, 255);
+  // Схлопываем повторяющиеся звёздочки в одну
+  const collapsed = truncated.replace(/\*{2,}/g, '*');
+  let chars = collapsed.split('');
   let escaped = '';
   for (let i = 0; i < chars.length; i++) {
     const c = chars[i];
@@ -92,7 +102,8 @@ export function copyEmailToClipboard(email, showToastFn) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(email)
       .then(() => { if (showToastFn) showToastFn('Email скопирован: ' + email); })
-      .catch(() => {
+      .catch((err) => {
+        console.warn('[FlowLink Proxy] Ошибка копирования в буфер обмена:', err);
         if (showToastFn) showToastFn('Не удалось скопировать. Выделите вручную: ' + email);
       });
   } else if (showToastFn) {
