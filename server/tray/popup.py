@@ -14,6 +14,13 @@
 - Позиционирование относительно иконки трей
 """
 
+# pylint: disable=too-many-lines
+# Файл содержит большой UI-класс FlowLinkPopup (построение меню, тултипы,
+# hover-эффекты, анимация, статусбар загрузки). Разбиение на подклассы
+# нецелесообразно: все методы тесно связаны общим состоянием
+# (self._popup, self._tooltip_label), а порог C0302 (1000 строк) уже
+# превышен с учётом нового статусбара загрузки.
+
 from __future__ import annotations
 
 import logging
@@ -933,6 +940,51 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 logger.debug(
                     'Popup: статусбар тултипа уже уничтожен — пропуск',
                 )
+
+    def show_loading(self, text: str) -> None:
+        """
+        Показывает текст состояния загрузки в статусбаре popup.
+
+        Переиспользует механизм тултипа (_tooltip_text + _tooltip_label),
+        но выделяет текст акцентным цветом, чтобы пользователь видел,
+        что выполняется длительная операция (например, запуск браузера).
+
+        Вызывается ТОЛЬКО из mainloop-потока.
+
+        Args:
+            text: Текст состояния загрузки (например, «Запуск браузера...»).
+        """
+        self._tooltip_text = text
+        if self._tooltip_label is None or self._popup is None:
+            return
+        try:
+            if not self._popup.winfo_exists():
+                return
+            self._tooltip_label.configure(
+                text=text, fg=PopupColors.ACCENT,
+            )
+        except tk.TclError:
+            logger.debug(
+                'Popup: статусбар загрузки недоступен — пропуск',
+            )
+
+    def hide_loading(self) -> None:
+        """
+        Возвращает статусбар в штатный режим после завершения загрузки.
+
+        Очищает текст и сбрасывает цвет на стандартный приглушённый.
+        Безопасен при уже уничтоженном popup-окне (TclError).
+
+        Вызывается ТОЛЬКО из mainloop-потока.
+        """
+        if self._tooltip_label is not None:
+            try:
+                self._tooltip_label.configure(fg=PopupColors.TEXT_MUTED)
+            except tk.TclError:
+                logger.debug(
+                    'Popup: статусбар загрузки уже уничтожен — пропуск',
+                )
+        self._hide_tooltip()
 
     def _bind_tooltip(
         self,

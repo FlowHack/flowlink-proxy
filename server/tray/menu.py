@@ -356,9 +356,9 @@ def _select_browser(
             # Если текущий браузер указан вручную и не найден детектором —
             # добавляем его в конец списка как выбранный элемент.
             if current_path:
+                # Ленивый импорт: избегает циклических зависимостей
                 from server.config import \
-                    browser_config as \
-                    _bc  # pylint: disable=import-outside-toplevel
+                    browser_config as _bc  # pylint: disable=import-outside-toplevel
                 not_detected = all(
                     b['path'] != current_path for b in detected
                 )
@@ -435,9 +435,9 @@ def _open_file_dialog(
             root.destroy()
 
         if path:
+            # Ленивый импорт: избегает циклических зависимостей
             from server.config import \
-                browser_config as \
-                _bc  # pylint: disable=import-outside-toplevel
+                browser_config as _bc  # pylint: disable=import-outside-toplevel
             validation = _bc.validate_browser_path_detailed(path)
             if validation['valid']:
                 saver = callbacks.get('browser_path_saver')

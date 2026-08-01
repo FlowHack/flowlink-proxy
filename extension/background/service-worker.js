@@ -15,6 +15,26 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
+// Keepalive-механизм: Chrome убивает MV3 service worker после ~30 сек
+// бездействия, что рвёт SSE-соединение и останавливает setInterval.
+// Alarm каждые 30 секунд будит service worker и восстанавливает
+// соединение с бэкендом (минимальный период для Chrome — 0.5 минуты).
+chrome.alarms.create('flowlink-keepalive', { periodInMinutes: 0.5 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'flowlink-keepalive') {
+    ensureSSEConnected();
+  }
+});
+
+// Пробуждение от popup: при открытии popup шлёт { type: 'wake' },
+// чтобы мгновенно восстановить SSE-соединение, не дожидаясь alarm.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message && message.type === 'wake') {
+    ensureSSEConnected();
+  }
+});
+
 /** Текущий порт API (берётся из chrome.storage). */
 let apiPort = 8081;
 

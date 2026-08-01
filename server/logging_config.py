@@ -9,16 +9,20 @@ import logging.handlers
 import os
 import sys
 
-from server.utils import get_data_dir
 
-
-def reopen_logging() -> None:
+def reopen_logging(recreate: bool = True) -> None:
     """
     Переоткрывает файловый хендлер логгера.
 
-    Закрывает старый RotatingFileHandler, удаляет его из корневого логгера
-    и создаёт новый с теми же параметрами. Нужно для безопасной очистки
-    логов — без этого файл лога занят и не может быть удалён.
+    Закрывает старый RotatingFileHandler и удаляет его из корневого логгера.
+    При recreate=True создаёт новый хендлер с теми же параметрами; при
+    recreate=False пропускает создание нового хендлера — файл лога
+    освобождается и может быть удалён без ошибки [WinError 32].
+
+    Args:
+        recreate: Создавать ли новый хендлер после закрытия старого.
+            False нужно для очистки логов: файл лога освобождается
+            до удаления, а новый хендлер создаётся после (в finally).
     """
     root = logging.getLogger()
     log_file = None
@@ -57,6 +61,11 @@ def reopen_logging() -> None:
             'reopen_logging: ошибка при закрытии хендлера: %s', e,
         )
     root.removeHandler(old_handler)
+
+    # При recreate=False не создаём новый хендлер — файл лога остаётся
+    # освобождённым для удаления (очистка логов).
+    if not recreate:
+        return
 
     # Создаём новый хендлер с теми же параметрами
     try:
@@ -102,6 +111,14 @@ def setup_logging(debug: bool = False) -> None:
 
     # Файл: DEBUG+ с ротацией
     try:
+        # Ленивый импорт для избежания циклической зависимости:
+        # server.utils лениво импортирует logging_config (reopen_logging).
+        # cyclic-import подавляется: pylint учитывает и локальные импорты
+        # в графе циклических зависимостей, поэтому разрыв цикла возможен
+        # только через исключение ребра из графа.
+        from server.utils import (  # pylint: disable=import-outside-toplevel,cyclic-import
+            get_data_dir
+        )
         base = get_data_dir()
         log_dir = os.path.join(base, 'logs')
         os.makedirs(log_dir, exist_ok=True)

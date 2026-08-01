@@ -325,6 +325,11 @@ async function pollBackend() {
     if (storage.configChanged) {
       await chrome.storage.local.remove('configChanged');
       await loadAndRender();
+    } else {
+      // SSE может быть недоступно (service worker спит) — сами проверяем
+      // browser-config, чтобы баннер «браузер не указан» скрывался
+      // без ожидания SSE-события.
+      await refreshBrowserConfig();
     }
   } else {
     // Был не connected, всё ещё не connected — увеличиваем интервал
@@ -349,6 +354,51 @@ function stopPolling() {
     _pollTimer = null;
   }
 }
+
+/**
+ * Перечитывает конфигурацию браузера и обновляет баннер «браузер не указан».
+ * Вызывается при каждом поллинге: service worker может спать и не получать
+ * SSE-события, поэтому popup сам проверяет актуальность browser-path/autostart.
+ */
+async function refreshBrowserConfig() {
+  try {
+    const browserConfig = await apiGet('/browser-config');
+    const autostartBrowser = browserConfig.autostartBrowser === true;
+    const browserPath = browserConfig.browserPath || '';
+    if (autostartBrowser !== state.autostartBrowser || browserPath !== state.browserPath) {
+      console.log('[FlowLink Proxy] Конфигурация браузера изменилась, обновляю UI');
+      state.autostartBrowser = autostartBrowser;
+      state.browserPath = browserPath;
+      render(state);
+    }
+  } catch (e) {
+    // Не критично — данные браузера просто не обновятся в этом цикле поллинга
+    console.warn('[FlowLink Proxy] Не удалось проверить конфигурацию браузера:', e);
+  }
+}
+
+/**
+ * Мгновенная реакция на SSE-события бэкенда.
+ * Service worker ставит флаг configChanged при получении config_changed,
+ * browser_config_changed или autostart_browser_changed. Слушаем
+ * storage.onChanged, чтобы перерисовать UI без ожидания поллинга (до 3 сек).
+ *
+ * Удаление флага внутри слушателя не вызывает рекурсию: при удалении
+ * changes.configChanged.newValue === undefined и условие ниже не срабатывает.
+ */
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.configChanged || !changes.configChanged.newValue) {
+    return;
+  }
+  console.log('[FlowLink Proxy] storage.onChanged: флаг configChanged установлен, перезагружаю данные');
+  chrome.storage.local.remove('configChanged');
+  if (document.readyState === 'loading') {
+    // DOM ещё не готов — пропускаем: первичная загрузка в DOMContentLoaded
+    // сама перечитает свежий конфиг.
+    return;
+  }
+  loadAndRender();
+});
 
 /**
  * Показывает предупреждение, если включён автозапуск браузера,
@@ -557,6 +607,11 @@ function togglePasswordVisibility() {
 /** Точка входа — инициализация. */
 document.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Будим service worker, чтобы он мгновенно восстановил SSE-соединение
+    // (без ожидания keepalive-alarm).
+    chrome.runtime.sendMessage({ type: 'wake' }).catch((e) => {
+      console.warn('[FlowLink Proxy] Не удалось разбудить service worker:', e);
+    });
     await loadStoredPort();
     await discoverPort();
     attachGlobalListeners();

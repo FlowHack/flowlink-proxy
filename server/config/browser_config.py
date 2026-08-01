@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 from server.config import autostart as _autostart_mod
+from server.config.browser_process import is_browser_running
 
 logger = logging.getLogger('flowlink.browser')
 
@@ -256,7 +257,7 @@ def _check_path_exists(path: str) -> str | None:
 def launch_browser(
     browser_path: str,
     proxy_port: int = 8080,
-) -> bool:
+) -> bool | str:
     """
     Запускает выбранный браузер с флагом --proxy-server.
 
@@ -264,12 +265,19 @@ def launch_browser(
     добавленным флагом --proxy-server, направляющим трафик через
     локальный прокси FlowLink Proxy.
 
+    Chrome/Chromium игнорирует флаг --proxy-server, если процесс браузера
+    уже запущен, поэтому перед запуском выполняется проверка запущенных
+    процессов. При обнаружении процесса запуск не выполняется, а вызывающему
+    коду возвращается специальное значение 'already_running'.
+
     Args:
         browser_path: Путь к исполняемому файлу браузера.
         proxy_port: Порт HTTP-прокси (по умолчанию 8080).
 
     Returns:
-        True если браузер успешно запущен, False при ошибке.
+        True если браузер успешно запущен,
+        'already_running' если процесс браузера уже запущен,
+        False при ошибке.
     """
     if not validate_browser_path(browser_path):
         logger.warning(
@@ -277,6 +285,16 @@ def launch_browser(
             browser_path,
         )
         return False
+
+    # Проверка запущенных процессов: Chrome/Chromium игнорирует
+    # --proxy-server, если браузер уже запущен
+    if is_browser_running(browser_path):
+        logger.warning(
+            'Браузер уже запущен: %s. Запуск через FlowLink Proxy '
+            'не выполнен, флаг --proxy-server был бы проигнорирован.',
+            browser_path,
+        )
+        return 'already_running'
 
     proxy_arg = f'--proxy-server=127.0.0.1:{proxy_port}'
 

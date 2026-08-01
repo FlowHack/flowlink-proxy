@@ -1,16 +1,20 @@
 """
 Тесты общих утилит FlowLink Proxy.
 
-Тестирует: get_data_dir, clear_all_data, write_port_file, _validate_port.
+Тестирует: get_data_dir, clear_all_data, clear_logs_only, write_port_file,
+_validate_port, reopen_logging.
 """
 
 import json
+import logging
+import logging.handlers
 import os
 import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
 
+from server.logging_config import reopen_logging
 from server.utils import (_validate_port, clear_all_data, clear_data_only,
                           clear_logs_only, get_data_dir, write_port_file)
 
@@ -254,6 +258,55 @@ class TestClearLogsOnly(unittest.TestCase):
             removed = clear_logs_only()
 
         self.assertEqual(removed, 0)
+
+
+class TestReopenLogging(unittest.TestCase):
+    """Тесты reopen_logging из server.logging_config."""
+
+    def setUp(self):
+        self._root = logging.getLogger()
+        self._saved_handlers = list(self._root.handlers)
+        self._root.handlers.clear()
+        self._tmpdir = tempfile.mkdtemp()
+        self._log_file = os.path.join(self._tmpdir, 'test.log')
+        # Реальный RotatingFileHandler — как в бою (setup_logging)
+        self._handler = logging.handlers.RotatingFileHandler(
+            self._log_file, maxBytes=1024, backupCount=1, encoding='utf-8',
+        )
+        self._root.addHandler(self._handler)
+
+    def tearDown(self):
+        self._root.handlers.clear()
+        for handler in self._saved_handlers:
+            self._root.addHandler(handler)
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
+
+    def _file_handlers(self):
+        """Возвращает RotatingFileHandler-ы корневого логгера."""
+        return [
+            h for h in self._root.handlers
+            if isinstance(h, logging.handlers.RotatingFileHandler)
+        ]
+
+    def test_recreate_false_removes_handler(self):
+        """reopen_logging(recreate=False) закрывает хендлер без нового."""
+        reopen_logging(recreate=False)
+        self.assertEqual(self._file_handlers(), [])
+
+    def test_recreate_false_frees_log_file(self):
+        """После recreate=False файл лога освобождён и удаляется без ошибки."""
+        reopen_logging(recreate=False)
+        self.assertTrue(os.path.isfile(self._log_file))
+        os.remove(self._log_file)
+        self.assertFalse(os.path.exists(self._log_file))
+
+    def test_recreate_true_creates_new_handler(self):
+        """reopen_logging() (recreate=True) создаёт новый хендлер."""
+        reopen_logging()
+        handlers = self._file_handlers()
+        self.assertEqual(len(handlers), 1)
+        # Файл лога пересоздан новым хендлером
+        self.assertTrue(os.path.isfile(self._log_file))
 
 
 class TestClearDataOnly(unittest.TestCase):

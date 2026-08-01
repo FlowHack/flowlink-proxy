@@ -41,6 +41,16 @@ class PystrayTray:  # pylint: disable=too-many-instance-attributes
         # Защита от дублей popup (аналог _popup_open в win32.py)
         self._popup_open = False
 
+    @property
+    def tk_root(self):
+        """Возвращает корневой Tk трея (или None)."""
+        return self._tk_root
+
+    @property
+    def popup(self):
+        """Возвращает popup-меню трея (или None)."""
+        return self._popup
+
     def start(self) -> None:
         """Запускает трей в отдельном потоке."""
         self._tk_thread = threading.Thread(
@@ -98,7 +108,10 @@ class PystrayTray:  # pylint: disable=too-many-instance-attributes
                 )
                 return
 
-            def on_click(icon: pystray.Icon, item: pystray.MenuItem) -> None:
+            # pystray.Icon — значение (backend().Icon), а не класс-тип:
+            # pyright не принимает его в аннотациях (reportInvalidTypeForm),
+            # поэтому параметры типизируются как Any.
+            def on_click(icon: Any, item: Any) -> None:
                 del icon, item
                 self._show_popup()
 
@@ -140,9 +153,11 @@ class PystrayTray:  # pylint: disable=too-many-instance-attributes
 
         self._popup_open = True
         try:
-            # Передаём tk_root в callbacks для диалогов выбора браузера
+            # Передаём tk_root и popup в callbacks для диалогов выбора
+            # браузера и индикатора загрузки в статусбаре
             # (аналог win32.py: callbacks['tk_root'] = self._tk_root).
             self._callbacks['tk_root'] = self._tk_root
+            self._callbacks['popup'] = self._popup
             items = build_menu_items(
                 self._callbacks, self.stop,
                 f'Tray {self._platform_name}',

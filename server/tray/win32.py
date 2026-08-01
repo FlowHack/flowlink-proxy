@@ -151,6 +151,16 @@ class Win32Tray:
         self._popup_timer_id = None
         self._tk_root_valid = False
 
+    @property
+    def tk_root(self):
+        """Возвращает корневой Tk трея (или None)."""
+        return self._tk_root
+
+    @property
+    def popup(self):
+        """Возвращает popup-меню трея (или None)."""
+        return self._popup
+
     def start(self):
         """Запускает трей-иконку в отдельном потоке."""
         self._tk_thread = threading.Thread(
@@ -729,8 +739,10 @@ class Win32Tray:
                 x, y = self._get_cursor_pos()
                 y -= 280
 
-            # Передаём tk_root в callbacks для диалогов выбора браузера
+            # Передаём tk_root и popup в callbacks для диалогов выбора
+            # браузера и индикатора загрузки в статусбаре
             self._callbacks['tk_root'] = self._tk_root
+            self._callbacks['popup'] = self._popup
             items = build_menu_items(
                 self._callbacks, self._stop, 'Tray Win32',
             )

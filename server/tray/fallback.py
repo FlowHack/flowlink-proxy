@@ -19,6 +19,11 @@ from server.utils import get_data_dir
 if TYPE_CHECKING:
     import pystray  # type: ignore[reportMissingImports]
 
+# Внимание: pystray.Icon в pystray/__init__.py — это значение
+# (backend().Icon), а не класс-тип, поэтому pyright не принимает его
+# в аннотациях (reportInvalidTypeForm). В типах используется Any;
+# runtime-вызовы pystray.Icon(...) остаются без изменений.
+
 logger = logging.getLogger('flowlink.tray.fallback')
 
 
@@ -27,11 +32,11 @@ def _make_actions(
     autostart_enabled: List[bool],
     system_autostart_enabled: List[bool],
     log: logging.Logger,
-    refresh_fn: Callable[[pystray.Icon], None],
-) -> Dict[str, Callable[[pystray.Icon], None]]:
+    refresh_fn: Callable[[Any], None],
+) -> Dict[str, Callable[[Any], None]]:
     """Создаёт обработчики действий меню."""
 
-    def open_logs(_icon: pystray.Icon) -> None:
+    def open_logs(_icon: Any) -> None:
         log.info('Fallback: открытие папки логов')
         if callbacks.get('log_dir_getter'):
             try:
@@ -42,7 +47,7 @@ def _make_actions(
             if log_dir:
                 safe_open_folder(log_dir, 'логи', log)
 
-    def clear_logs(_icon: pystray.Icon) -> None:
+    def clear_logs(_icon: Any) -> None:
         log.info('Fallback: очистка логов')
         if callbacks.get('clear_logs'):
             try:
@@ -50,7 +55,7 @@ def _make_actions(
             except OSError as exc:
                 log.error('Fallback: ошибка очистки логов: %s', exc)
 
-    def open_data(_icon: pystray.Icon) -> None:
+    def open_data(_icon: Any) -> None:
         log.info('Fallback: открытие папки данных')
         try:
             data_dir = get_data_dir()
@@ -59,7 +64,7 @@ def _make_actions(
             return
         safe_open_folder(data_dir, 'данные', log)
 
-    def clear_data(_icon: pystray.Icon) -> None:
+    def clear_data(_icon: Any) -> None:
         log.info('Fallback: очистка всех данных')
         if callbacks.get('clear_data'):
             try:
@@ -67,7 +72,7 @@ def _make_actions(
             except OSError as exc:
                 log.error('Fallback: ошибка очистки данных: %s', exc)
 
-    def toggle_autostart(icon: pystray.Icon) -> None:
+    def toggle_autostart(icon: Any) -> None:
         autostart_enabled[0] = not autostart_enabled[0]
         log.info(
             'Fallback: автозапуск браузера → %s',
@@ -80,7 +85,7 @@ def _make_actions(
                 log.error('Fallback: ошибка записи autostart: %s', exc)
         refresh_fn(icon)
 
-    def toggle_system_autostart(icon: pystray.Icon) -> None:
+    def toggle_system_autostart(icon: Any) -> None:
         system_autostart_enabled[0] = not system_autostart_enabled[0]
         log.info(
             'Fallback: запуск с системой → %s',
@@ -98,7 +103,7 @@ def _make_actions(
                 )
         refresh_fn(icon)
 
-    def exit_app(_icon: pystray.Icon) -> None:
+    def exit_app(_icon: Any) -> None:
         log.info('Fallback: выбран Выход')
         if callbacks.get('stop'):
             callbacks['stop']()
@@ -116,7 +121,7 @@ def _make_actions(
 
 def _build_menu(
     pystray_mod: types.ModuleType,
-    actions: Dict[str, Callable[[pystray.Icon], None]],
+    actions: Dict[str, Callable[[Any], None]],
     autostart_enabled: List[bool],
     system_autostart_enabled: List[bool],
     callbacks: Dict[str, Any],
@@ -166,7 +171,7 @@ def _build_menu(
     )
 
 
-def start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[pystray.Icon]:
+def start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
     """
     Запускает pystray с нативным меню (без tkinter).
 
@@ -201,7 +206,7 @@ def start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[pystray.Icon]:
                 'Fallback: ошибка чтения system_autostart: %s', exc,
             )
 
-    def _refresh_menu(icon: pystray.Icon) -> None:
+    def _refresh_menu(icon: Any) -> None:
         """Обновляет меню иконки (для перерисовки чекбоксов)."""
         try:
             icon.menu = _build_menu(

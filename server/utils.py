@@ -104,21 +104,24 @@ def clear_all_data() -> int:
             except OSError as e:
                 logger.error('Не удалось удалить %s: %s', filepath, e)
 
-    # Переоткрываем логгер, чтобы освободить файловый дескриптор
+    # Закрываем хендлер без пересоздания, чтобы освободить файл лога,
+    # затем удаляем директорию логов целиком. Хендлер пересоздаём в finally.
     # Ленивый импорт для избежания циклической зависимости
     from server.logging_config import \
         reopen_logging  # pylint: disable=import-outside-toplevel
-    reopen_logging()
-
-    # Удаляем директорию логов целиком
     logs_dir = os.path.join(data_dir, 'logs')
-    if os.path.isdir(logs_dir):
-        try:
-            shutil.rmtree(logs_dir)
-            removed += 1
-            logger.info('Удалена директория логов: %s', logs_dir)
-        except OSError as e:
-            logger.error('Не удалось удалить %s: %s', logs_dir, e)
+    try:
+        reopen_logging(recreate=False)
+        if os.path.isdir(logs_dir):
+            try:
+                shutil.rmtree(logs_dir)
+                removed += 1
+                logger.info('Удалена директория логов: %s', logs_dir)
+            except OSError as e:
+                logger.error('Не удалось удалить %s: %s', logs_dir, e)
+    finally:
+        # Пересоздаём хендлер в любом случае
+        reopen_logging()
 
     # Пересоздаём пустую директорию логов (logging может писать в неё)
     try:
@@ -132,32 +135,43 @@ def clear_all_data() -> int:
 
 def clear_logs_only() -> int:
     """
-    Удаляет только директорию логов из data-директории.
+    Удаляет только файлы логов из data-директории.
 
-    Не удаляет конфиги, ключи или настройки — только logs/.
+    Не удаляет конфиги, ключи или настройки — только содержимое logs/.
 
     Returns:
-        Количество удалённых элементов (0 или 1).
+        Количество удалённых файлов/директорий.
     """
     data_dir = get_data_dir()
     logs_dir = os.path.join(data_dir, 'logs')
     removed = 0
 
-    # Переоткрываем логгер, чтобы освободить файловый дескриптор
+    # Закрываем хендлер без пересоздания, чтобы освободить файл лога,
+    # затем удаляем файлы внутри директории (не саму директорию).
+    # Хендлер пересоздаём в finally.
     # Ленивый импорт для избежания циклической зависимости
     from server.logging_config import \
         reopen_logging  # pylint: disable=import-outside-toplevel
-    reopen_logging()
+    try:
+        reopen_logging(recreate=False)
+        if os.path.isdir(logs_dir):
+            # Удаляем файлы внутри директории (не саму директорию)
+            for name in os.listdir(logs_dir):
+                path = os.path.join(logs_dir, name)
+                try:
+                    if os.path.isfile(path):
+                        os.remove(path)
+                        removed += 1
+                    elif os.path.isdir(path):
+                        shutil.rmtree(path)
+                        removed += 1
+                except OSError as e:
+                    logger.error('Не удалось удалить %s: %s', path, e)
+    finally:
+        # Пересоздаём хендлер в любом случае
+        reopen_logging()
 
-    if os.path.isdir(logs_dir):
-        try:
-            shutil.rmtree(logs_dir)
-            removed += 1
-            logger.info('Удалена директория логов: %s', logs_dir)
-        except OSError as e:
-            logger.error('Не удалось удалить %s: %s', logs_dir, e)
-
-    # Пересоздаём пустую директорию логов
+    # Пересоздаём пустую директорию логов (logging может писать в неё)
     try:
         os.makedirs(logs_dir, exist_ok=True)
     except OSError as e:

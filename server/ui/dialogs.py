@@ -69,7 +69,10 @@ def _get_or_create_root(title: str) -> tk.Tk:
 
 
 def _center_window(window: tk.Toplevel, width: int, height: int) -> None:
-    """Центрирует окно на экране.
+    """Центрирует окно на экране, не выходя за его границы.
+
+    Размеры ограничиваются размером экрана, чтобы на небольших дисплеях
+    окно не выходило за границы (заголовок и кнопки оставались видимыми).
 
     Args:
         window: Окно для центрирования.
@@ -78,6 +81,11 @@ def _center_window(window: tk.Toplevel, width: int, height: int) -> None:
     """
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
+    # Ограничиваем размеры окна, чтобы оно не выходило за границы экрана
+    # (отступ 20px с каждой стороны для небольших экранов)
+    margin = 20
+    width = min(width, screen_width - margin * 2)
+    height = min(height, screen_height - margin * 2)
     x = (screen_width - width) // 2
     y = (screen_height - height) // 2
     window.geometry(f'{width}x{height}+{x}+{y}')
@@ -409,6 +417,9 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
         justify='left',
         padx=16,
         pady=12,
+        # Ограничение ширины текста: длинное сообщение переносится и не
+        # раздувает окно за пределы экрана (комфортная ширина ~420px)
+        wraplength=420,
     )
     msg_lbl.pack(fill='x')
 
@@ -560,6 +571,9 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
             justify='left',
             padx=16,
             pady=8,
+            # Ограничение ширины текста — сообщение переносится и не
+            # раздувает окно за пределы экрана (см. _center_window)
+            wraplength=420,
         )
         msg_lbl.pack(fill='x')
 
