@@ -52,7 +52,10 @@ export async function checkForUpdates(simulate = false, simulateVersion = '') {
     return;
   }
   try {
-    const resp = await fetch(GITHUB_API_RELEASES);
+    // Таймаут 8 секунд: при недоступности GitHub не блокируем popup
+    const resp = await fetch(GITHUB_API_RELEASES, {
+      signal: AbortSignal.timeout(8000),
+    });
     if (!resp.ok) return;
     const release = await resp.json();
     latestTag = release.tag_name || '';

@@ -52,12 +52,27 @@ def load_raw(config_path: str | None = None) -> dict:
 
 
 def save_raw(data: dict, config_path: str | None = None) -> None:
-    """Записывает словарь в config.json."""
+    """Записывает словарь в config.json атомарно.
+
+    Сначала пишет во временный файл, затем переименовывает через os.replace.
+    Это гарантирует, что при сбое посреди записи config.json не останется
+    повреждённым (полузаписанным).
+    """
     path = config_path or CONFIG_FILE
+    tmp_path = f'{path}.tmp'
     try:
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(tmp_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
         logger.debug('Конфигурация сохранена в %s', path)
     except OSError as e:
         logger.error('Ошибка записи %s: %s', path, e)
+        # Пытаемся убрать временный файл, если он остался
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
         raise

@@ -16,6 +16,7 @@ from ipaddress import ip_address
 
 from server.protocols import ProxyError, get_protocol
 from server.services.pipe import pipe, pipe_http_request, pipe_http_response
+from server.utils import proxy_addr
 
 logger = logging.getLogger('flowlink.tunnel')
 
@@ -103,8 +104,8 @@ async def _send_error(
     try:
         client_writer.write(b'HTTP/1.1 502 Bad Gateway\r\n\r\n')
         await client_writer.drain()
-    except (OSError, ConnectionError):
-        pass
+    except (OSError, ConnectionError) as e:
+        logger.debug('Не удалось отправить 502 клиенту (%s): %s', url, e)
 
 
 async def validate_target(host: str, port: int) -> None:
@@ -165,23 +166,24 @@ async def _establish_remote(
 async def _handle_tunnel_error(
     client_writer: asyncio.StreamWriter,
     url: str,
-    proxy_addr: str,
+    proxy_addr_str: str,
     error: Exception,
     prefix: str = '',
 ) -> None:
     """Логирует и отправляет 502 при ошибке туннеля."""
     if isinstance(error, ProxyError):
-        msg = f'{prefix}Ошибка SOCKS5 для {url} через {proxy_addr}: {error}'
+        msg = f'{prefix}Ошибка SOCKS5 для {url} через {proxy_addr_str}: {error}'
         await _send_error(client_writer, url, msg)
     elif isinstance(error, (asyncio.TimeoutError, OSError, ConnectionError)):
-        msg = f'{prefix}Ошибка соединения для {url} через {proxy_addr}: {error}'
+        msg = (f'{prefix}Ошибка соединения для {url} '
+               f'через {proxy_addr_str}: {error}')
         await _send_error(client_writer, url, msg)
     else:
         logger.error(
             '%sНеожиданная ошибка для %s через %s: %s',
-            prefix, url, proxy_addr, error,
+            prefix, url, proxy_addr_str, error,
         )
-        msg = f'{prefix}Ошибка для {url} через {proxy_addr}: {error}'
+        msg = f'{prefix}Ошибка для {url} через {proxy_addr_str}: {error}'
         await _send_error(client_writer, url, msg)
 
 
@@ -217,7 +219,7 @@ async def _tunnel_context(
     """
     _client_writer = client[1]
     target_host, target_port = target
-    proxy_addr = f'{proxy.get("host", "?")}:{proxy.get("port", 0)}' if proxy else 'direct'
+    proxy_addr_str = proxy_addr(proxy, 'direct')
     proxy_id = proxy.get('proxyId') if proxy else None
     remote_writer = None
     try:
@@ -231,14 +233,14 @@ async def _tunnel_context(
         if proxy_id:
             register_tunnel(proxy_id, remote_writer)
 
-        yield remote_reader, remote_writer, proxy_addr
+        yield remote_reader, remote_writer, proxy_addr_str
 
-    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError) as e:
+    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError, ValueError) as e:
         # Ошибка ДО первого yield: asynccontextmanager требует, чтобы
         # первый __anext__ дошёл до yield. Если исключение проглотить,
         # __aenter__ бросит RuntimeError "generator didn't yield".
         # Поэтому после отправки 502 клиенту — перевыбрасываем ошибку.
-        await _handle_tunnel_error(_client_writer, url, proxy_addr, e, prefix)
+        await _handle_tunnel_error(_client_writer, url, proxy_addr_str, e, prefix)
         raise
     finally:
         if remote_writer:
@@ -257,7 +259,7 @@ async def tunnel_connect(
     try:
         async with _tunnel_context(
             client, target, url, proxy,
-        ) as (remote_reader, remote_writer, proxy_addr):
+        ) as (remote_reader, remote_writer, proxy_addr_str):
             client_reader, client_writer = client
             target_host, target_port = target
 
@@ -266,12 +268,12 @@ async def tunnel_connect(
 
             logger.debug(
                 'Туннель %s:%s через %s установлен, начало передачи данных',
-                target_host, target_port, proxy_addr,
+                target_host, target_port, proxy_addr_str,
             )
             await pipe(client_reader, client_writer, remote_reader, remote_writer)
             logger.debug(
                 'Туннель %s:%s через %s завершён',
-                target_host, target_port, proxy_addr,
+                target_host, target_port, proxy_addr_str,
             )
     except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError):
         # Ошибка соединения уже обработана внутри _tunnel_context
@@ -291,13 +293,13 @@ async def tunnel_http(
     try:
         async with _tunnel_context(
             client, target, url, proxy, prefix='HTTP ',
-        ) as (remote_reader, remote_writer, proxy_addr):
+        ) as (remote_reader, remote_writer, proxy_addr_str):
             client_reader, client_writer = client
 
             remote_writer.write(relative_line)
             logger.debug(
                 'HTTP-запрос %s отправлен через %s, ожидание ответа',
-                url, proxy_addr,
+                url, proxy_addr_str,
             )
             await pipe_http_request(client_reader, remote_writer)
             await pipe_http_response(remote_reader, client_writer)

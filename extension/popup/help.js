@@ -785,7 +785,9 @@ function _showUpdateContent(tab) {
     return;
   }
   try {
-    content.innerHTML = typeof text === 'function' ? text(tag) : text;
+    // Экранируем тег перед вставкой в HTML — защита от XSS (инъекция через tag)
+    const escapedTag = escapeHtml(tag);
+    content.innerHTML = typeof text === 'function' ? text(escapedTag) : text;
   } catch (err) {
     console.error('[FlowLink Proxy] Ошибка рендеринга обновления:', err);
     content.innerHTML = '<p>Ошибка при отображении обновления. Попробуйте перезагрузить popup.</p>';

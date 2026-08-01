@@ -24,17 +24,11 @@ async def ping_proxy(proxy_id: str) -> dict:
         Словарь с полями: alive (bool), latency (int | None), error (str | None).
     """
     try:
-        proxies = cfg.get_all_proxies()
+        proxy = cfg.get_proxy_by_id(proxy_id)
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка загрузки конфига для пинга: %s', e)
         return {'alive': False, 'latency': None,
                 'error': 'Не удалось загрузить конфигурацию. Проверьте подключение к бэкенду.'}
-
-    proxy = None
-    for p in proxies:
-        if p.get('proxyId') == proxy_id:
-            proxy = p
-            break
 
     if not proxy:
         return {'alive': False, 'latency': None, 'error': 'Прокси не найден'}

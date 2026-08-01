@@ -4,6 +4,7 @@
 Единственная ответственность: вспомогательные функции общего назначения.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -286,3 +287,41 @@ def write_port_file(api_port: int, proxy_port: int) -> None:
     except OSError as e:
         # Не критично — файл для отладки, его отсутствие не влияет на работу
         logger.warning('Не удалось записать файл портов %s: %s', port_file, e)
+
+
+def safe_close_writer(writer: asyncio.StreamWriter | None) -> None:
+    """Безопасно закрывает asyncio writer, игнорируя ошибки.
+
+    Единая точка закрытия сетевых соединений во всех серверах.
+    Позволяет избежать дублирования try/except в каждом обработчике.
+
+    Args:
+        writer: Объект asyncio.StreamWriter или None.
+    """
+    if writer is None:
+        return
+    try:
+        writer.close()
+    except (ConnectionError, OSError):
+        # Соединение уже закрыто или недоступно — ошибка несущественна
+        logger.debug('safe_close_writer: соединение уже закрыто')
+
+
+def proxy_addr(proxy: dict | None, default: str = 'direct') -> str:
+    """Форматирует адрес прокси как 'host:port'.
+
+    Единая точка форматирования адреса прокси (DRY).
+    Используется в логах, пинге и туннелях.
+
+    Args:
+        proxy: Словарь прокси или None.
+        default: Значение по умолчанию, если прокси отсутствует.
+
+    Returns:
+        Строка 'host:port' или default.
+    """
+    if not proxy:
+        return default
+    host = proxy.get('host', '?')
+    port = proxy.get('port', '?')
+    return f'{host}:{port}'

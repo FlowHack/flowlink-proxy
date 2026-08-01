@@ -16,34 +16,24 @@ import socket
 import struct
 
 from server.protocols.base import ProxyError, ProxyProtocol
+from server.utils import safe_close_writer
 
 logger = logging.getLogger('flowlink.socks5')
 
-SOCKS5_VERSION = 0x05
-CMD_CONNECT = 0x01
-ATYP_IPV4 = 0x01
-ATYP_DOMAIN = 0x03
-
-METHOD_NO_AUTH = 0x00
-METHOD_USERPASS = 0x02
-METHOD_NO_ACCEPTABLE = 0xFF
-
-USERPASS_VERSION = 0x01
-USERPASS_SUCCESS = 0x00
-
-SOCKS5_RSV = 0x00
-SOCKS5_SUCCESS = 0x00
-
-SOCKS5_ERRORS = {
-    0x01: 'Общая ошибка SOCKS-сервера',
-    0x02: 'Соединение запрещено правилами',
-    0x03: 'Сеть недоступна',
-    0x04: 'Хост недоступен',
-    0x05: 'Соединение отклонено',
-    0x06: 'Истёк TTL',
-    0x07: 'Команда не поддерживается',
-    0x08: 'Тип адреса не поддерживается',
-}
+from server.protocols.socks5_constants import (  # pylint: disable=wrong-import-position
+    ATYP_DOMAIN,
+    ATYP_IPV4,
+    CMD_CONNECT,
+    METHOD_NO_ACCEPTABLE,
+    METHOD_NO_AUTH,
+    METHOD_USERPASS,
+    SOCKS5_ERRORS,
+    SOCKS5_RSV,
+    SOCKS5_SUCCESS,
+    SOCKS5_VERSION,
+    USERPASS_SUCCESS,
+    USERPASS_VERSION,
+)
 
 
 class Socks5Error(ProxyError):
@@ -109,7 +99,12 @@ class Socks5Protocol(ProxyProtocol):
         try:
             await self._handshake(reader, writer)
             return True
-        except ProxyError:
+        except (ProxyError, asyncio.IncompleteReadError,
+                ValueError, asyncio.TimeoutError) as e:
+            # Расширенный перехват: не только Socks5Error, но и ошибки
+            # чтения/распаковки ответа — ping не должен падать.
+            logger.debug('SOCKS5 ping: прокси %s:%d недоступен: %s',
+                         self._host, self._port, e)
             return False
         finally:
             writer.close()
@@ -260,8 +255,12 @@ class Socks5Protocol(ProxyProtocol):
 
             await self._skip_bind_address(reader, atyp_resp)
 
-        except (OSError, ConnectionError, asyncio.IncompleteReadError) as e:
-            writer.close()
+        except (OSError, ConnectionError, asyncio.IncompleteReadError, Socks5Error) as e:
+            # Закрываем writer при ЛЮБОЙ ошибке (включая Socks5Error из _handshake),
+            # чтобы не допустить утечки TCP-соединения.
+            safe_close_writer(writer)
+            if isinstance(e, Socks5Error):
+                raise
             raise Socks5Error(f'Ошибка SOCKS5: {e}') from e
 
         return reader, writer

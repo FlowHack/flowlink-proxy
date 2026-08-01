@@ -485,6 +485,7 @@ def ask_yes_no(
     message: str,
     yes_text: str = 'Да',
     no_text: str = 'Нет',
+    parent_root: Optional[tk.Tk] = None,
 ) -> bool:
     """Показывает диалог с вопросом (Да/Нет).
 
@@ -493,6 +494,8 @@ def ask_yes_no(
         message: Текст вопроса.
         yes_text: Текст на кнопке 'Да'.
         no_text: Текст на кнопке 'Нет'.
+        parent_root: Существующий Tk() для привязки диалога.
+            Если передан — используется wait_window (работает в mainloop трея).
 
     Returns:
         True если нажата 'Да', False если 'Нет' или закрыто.
@@ -510,7 +513,7 @@ def ask_yes_no(
         {'text': yes_text, 'action': _on_yes, 'primary': True},
     ]
 
-    show_info(title, message, buttons=buttons)
+    show_info(title, message, buttons=buttons, parent_root=parent_root)
     return result['value']
 
 

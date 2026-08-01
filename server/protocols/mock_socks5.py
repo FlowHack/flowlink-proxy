@@ -15,12 +15,14 @@ import struct
 
 logger = logging.getLogger('flowlink.mock_socks5')
 
-SOCKS5_VERSION = 0x05
-CMD_CONNECT = 0x01
-ATYP_IPV4 = 0x01
-METHOD_NO_AUTH = 0x00
-SOCKS5_SUCCESS = 0x00
-SOCKS5_RSV = 0x00
+from server.protocols.socks5_constants import (  # pylint: disable=wrong-import-position
+    ATYP_IPV4,
+    CMD_CONNECT,
+    METHOD_NO_AUTH,
+    SOCKS5_RSV,
+    SOCKS5_SUCCESS,
+    SOCKS5_VERSION,
+)
 
 
 class MockSocks5Server:

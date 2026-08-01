@@ -92,11 +92,21 @@ class MaskRouter:
                 logger.warning('Ошибка компиляции regex маски "%s": %s', regex_raw, e)
                 continue
 
+            # Защита от битого конфига: отсутствие host/port не должно ронять маршрутизатор
+            host = proxy.get('host')
+            port = proxy.get('port')
+            if not host or not isinstance(port, int) or not 1 <= port <= 65535:
+                logger.warning(
+                    'Маска %s: прокси %s имеет некорректные host/port (%r:%r), пропущена',
+                    regex_raw, pid, host, port,
+                )
+                continue
+
             rules.append({
                 'regex': regex,
                 'proxyId': pid,
-                'host': proxy['host'],
-                'port': proxy['port'],
+                'host': host,
+                'port': port,
                 'username': proxy.get('username', ''),
                 'password': proxy.get('password', ''),
                 'isEnabled': proxy.get('isEnabled', True),

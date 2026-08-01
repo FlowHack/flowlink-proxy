@@ -93,7 +93,7 @@ class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):
             patch('server.__main__.threading.Thread', new=_SyncThread),
         ):
             await asyncio.wait_for(
-                _watch_api_connection(server_dir='server'),
+                _watch_api_connection(server_dir='server', callbacks={}),
                 timeout=5,
             )
 
@@ -149,7 +149,7 @@ class TestWatchApiConnectionConnected(unittest.IsolatedAsyncioTestCase):
             patch('server.__main__.threading.Thread', new=_SyncThread),
         ):
             await asyncio.wait_for(
-                _watch_api_connection(server_dir='server'),
+                _watch_api_connection(server_dir='server', callbacks={}),
                 timeout=5,
             )
 

@@ -6,8 +6,8 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from server.services.events import (_MAX_QUEUE_SIZE, SSE_QUEUE, emit_event,
-                                    handle_sse)
+from server.services.events import (_MAX_QUEUE_SIZE, SSE_QUEUE, emit_event)
+from server.services.sse import handle_sse
 
 
 class TestEventsQueue(unittest.TestCase):
@@ -75,8 +75,8 @@ class TestSSEKeepalive(unittest.TestCase):
             writer.write = MagicMock()
             writer.drain = AsyncMock()
 
-            with patch('server.services.events._SSE_KEEPALIVE_TIMEOUT', 0.1), \
-                 patch('server.services.events.get_queue', return_value=queue):
+            with patch('server.services.sse._SSE_KEEPALIVE_TIMEOUT', 0.1), \
+                 patch('server.services.sse.get_queue', return_value=queue):
                 task = asyncio.create_task(handle_sse(writer))
                 await asyncio.sleep(0.3)
 
@@ -103,8 +103,8 @@ class TestSSEKeepalive(unittest.TestCase):
             writer.write = MagicMock()
             writer.drain = AsyncMock()
 
-            with patch('server.services.events._SSE_KEEPALIVE_TIMEOUT', 0.1), \
-                 patch('server.services.events.get_queue', return_value=queue):
+            with patch('server.services.sse._SSE_KEEPALIVE_TIMEOUT', 0.1), \
+                 patch('server.services.sse.get_queue', return_value=queue):
                 task = asyncio.create_task(handle_sse(writer))
                 await asyncio.sleep(0.2)
 

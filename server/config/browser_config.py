@@ -82,10 +82,11 @@ def _detect_windows() -> list[tuple[str, str]]:
                     if val and os.path.isfile(val):
                         name = 'Chrome' if 'chrome' in val.lower() else 'Edge'
                         candidates.append((name, val))
-            except OSError:
-                pass
+            except OSError as e:
+                logger.debug('Не удалось прочитать реестр Windows: %s', e)
     except ImportError:
-        pass
+        # Модуль winreg недоступен (не Windows) — пропускаем поиск в реестре
+        logger.debug('winreg недоступен, поиск браузера в реестре пропущен')
 
     local = os.environ.get('LOCALAPPDATA', '')
     pf = os.environ.get('PROGRAMFILES', '')
@@ -144,8 +145,8 @@ def _detect_linux() -> list[tuple[str, str]]:
                 if os.path.isfile(path):
                     candidates.append((name, path))
                     seen.add(cmd)
-        except (OSError, subprocess.TimeoutExpired):
-            pass
+        except (OSError, subprocess.TimeoutExpired) as e:
+            logger.debug('Не удалось найти команду %s: %s', cmd, e)
 
     return candidates
 

@@ -17,6 +17,7 @@ from server.services.router import MaskRouter
 from server.services.tunnel import (close_all_connections,
                                     close_all_proxy_tunnels,
                                     close_tunnels_for_proxy)
+from server.utils import proxy_addr
 from server.version import __version__ as server_version
 
 logger = logging.getLogger('flowlink.api')
@@ -196,14 +197,8 @@ async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
         return {'error': 'Требуется proxyId'}, 400
 
     result = await ping_proxy(proxy_id)
-    proxy = next(
-        (p for p in cfg.get_all_proxies() if p.get('proxyId') == proxy_id),
-        None,
-    )
-    if proxy:
-        addr = f"{proxy.get('host', '?')}:{proxy.get('port', '?')}"
-    else:
-        addr = proxy_id
+    proxy = cfg.get_proxy_by_id(proxy_id)
+    addr = proxy_addr(proxy, proxy_id)
     if result.get('alive'):
         logger.info('Пинг %s: %s мс', addr, result['latency'])
     else:

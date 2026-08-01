@@ -169,6 +169,26 @@ def get_all_proxies() -> list:
     return load_config().get('proxies', [])
 
 
+def get_proxy_by_id(proxy_id: str) -> dict | None:
+    """Возвращает прокси по proxyId или None, если не найден.
+
+    Единая точка поиска прокси по идентификатору (DRY).
+    Используется в ping, handlers и других сервисах.
+
+    Args:
+        proxy_id: Идентификатор прокси.
+
+    Returns:
+        Словарь прокси или None.
+    """
+    if not proxy_id:
+        return None
+    for p in get_all_proxies():
+        if p.get('proxyId') == proxy_id:
+            return p
+    return None
+
+
 def get_all_masks() -> list:
     """Возвращает список всех масок из конфига."""
     return load_config().get('masks', [])
@@ -194,7 +214,10 @@ def inject_proxies(data: dict) -> int:
     """
     try:
         existing = _load_cached()
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError) as e:
+        # Логируем причину, чтобы не потерять диагностику при сбое загрузки
+        logger.warning('inject_proxies: не удалось загрузить конфиг (%s), '
+                       'начинаю с пустого', e)
         existing = {'proxies': [], 'masks': []}
 
     existing_proxies = existing.get('proxies', [])

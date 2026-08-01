@@ -646,7 +646,7 @@ _EXTENSION_CONNECT_TIMEOUT = 120
 _EXTENSION_CHECK_INTERVAL = 10
 
 
-async def _watch_api_connection(server_dir: str) -> None:
+async def _watch_api_connection(server_dir: str, callbacks: dict) -> None:
     """
     Следит за подключением расширения к API-серверу.
 
@@ -679,7 +679,15 @@ async def _watch_api_connection(server_dir: str) -> None:
     help_path = os.path.normpath(help_path)
 
     def _show_notification():
-        """Показывает уведомление в отдельном потоке (tkinter или webbrowser)."""
+        """Показывает уведомление в отдельном потоке (tkinter или webbrowser).
+
+        Если трей запущен и tk_root доступен — диалог привязывается к нему
+        (не создаётся второй Tk() в потоке). Иначе создаётся отдельный root.
+        """
+        # Ссылка на .md файл с инструкцией на GitHub (для РФ — предупреждение о VPN)
+        github_md_url = (
+            'https://github.com/FlowHack/flowlink-proxy/blob/main/SETUP.md'
+        )
         try:
             from server.ui.dialogs import \
                 ask_yes_no  # pylint: disable=import-outside-toplevel
@@ -690,13 +698,18 @@ async def _watch_api_connection(server_dir: str) -> None:
                 'Яндекс Браузер, Opera, Brave и др.) и установленное\n'
                 'и запущенное расширение FlowLink Proxy.\n\n'
                 'Установите расширение вручную и подключите его к серверу.\n'
-                'Инструкция доступна в справке расширения.'
+                'Инструкция доступна в справке расширения.\n\n'
+                'Внимание: для доступа к GitHub (скачивание расширения)\n'
+                'пользователям в России может потребоваться VPN или прокси.'
             )
+            # Привязываем диалог к существующему tk_root трея, если он доступен
+            parent_root = callbacks.get('tk_root')
             answer = ask_yes_no(
                 'FlowLink Proxy',
                 message,
                 yes_text='Открыть инструкцию',
                 no_text='Закрыть',
+                parent_root=parent_root,
             )
 
             if answer:
@@ -707,13 +720,16 @@ async def _watch_api_connection(server_dir: str) -> None:
                 if os.path.isfile(help_path):
                     webbrowser.open(f'file://{os.path.abspath(help_path)}')
                 else:
-                    webbrowser.open('https://github.com/FlowHack/flowlink-proxy')
-        except ImportError:
-            logger.info('tkinter недоступен, открытие help.html через браузер')
+                    webbrowser.open(github_md_url)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # tkinter может упасть (TclError, RuntimeError) в потоке —
+            # не роняем daemon-поток, а открываем инструкцию в браузере.
+            logger.warning('Не удалось показать диалог уведомления (%s), '
+                           'открываю инструкцию в браузере', e)
             if os.path.isfile(help_path):
                 webbrowser.open(f'file://{os.path.abspath(help_path)}')
             else:
-                webbrowser.open('https://github.com/FlowHack/flowlink-proxy')
+                webbrowser.open(github_md_url)
 
     thread = threading.Thread(target=_show_notification, daemon=True)
     thread.start()
@@ -789,8 +805,12 @@ async def _run_server(args: argparse.Namespace) -> None:
         logger.info('Прокси-сервер слушает 127.0.0.1:%d', args.proxy_port)
         logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
         write_port_file(args.api_port, args.proxy_port)
+        # Словарь callbacks создаётся заранее и передаётся в _watch_api_connection,
+        # чтобы уведомление могло привязаться к tk_root трея (заполняется позже).
+        callbacks = {}
         asyncio.create_task(_watch_api_connection(
             os.path.dirname(os.path.abspath(__file__)),
+            callbacks,
         ))
     except OSError as e:
         if 'address already in use' in str(e).lower():
@@ -807,7 +827,10 @@ async def _run_server(args: argparse.Namespace) -> None:
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
-    tray_icon, callbacks = _start_tray_icon(loop, stop_event, args)
+    tray_icon, tray_callbacks = _start_tray_icon(loop, stop_event, args)
+    # Обновляем словарь callbacks, переданный в _watch_api_connection,
+    # чтобы уведомление получило доступ к tk_root трея.
+    callbacks.update(tray_callbacks)
     _setup_signal_handlers(loop, stop_event)
 
     # Автозапуск браузера при старте бэкенда (если включён)

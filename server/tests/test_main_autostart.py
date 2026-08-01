@@ -178,9 +178,6 @@ class TestAutostartBrowserAtStartup(unittest.TestCase):
                 ))
                 await _run_server(args)
 
-                # tk_root и popup попадают в callbacks для диалога
-                self.assertIs(callbacks['tk_root'], tray.tk_root)
-                self.assertIs(callbacks['popup'], tray.popup)
                 mock_sync.assert_not_called()
 
                 # Планирование через after(0, ...) — коллбэк выполняется в mainloop.
@@ -189,7 +186,13 @@ class TestAutostartBrowserAtStartup(unittest.TestCase):
                 tray.tk_root.after.assert_called_once()
                 scheduled = tray.tk_root.after.call_args.args[1]
                 scheduled()
-                mock_cb.assert_called_once_with(callbacks, 8080)
+                mock_cb.assert_called_once()
+                # В словарь, переданный в _launch_browser_callback, должны попасть
+                # tk_root и popup трея (для диалога «браузер уже запущен»).
+                cb_callbacks = mock_cb.call_args.args[0]
+                self.assertIs(cb_callbacks['tk_root'], tray.tk_root)
+                self.assertIs(cb_callbacks['popup'], tray.popup)
+                self.assertEqual(mock_cb.call_args.args[1], 8080)
 
         asyncio.run(run())
 

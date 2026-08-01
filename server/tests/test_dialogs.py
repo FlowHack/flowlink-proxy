@@ -31,11 +31,11 @@ class TestMakeCompactItemRow(unittest.TestCase):
         frame_kwargs = {}
         labels = []
 
-        def _frame_factory(*args, **kwargs):
+        def _frame_factory(*args, **kwargs):  # pylint: disable=unused-argument
             frame_kwargs.update(kwargs)
             return frame
 
-        def _label_factory(*args, **kwargs):
+        def _label_factory(*args, **kwargs):  # pylint: disable=unused-argument
             lbl = MagicMock()
             lbl.cget = MagicMock(return_value='')
             labels.append(kwargs)
