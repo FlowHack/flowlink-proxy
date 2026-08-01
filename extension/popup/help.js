@@ -8,6 +8,23 @@ import { GITHUB_RELEASES_URL } from '../shared/constants.js';
 
 import { showModal } from './modal.js';
 
+/**
+ * Экранирует HTML-сущности для предотвращения XSS.
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (str == null) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return String(str).replace(/[&<>"']/g, char => map[char]);
+}
+
 /** Email поддержки — сноска внизу каждого раздела помощи. */
 const _EMAIL = 'flowlink.proxy@atomicmail.io';
 const _EMAIL_FOOTER = `
@@ -545,7 +562,14 @@ export function openHelpModal(tab, isUpdate, updateTag, context) {
   _updateTag = updateTag || '';
   _context = context || 'general';
   const title = document.querySelector('#modal-help .modal-title');
-  if (!title) return;
+  if (!title) {
+    console.warn('[FlowLink Proxy] Заголовок модального окна помощи не найден');
+    return;
+  }
+  if (!title) {
+    console.warn('[FlowLink Proxy] Заголовок модального окна помощи не найден');
+    return;
+  }
   if (isUpdate || _context === 'update') {
     title.textContent = 'Обновление';
   } else {
@@ -606,13 +630,24 @@ export function switchHelpTab(tab) {
   }
 
   const content = document.getElementById('help-content');
-  if (!content) return;
+  if (!content) {
+    console.warn('[FlowLink Proxy] Элемент help-content не найден');
+    return;
+  }
 
   const text = HELP_TEXTS[tab];
-  if (!text) return;
+  if (!text) {
+    console.warn('[FlowLink Proxy] Текст для вкладки помощи не найден:', tab);
+    return;
+  }
 
   // Если текст — функция, вызываем её
-  content.innerHTML = typeof text === 'function' ? text() : text;
+  try {
+    content.innerHTML = typeof text === 'function' ? text() : text;
+  } catch (err) {
+    console.error('[FlowLink Proxy] Ошибка рендеринга помощи:', err);
+    content.innerHTML = '<p>Ошибка при отображении помощи. Попробуйте перезагрузить popup.</p>';
+  }
 
   // Привязываем обработчики подвкладок
   _setupSubTabHandler(tab);
@@ -624,7 +659,10 @@ export function switchHelpTab(tab) {
  */
 function _setupSubTabHandler(tab) {
   const container = document.getElementById('help-sub-tabs-' + tab);
-  if (!container) return;
+  if (!container) {
+    console.warn('[FlowLink Proxy] Не найден контейнер help-sub-tabs-' + tab);
+    return;
+  }
 
   container.querySelectorAll('.help-sub-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -637,8 +675,16 @@ function _setupSubTabHandler(tab) {
 
       // Рендерим контент подвкладки
       const contentContainer = document.getElementById('help-sub-content-' + tab);
-      if (!contentContainer) return;
-      contentContainer.innerHTML = _renderSubTabContent(tab, sub);
+      if (!contentContainer) {
+        console.warn('[FlowLink Proxy] Не найден контейнер help-sub-content-' + tab);
+        return;
+      }
+      try {
+        contentContainer.innerHTML = _renderSubTabContent(tab, sub);
+      } catch (err) {
+        console.error('[FlowLink Proxy] Ошибка рендеринга подвкладки help-sub-content:', err);
+        contentContainer.innerHTML = '<p>Ошибка рендеринга. Перезагрузите popup.</p>';
+      }
 
       // Если это backend-linux или backend-macos — настраиваем вложенные подвкладки
       if (sub === 'backend-linux') {
@@ -691,9 +737,18 @@ function _renderSubTabContent(tab, sub) {
  * @returns {string} HTML-контент.
  */
 function _renderUpdateSubTabContent(sub, tag) {
+  const escapedTag = escapeHtml(tag);
   const text = _UPDATE_SUB_TEXTS[sub];
-  if (!text) return '<p>Раздел в разработке.</p>';
-  return typeof text === 'function' ? text(tag) : text;
+  if (!text) {
+    console.warn('[FlowLink Proxy] Не найден контент для подвкладки обновления:', sub);
+    return '<p>Раздел в разработке.</p>';
+  }
+  try {
+    return typeof text === 'function' ? text(escapedTag) : text;
+  } catch (err) {
+    console.error('[FlowLink Proxy] Ошибка рендеринга подвкладки обновления:', err);
+    return '<p>Ошибка рендеринга. Перезагрузите popup.</p>';
+  }
 }
 
 /**
@@ -702,7 +757,10 @@ function _renderUpdateSubTabContent(sub, tag) {
  */
 function _showUpdateContent(tab) {
   const content = document.getElementById('help-content');
-  if (!content) return;
+  if (!content) {
+    console.warn('[FlowLink Proxy] help-content не найден при отображении обновления');
+    return;
+  }
   const tag = _updateTag || '';
 
   // Определяем вкладки обновления, доступные в контексте
@@ -734,8 +792,16 @@ function _showUpdateContent(tab) {
   }
 
   const text = HELP_TEXTS[tab];
-  if (!text) return;
-  content.innerHTML = typeof text === 'function' ? text(tag) : text;
+  if (!text) {
+    console.warn('[FlowLink Proxy] Текст для вкладки обновления не найден:', tab);
+    return;
+  }
+  try {
+    content.innerHTML = typeof text === 'function' ? text(escapeHtml(tag)) : text;
+  } catch (err) {
+    console.error('[FlowLink Proxy] Ошибка рендеринга обновления:', err);
+    content.innerHTML = '<p>Ошибка при отображении обновления. Попробуйте перезагрузить popup.</p>';
+  }
 
   // Привязываем обработчики подвкладок обновления
   _setupUpdateSubTabHandler(tab);
@@ -747,7 +813,10 @@ function _showUpdateContent(tab) {
  */
 function _setupUpdateSubTabHandler(tab) {
   const container = document.getElementById('help-sub-tabs-' + tab);
-  if (!container) return;
+  if (!container) {
+    console.warn('[FlowLink Proxy] Не найден контейнер help-sub-tabs-' + tab);
+    return;
+  }
 
   container.querySelectorAll('.help-sub-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -760,12 +829,24 @@ function _setupUpdateSubTabHandler(tab) {
 
       // Рендерим контент подвкладки
       const contentContainer = document.getElementById('help-sub-content-' + tab);
-      if (!contentContainer) return;
-      contentContainer.innerHTML = _renderUpdateSubTabContent(sub, _updateTag || '');
+      if (!contentContainer) {
+        console.warn('[FlowLink Proxy] Не найден контейнер help-sub-content-' + tab);
+        return;
+      }
+      try {
+        contentContainer.innerHTML = _renderUpdateSubTabContent(sub, _updateTag || '');
+      } catch (err) {
+        console.error('[FlowLink Proxy] Ошибка рендеринга обновления подвкладки:', err);
+        contentContainer.innerHTML = '<p>Ошибка рендеринга. Перезагрузите popup.</p>';
+      }
 
       // Если это вложенные подвкладки — настраиваем их
       if (sub === 'update-linux') {
         _setupUpdateSubTabHandler('update-linux');
+      } // ... и т.д.
+    });
+  });
+}
       } else if (sub === 'update-macos') {
         _setupUpdateSubTabHandler('update-macos');
       } else if (sub === 'update-macos-intel') {
