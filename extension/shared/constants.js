@@ -5,6 +5,7 @@
  */
 
 // Базовый URL API бэкенда. Меняется через setApiPort() при кастомном порте.
+// Используется let, а не const, потому что порт может изменяться через setApiPort.
 let API_BASE = 'http://127.0.0.1:8081/api';
 
 // URL страницы последнего релиза на GitHub (для кнопки "Скачать")
@@ -13,13 +14,18 @@ const GITHUB_RELEASES_URL = 'https://github.com/FlowHack/flowlink-proxy/releases
 const GITHUB_API_RELEASES = 'https://api.github.com/repos/flowhack/flowlink-proxy/releases/latest';
 
 // Заглушка: URL расширения в магазине (после публикации заменить на реальный)
-const EXTENSION_STORE_URL = ''; // TODO: добавить URL после публикации
+// URL расширения в магазине. Будет добавлен после публикации.
+const EXTENSION_STORE_URL = '';
 
 /**
  * Изменяет порт API в базовом URL.
  * @param {number} port — новый порт (например 9091).
  */
 function setApiPort(port) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    console.warn('[FlowLink Proxy] setApiPort: неверный порт:', port);
+    return;
+  }
   API_BASE = `http://127.0.0.1:${port}/api`;
 }
 
