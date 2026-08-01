@@ -7,24 +7,9 @@
 import { GITHUB_RELEASES_URL } from '../shared/constants.js';
 
 import { showModal } from './modal.js';
+import { escapeHtml } from '../shared/dom.js';
 
 /**
- * Экранирует HTML-сущности для предотвращения XSS.
- * @param {string} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  if (str == null) return '';
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  };
-  return String(str).replace(/[&<>"']/g, char => map[char]);
-}
-
 /** Email поддержки — сноска внизу каждого раздела помощи. */
 const _EMAIL = 'flowlink.proxy@atomicmail.io';
 const _EMAIL_FOOTER = `
@@ -171,7 +156,6 @@ const HELP_TEXTS = {
     ${_EMAIL_FOOTER}
   `,
   'update-backend': (tag) => `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
     <div class="help-sub-tabs" id="help-sub-tabs-update-backend">
       <button class="help-sub-tab active" data-sub="update-windows">Windows</button>
       <button class="help-sub-tab" data-sub="update-linux">Linux</button>
@@ -608,7 +592,10 @@ export function switchHelpTab(tab) {
   // Показываем/скрываем вкладки в зависимости от контекста
   _TABS.forEach(t => {
     const el = document.getElementById('tab-' + t);
-    if (!el) return;
+    if (!el) {
+      console.warn('[FlowLink Proxy] Элемент вкладки не найден:', 'tab-' + t);
+      return;
+    }
     const visible = visibleTabs.includes(t);
     el.classList.toggle('hidden', !visible);
     el.classList.toggle('active', visible && t === tab);
@@ -771,7 +758,10 @@ function _showUpdateContent(tab) {
   // Показываем/скрываем вкладки обновления
   visibleTabs.forEach(t => {
     const el = document.getElementById('tab-' + t);
-    if (!el) return;
+    if (!el) {
+      console.warn('[FlowLink Proxy] Элемент вкладки обновления не найден:', 'tab-' + t);
+      return;
+    }
     el.classList.toggle('hidden', false);
     el.classList.toggle('active', t === tab);
   });
@@ -793,7 +783,7 @@ function _showUpdateContent(tab) {
     return;
   }
   try {
-    content.innerHTML = typeof text === 'function' ? text(escapeHtml(tag)) : text;
+    content.innerHTML = typeof text === 'function' ? text(tag) : text;
   } catch (err) {
     console.error('[FlowLink Proxy] Ошибка рендеринга обновления:', err);
     content.innerHTML = '<p>Ошибка при отображении обновления. Попробуйте перезагрузить popup.</p>';
