@@ -30,7 +30,8 @@ export async function checkBackendVersion() {
       extVer.textContent = `Версия: ${chrome.runtime.getManifest().version} (бэкенд: ${resp.version})`;
     }
     return true;
-  } catch {
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Ошибка проверки версии бэкенда:', e);
     return false;
   }
 }
@@ -43,7 +44,9 @@ export async function checkBackendVersion() {
  */
 export async function checkForUpdates(simulate = false, simulateVersion = '') {
   if (simulate) {
-    const tag = simulateVersion ? `v${simulateVersion}` : 'v0.0.0 (тест)';
+    const tag = simulateVersion
+      ? (simulateVersion.startsWith('v') ? simulateVersion : `v${simulateVersion}`)
+      : 'v0.0.0';
     latestTag = tag;
     showUpdateBanner(tag, GITHUB_RELEASES_URL);
     return;
@@ -54,12 +57,15 @@ export async function checkForUpdates(simulate = false, simulateVersion = '') {
     const release = await resp.json();
     latestTag = release.tag_name || '';
     if (!latestTag) return;
+    if (backendVersion === null) return;
     const latestVer = latestTag.replace(/^v/, '');
     const currentVer = backendVersion || '0.0.0';
     if (compareVersions(latestVer, currentVer) > 0) {
       showUpdateBanner(latestTag, release.html_url);
     }
-  } catch {}
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Ошибка проверки обновлений GitHub:', e);
+  }
 }
 
 /**
@@ -72,6 +78,7 @@ function showUpdateBanner(tag, url) {
   const updateText = document.getElementById('update-text');
   const downloadBtn = document.getElementById('btn-update-download');
   if (!banner || !updateText || !downloadBtn) return;
+  if (!url || typeof url !== 'string' || !url.startsWith('https://')) return;
   updateText.textContent = `Доступно обновление ${tag}`;
   downloadBtn.href = url;
   banner.classList.remove('hidden');
