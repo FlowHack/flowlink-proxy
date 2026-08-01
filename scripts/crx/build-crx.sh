@@ -53,6 +53,13 @@ CRX_NAME="FlowLink-Proxy-v${VERSION}.crx"
 
 # Подготовка временной папки с расширением
 TMP_DIR=$(mktemp -d)
+
+# Очистка временных файлов даже при ошибке
+cleanup() {
+    rm -rf "$TMP_DIR" /tmp/extension.zip 2>/dev/null || true
+}
+trap cleanup EXIT
+
 cp -r "$PROJECT_DIR/extension"/* "$TMP_DIR/"
 
 # Проверка наличия openssl
@@ -74,7 +81,17 @@ r = subprocess.run(['openssl', 'rsa', '-pubout', '-in', '$KEY_FILE', '-outform',
 if r.returncode != 0 or not r.stdout:
     sys.stderr.write('Не удалось извлечь публичный ключ из ключа: ' + r.stderr.decode('utf-8', 'replace') + '\n')
     sys.exit(1)
-m['key'] = base64.b64encode(r.stdout).decode('ascii')
+pubkey_b64 = base64.b64encode(r.stdout).decode('ascii')
+# Проверка соответствия ключа закоммиченному в manifest.json.
+# Если ключ отличается — ID расширения изменится, установка поверх
+# существующего расширения перестанет работать.
+existing_key = m.get('key')
+if existing_key and existing_key != pubkey_b64:
+    sys.stderr.write('ВНИМАНИЕ: переданный ключ не соответствует закоммиченному в manifest.json.\n')
+    sys.stderr.write('ID расширения изменится, установка поверх существующего расширения не сработает.\n')
+    sys.stderr.write('Используйте ключ, соответствующий закоммиченному публичному ключу.\n')
+    sys.exit(1)
+m['key'] = pubkey_b64
 with open('$TMP_DIR/manifest.json', 'w') as f:
     json.dump(m, f, indent=2)
 "
@@ -99,7 +116,7 @@ if ! command -v npx &>/dev/null; then
     echo "    macOS:   brew install node"
     exit 1
 fi
-npx -p crx3-utils crx3-new "$KEY_FILE" < /tmp/extension.zip > "$PROJECT_DIR/releases/$CRX_NAME"
+# --yes нужен, чтобы npx не задавал интерактивный вопрос при первом запуске (зависание в CI)
+npx --yes -p crx3-utils crx3-new "$KEY_FILE" < /tmp/extension.zip > "$PROJECT_DIR/releases/$CRX_NAME"
 
-rm -rf "$TMP_DIR" /tmp/extension.zip
 echo "[+] CRX создан: $PROJECT_DIR/releases/$CRX_NAME"

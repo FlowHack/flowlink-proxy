@@ -35,6 +35,7 @@ class TestRouterExceptions(TempConfigMixin, unittest.TestCase):
         router = MaskRouter()
         result = router.route('https://www.example.com/page')
         self.assertIsNotNone(result)
+        # type: ignore[reportOptionalSubscript] — assertIsNotNone не сужает Optional для pyright
         self.assertEqual(result['host'], '10.0.0.1')  # type: ignore[reportOptionalSubscript]
 
     def test_route_non_matching_url(self):
@@ -177,6 +178,7 @@ class TestRouterExceptions(TempConfigMixin, unittest.TestCase):
         result = router.route('https://www.example.com/')
         self.assertIsNotNone(result)
         # Первый прокси, чья маска совпала
+        # type: ignore[reportOptionalSubscript] — assertIsNotNone не сужает Optional для pyright
         self.assertEqual(result['proxyId'], 'p1')  # type: ignore[reportOptionalSubscript]
 
     def test_route_long_url(self):

@@ -51,6 +51,13 @@ esac
 
 BINARY_NAME="FlowLink Proxy${EXT}"
 
+# --- Путь к бинарникам venv (bin для Unix, Scripts для Windows) ---
+if [ "$OS_DIR" = "windows" ]; then
+    VENV_BIN="$VENV_DIR/Scripts"
+else
+    VENV_BIN="$VENV_DIR/bin"
+fi
+
 # --- Проверка Python ---
 if ! command -v python3 &>/dev/null; then
     error "Python 3 не найден."
@@ -59,13 +66,18 @@ PYTHON="python3"
 PY_VERSION=$($PYTHON --version 2>&1)
 info "$PY_VERSION найден"
 
+# --- Проверка версии Python (нужна 3.10+) ---
+if ! $PYTHON -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)"; then
+    error "Требуется Python 3.10 или новее."
+fi
+
 # --- Проверка tkinter ---
 if ! $PYTHON -c "import tkinter" 2>/dev/null; then
     warn "tkinter не установлен — кастомное трей-меню не будет работать."
     if command -v apt &>/dev/null; then
         sudo apt install -y python3-tk 2>/dev/null && info "tkinter установлен." || warn "Установите: sudo apt install python3-tk"
     elif command -v brew &>/dev/null; then
-        brew install python-tk 2>/dev/null && info "tkinter установлен." || warn "Установите: brew install python-tk"
+        brew install python-tk@3.12 2>/dev/null && info "tkinter установлен." || warn "Установите: brew install python-tk@3.12"
     fi
 fi
 
@@ -86,7 +98,7 @@ if [ "$CLEAN_VENV" = true ]; then
 else
     info "Использование существующего venv..."
 fi
-source "$VENV_DIR/bin/activate"
+source "$VENV_BIN/activate"
 
 # --- Установка зависимостей ---
 info "Установка зависимостей..."
@@ -141,6 +153,11 @@ $PYTHON -m PyInstaller \
     server/__main__.py
 
 info "Сборка завершена!"
+
+# --- Проверка, что бинарник действительно собран ---
+if [ ! -f "server/dist/$BINARY_NAME" ]; then
+    error "Бинарник не найден: server/dist/$BINARY_NAME. Сборка PyInstaller завершилась неудачно."
+fi
 
 # --- Копирование в releases/ ---
 mkdir -p releases

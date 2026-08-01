@@ -77,6 +77,8 @@ def _create_fallback_icon(pil_image: types.ModuleType) -> Any:
     Returns:
         PIL.Image (16x16 RGBA, масштабируется до 64x64).
     """
+    # Ленивый импорт: Pillow — опциональная зависимость (нужна
+    # только для отрисовки fallback-иконки)
     import PIL.ImageDraw as _draw  # pylint: disable=import-outside-toplevel
     import PIL.ImageFont as _font  # pylint: disable=import-outside-toplevel
 
@@ -331,6 +333,8 @@ def _select_browser(
 
         if detected:
             # Используем кастомный диалог выбора из списка
+            # Ленивый импорт: tkinter-диалог нужен только при ручном
+            # выборе браузера
             from server.ui.dialogs import \
                 show_item_picker  # pylint: disable=import-outside-toplevel
 
@@ -410,12 +414,14 @@ def _open_file_dialog(
             новый (fallback, например из lambda в on_manual).
     """
     try:
+        # Ленивый импорт: tkinter/filedialog нужны только при ручном
+        # выборе браузера (в остальное время меню работает без них)
         import tkinter as tk  # pylint: disable=import-outside-toplevel
         from tkinter import \
-            filedialog  # pylint: disable=import-outside-toplevel
+            filedialog  # pylint: disable=import-outside-toplevel  # ленивый импорт: tkinter нужен только для диалога выбора файла
 
         from server.ui.dialogs import \
-            _set_window_icon  # pylint: disable=import-outside-toplevel
+            _set_window_icon  # pylint: disable=import-outside-toplevel  # ленивый импорт: иконка нужна только для диалога
 
         owns_root = tk_root is None
         root = tk_root if tk_root is not None else tk.Tk()
@@ -575,6 +581,7 @@ def build_menu_items(
     # Определяем, выбран ли браузер: для валидного пути показываем
     # зелёную пометку у пункта «Выбрать браузер...».
     browser_path = callbacks.get('browser_path_getter', lambda: '')()
+    # Ленивый импорт: избегает циклической зависимости menu→config
     from server.config import \
         browser_config as _bc  # pylint: disable=import-outside-toplevel
     browser_selected = bool(browser_path) and _bc.validate_browser_path(browser_path)

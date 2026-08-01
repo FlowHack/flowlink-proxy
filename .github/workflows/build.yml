@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   build-linux:
@@ -72,7 +73,7 @@ jobs:
           cache-dependency-path: server/requirements.txt
 
       - name: Установка системных зависимостей
-        run: brew install python-tk
+        run: brew install python-tk@3.12
 
       - name: Установка Python-зависимостей
         run: |
@@ -112,7 +113,7 @@ jobs:
           cache-dependency-path: server/requirements.txt
 
       - name: Установка системных зависимостей
-        run: brew install python-tk
+        run: brew install python-tk@3.12
 
       - name: Установка Python-зависимостей
         run: |
@@ -190,13 +191,15 @@ jobs:
         with:
           node-version: "20"
       - name: Восстановление ключа
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
         run: |
-          if [ -z "${{ secrets.CRX_PRIVATE_KEY }}" ]; then
+          if [ -z "$CRX_PRIVATE_KEY" ]; then
             echo "::error::Секрет CRX_PRIVATE_KEY не задан. Добавьте его в настройках репозитория (Settings → Secrets)."
             exit 1
           fi
           mkdir -p scripts/crx
-          echo "${{ secrets.CRX_PRIVATE_KEY }}" > scripts/crx/crx-private-key.pem
+          printf '%s' "$CRX_PRIVATE_KEY" > scripts/crx/crx-private-key.pem
       - name: Сборка CRX
         run: bash scripts/crx/build-crx.sh
       - name: Загрузка артефакта

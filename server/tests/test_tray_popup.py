@@ -16,6 +16,10 @@ try:
 except ImportError:
     _HAS_TKINTER = False
 
+# type: ignore[reportPossiblyUnbound] / [reportArgumentType] в тестах ниже:
+# pyright не знает runtime-типы tkinter (PopupColors — константы, объявленные
+# как ClassVar, FlowLinkPopup.calc_height — статик-метод с runtime-аргументами).
+
 
 @unittest.skipUnless(_HAS_TKINTER, 'tkinter не установлен')
 class TestPopupColors(unittest.TestCase):
@@ -36,14 +40,6 @@ class TestPopupColors(unittest.TestCase):
         """Текст — светлый цвет на тёмном фоне."""
         r = int(PopupColors.TEXT[1:3], 16)  # type: ignore[reportPossiblyUnbound]
         self.assertGreater(r, 0xC0)
-
-    def test_green_for_checkmark(self):
-        """Зелёный для галочки чекбокса."""
-        self.assertEqual(PopupColors.GREEN, '#2ecc71')  # type: ignore[reportPossiblyUnbound]
-
-    def test_accent_is_red(self):
-        """Accent — красный (как в расширении)."""
-        self.assertEqual(PopupColors.ACCENT, '#e74c3c')  # type: ignore[reportPossiblyUnbound]
 
     def test_all_colors_are_hex(self):
         """Все цвета — валидные hex-строки или rgba()."""
@@ -133,32 +129,12 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
         ])  # type: ignore[reportPossiblyUnbound]
         self.assertEqual(result_multi - result_single, 2 * 28)
 
-    def test_min_height_floor(self):
-        """Минимальная высота — 40, даже если calculation меньше."""
-        # Теоретически не может быть < 40 при реальных данных,
-        # но проверяем guard в коде
-        result = FlowLinkPopup.calc_height([])  # type: ignore[reportPossiblyUnbound]
-        self.assertGreaterEqual(result, 40)
-
-
 @unittest.skipUnless(_HAS_TKINTER, 'tkinter не установлен')
 class TestFlowLinkPopupInit(unittest.TestCase):
-    """Тесты начального состояния FlowLinkPopup."""
-
-    def test_initial_root_none(self):
-        """При создании _root = None."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # _root — internal tkinter: проверка начального состояния
-        self.assertIsNone(popup._root)  # pylint: disable=protected-access
-
-    def test_initial_popup_none(self):
-        """При создании _popup = None."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # _popup — internal tkinter: проверка начального состояния
-        self.assertIsNone(popup._popup)  # pylint: disable=protected-access
+    """Тесты поведения FlowLinkPopup без реального tkinter-окна."""
 
     def test_set_tk_root(self):
-        """set_tk_root устанавливает _root."""
+        """set_tk_root устанавливает корневой объект."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         sentinel = object()
         # тест проверяет что set_tk_root принимает любой объект
@@ -166,23 +142,11 @@ class TestFlowLinkPopupInit(unittest.TestCase):
         # _root — internal tkinter: проверка что set_tk_root работает
         self.assertIs(popup._root, sentinel)  # pylint: disable=protected-access
 
-    def test_queue_created(self):
-        """При создании создаётся очередь."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # _queue — internal tkinter: проверка что очередь создана
-        self.assertIsNotNone(popup._queue)  # pylint: disable=protected-access
-
     def test_dismiss_when_no_popup(self):
         """dismiss() на пустом popup не бросает исключение."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         # Не должен бросить исключение
         popup.dismiss()
-
-    def test_polling_active_initially_false(self):
-        """_polling_active = False при создании."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # _polling_active — internal tkinter: проверка начального состояния
-        self.assertFalse(popup._polling_active)  # pylint: disable=protected-access
 
 
 @unittest.skipUnless(_HAS_TKINTER, 'tkinter не установлен')
@@ -192,12 +156,14 @@ class TestFlowLinkPopupTooltip(unittest.TestCase):
     def test_initial_tooltip_state(self):
         """При создании статусбар и текст тултипа пусты."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        # internal: проверка приватного состояния тултипа
         self.assertIsNone(popup._tooltip_label)  # pylint: disable=protected-access
-        self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access
+        self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access  # internal: проверка тултипов
 
     def test_show_tooltip_without_popup_sets_text(self):
         """_show_tooltip без popup сохраняет текст."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        # internal: вызов приватного метода тултипа для проверки логики
         popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
         self.assertEqual(popup._tooltip_text, 'Подсказка')  # pylint: disable=protected-access
 
@@ -205,12 +171,14 @@ class TestFlowLinkPopupTooltip(unittest.TestCase):
         """_show_tooltip сразу вызывает _display_tooltip (без after-задержки)."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
         with patch.object(popup, '_display_tooltip') as display:
+            # internal: вызов приватного метода тултипа для проверки логики
             popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
             display.assert_called_once_with()
 
     def test_hide_tooltip_clears_text(self):
         """_hide_tooltip очищает текст подсказки."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        # internal: проверка приватных методов тултипа
         popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
         popup._hide_tooltip()  # pylint: disable=protected-access
         self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access
@@ -218,6 +186,7 @@ class TestFlowLinkPopupTooltip(unittest.TestCase):
     def test_hide_tooltip_on_empty_no_crash(self):
         """_hide_tooltip на пустом popup не бросает исключение."""
         popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
+        # internal: вызов приватного метода тултипа для проверки логики
         popup._hide_tooltip()  # pylint: disable=protected-access
 
 

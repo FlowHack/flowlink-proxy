@@ -30,6 +30,11 @@ if (-not (Test-Path $Key)) {
     Write-Host "    Сгенерируйте: openssl genrsa -out $Key 2048"
     exit 1
 }
+if ((Get-Item $Key).Length -eq 0) {
+    Write-Host "[!] Приватный ключ пуст: $Key" -ForegroundColor Red
+    Write-Host "    Убедитесь, что секрет CRX_PRIVATE_KEY задан в настройках репозитория."
+    exit 1
+}
 
 # Версия расширения из manifest.json
 $ManifestSrc = Join-Path $ProjectDir 'extension\manifest.json'
@@ -81,6 +86,17 @@ try {
     }
     $PubKeyB64 = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($PubKeyDerPath))
 
+    # Проверка соответствия ключа закоммиченному в manifest.json.
+    # Если ключ отличается — ID расширения изменится, установка поверх
+    # существующего расширения перестанет работать.
+    $ExistingKey = $Manifest.PSObject.Properties['key']
+    if ($ExistingKey -and $ExistingKey.Value -ne $PubKeyB64) {
+        Write-Host "[!] ВНИМАНИЕ: переданный ключ не соответствует закоммиченному в manifest.json." -ForegroundColor Red
+        Write-Host "    ID расширения изменится, установка поверх существующего расширения не сработает." -ForegroundColor Red
+        Write-Host "    Используйте ключ, соответствующий закоммиченному публичному ключу." -ForegroundColor Red
+        exit 1
+    }
+
     $Manifest | Add-Member -NotePropertyName 'key' -NotePropertyValue $PubKeyB64 -Force
     # Записываем JSON без BOM (Chrome не принимает BOM в manifest.json).
     # ConvertTo-Json экранирует кириллицу в \uXXXX — это валидный JSON.
@@ -100,7 +116,8 @@ try {
     New-Item -ItemType Directory -Path $ReleasesDir -Force | Out-Null
     $OutCrx = Join-Path $ReleasesDir $CrxName
 
-    $CmdLine = "npx -p crx3-utils crx3-new `"$Key`" < `"$ZipPath`" > `"$OutCrx`""
+    # --yes нужен, чтобы npx не задавал интерактивный вопрос при первом запуске (зависание в CI)
+    $CmdLine = "npx --yes -p crx3-utils crx3-new `"$Key`" < `"$ZipPath`" > `"$OutCrx`""
     cmd /c $CmdLine
     if ($LASTEXITCODE -ne 0) {
         throw "Ошибка сборки CRX через crx3-utils"

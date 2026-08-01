@@ -4,11 +4,14 @@ on:
   workflow_run:
     workflows: [Build]
     types: [completed]
+  workflow_dispatch:
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: write
 
     steps:
       - name: Клонирование репозитория
@@ -56,6 +59,14 @@ jobs:
           mkdir -p release-files
           find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" -o -name "*.crx" \) \
             -exec cp {} release-files/ \;
+
+      - name: Удаление существующего релиза (идемпотентность)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          # Удаляем существующий release на этом теге, если он есть
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
 
       - name: Создание Draft Release
         uses: softprops/action-gh-release@v2

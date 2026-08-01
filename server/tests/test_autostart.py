@@ -247,6 +247,7 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
 
     def test_non_dict_input(self):
         """POST с не-словарём возвращает ошибку."""
+        # type: ignore[reportArgumentType] — намеренно передаём не-словарь для проверки ошибки
         result = asyncio.run(
             handle_post_autostart_browser('not a dict'),  # type: ignore[reportArgumentType]
         )

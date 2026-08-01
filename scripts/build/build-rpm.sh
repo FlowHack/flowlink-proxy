@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Чтение версии
-VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || exit 1)
+VERSION=$(PROJECT_DIR="$PROJECT_DIR" python3 -c "import os, sys; sys.path.insert(0, os.environ['PROJECT_DIR']); from server.version import __version__; print(__version__)" 2>/dev/null) || { echo "[!] Не удалось определить версию из server/version.py"; exit 1; }
 PKG_NAME="flowlink-proxy"
 
 echo "[+] Сборка $PKG_NAME v$VERSION (.rpm)"
@@ -64,6 +64,12 @@ fi
 cd "$RPMBUILD_DIR/SOURCES"
 tar czf "$PKG_NAME-$VERSION.tar.gz" "$PKG_NAME-$VERSION"
 rm -rf "$TARBALL_DIR"
+
+# --- Проверка наличия rpmbuild ---
+if ! command -v rpmbuild &>/dev/null; then
+    echo "[!] rpmbuild не найден. Установите rpm-build (sudo apt install rpm-build)."
+    exit 1
+fi
 
 # --- Сборка ---
 rpmbuild -ba "$RPMBUILD_DIR/SPECS/flowlink.spec" --define "version $VERSION"

@@ -32,6 +32,8 @@ def has_pystray() -> bool:
     """Проверяет, доступен ли pystray."""
     try:
         # Runtime-проверка: нужен для выбора бэкенда трей.
+        # type: ignore[reportMissingImports] — pystray опциональная зависимость
+        # (не установлен в dev-среде); unused-import — импорт только для проверки
         import pystray  # type: ignore[reportMissingImports]  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
@@ -57,6 +59,7 @@ def has_pil() -> bool:
     """Проверяет, доступен ли Pillow (нужен для иконки)."""
     try:
         # Runtime-проверка: нужен для иконки трея
+        # unused-import — импорт только для проверки доступности
         from PIL import \
             Image  # pylint: disable=import-outside-toplevel,unused-import
         return True
@@ -68,6 +71,7 @@ def has_tkinter() -> bool:
     """Проверяет, доступен ли tkinter (нужен для popup-меню)."""
     try:
         # Runtime-проверка: нужен для popup-меню
+        # unused-import — импорт только для проверки доступности
         import tkinter  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:

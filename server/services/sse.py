@@ -94,7 +94,7 @@ async def handle_sse(writer: asyncio.StreamWriter) -> None:
                 logger.debug('SSE: клиент %s отключился', peername)
                 break
     except asyncio.CancelledError:
-        pass
+        logger.debug('SSE: соединение %s отменено', peername)
     finally:
         # Регистрируем отключение расширения (для индикации в системном трее)
         mark_disconnected()

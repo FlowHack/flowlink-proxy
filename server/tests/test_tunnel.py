@@ -174,6 +174,31 @@ class TestTunnelConnectHttp(unittest.TestCase):
         client_writer.drain.assert_awaited_once()
         mock_pipe.assert_awaited_once()
 
+    def test_remote_writer_closed_on_client_error(self):
+        """При ошибке клиента до pipe remote_writer закрывается (нет утечки TCP)."""
+        remote_reader, remote_writer = Mock(), Mock()
+        remote_writer.close = Mock()
+        client_writer = Mock()
+        # Клиент обрывает соединение: write/drain бросают ConnectionError
+        client_writer.write = Mock(side_effect=ConnectionError('client gone'))
+        client_writer.drain = AsyncMock(side_effect=ConnectionError('client gone'))
+        client = (Mock(), client_writer)
+        with patch(
+            'server.services.tunnel._establish_remote',
+            new=AsyncMock(return_value=(remote_reader, remote_writer)),
+        ), patch(
+            'server.services.tunnel.pipe', new=AsyncMock(),
+        ) as mock_pipe, patch(
+            'server.services.tunnel.safe_close_writer',
+            new=Mock(side_effect=lambda w: w.close()),
+        ):
+            self._run(tunnel_connect(
+                client, ('example.com', 80), 'https://example.com/',
+            ))
+        # remote_writer должен быть закрыт в finally _tunnel_context
+        remote_writer.close.assert_called()
+        mock_pipe.assert_not_awaited()
+
 
 if __name__ == '__main__':
     unittest.main()

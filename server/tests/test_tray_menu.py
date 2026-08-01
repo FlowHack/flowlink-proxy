@@ -151,6 +151,8 @@ class TestBuildMenuItems(unittest.TestCase):
         self.assertEqual(len(separators), 3)
 
     @patch('server.tray.menu.os._exit')
+    # Параметр mock_exit — мок os._exit, нужен для @patch,
+    # но в тесте не используется (unused-argument)
     def test_exit_calls_stop_fn(self, mock_exit):  # pylint: disable=unused-argument
         """Клик по «Выход» вызывает stop_fn."""
         stop_fn = MagicMock()
@@ -164,6 +166,8 @@ class TestBuildMenuItems(unittest.TestCase):
         stop_fn.assert_called_once()
 
     @patch('server.tray.menu.os._exit')
+    # Параметр mock_exit — мок os._exit, нужен для @patch,
+    # но в тесте не используется (unused-argument)
     def test_exit_calls_stop_callback(self, mock_exit):  # pylint: disable=unused-argument
         """Клик по «Выход» вызывает callbacks['stop']."""
         callbacks = self._base_callbacks()

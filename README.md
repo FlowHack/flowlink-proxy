@@ -74,12 +74,12 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 | Платформа | Файл | Установка |
 |-----------|------|-----------|
 | **Windows x64** | `FlowLink-Proxy-v*-Setup.exe` | Запустите установщик → следуйте инструкциям |
-| **Linux x64** | `FlowLink-Proxy-v*-linux-x64.tar.gz` | Распакуйте → `chmod +x flowlink-proxy` → запустите |
-| **Linux x64** | `FlowLink-Proxy-v*-amd64.deb` | `sudo dpkg -i FlowLink-Proxy-*.deb` |
-| **Linux x64** | `FlowLink-Proxy-v*-x86_64.rpm` | `sudo rpm -i FlowLink-Proxy-*.rpm` |
+| **Linux x64** | `FlowLink-Proxy-v*-linux-x64.tar.gz` | Распакуйте → `chmod +x "FlowLink Proxy"` → запустите |
+| **Linux x64** | `flowlink-proxy_<версия>_amd64.deb` | `sudo dpkg -i flowlink-proxy_*.deb` |
+| **Linux x64** | `flowlink-proxy-<версия>-1.x86_64.rpm` | `sudo rpm -i flowlink-proxy-*.rpm` |
 | **macOS Intel** | `FlowLink-Proxy-v*-macos-x64.tar.gz` | Распакуйте → запустите |
 | **macOS Apple Silicon** | `FlowLink-Proxy-v*-macos-arm64.tar.gz` | Распакуйте → запустите |
-| **macOS** | `FlowLink-Proxy-v*-macos-*.pkg` | Дважды кликните по `.pkg` |
+| **macOS** | `flowlink-proxy-<версия>-macos-<арх>.pkg` | Дважды кликните по `.pkg` |
 
 > Подробные инструкции по каждому способу: **[SETUP.md](SETUP.md)**
 
@@ -233,13 +233,15 @@ flowlink-proxy/
 │   │   ├── crypto.py          # AES-GCM шифрование паролей (PBKDF2)
 │   │   ├── autostart.py       # Настройки автозапуска браузера
 │   │   ├── browser_config.py  # Конфигурация браузера (автопоиск, валидация, запуск)
+│   │   ├── browser_process.py # Управление процессами браузера (поиск PID, kill)
 │   │   └── system_autostart.py # Автозапуск с системой (Win/Linux/macOS)
 │   ├── protocols/
 │   │   ├── base.py            # ABC ProxyProtocol
 │   │   ├── socks5.py          # SOCKS5-клиент (чистый asyncio + struct)
 │   │   ├── factory.py         # Фабрика протоколов
 │   │   ├── parser.py          # Парсинг CONNECT/HTTP-запросов
-│   │   └── mock_socks5.py     # Тестовый SOCKS5-сервер (--dev)
+│   │   ├── mock_socks5.py     # Тестовый SOCKS5-сервер (--dev)
+│   │   └── socks5_constants.py # Константы SOCKS5-протокола
 │   ├── services/
 │   │   ├── router.py          # Маршрутизация URL по маскам
 │   │   ├── tunnel.py          # Установка туннелей (SOCKS5 / прямой) + SSRF-защита
@@ -247,6 +249,8 @@ flowlink-proxy/
 │   │   ├── ping.py            # Пинг прокси (SOCKS5 handshake)
 │   │   ├── debug.py           # Debug-утилиты
 │   │   ├── events.py          # SSE-шина событий
+│   │   ├── sse.py             # SSE-обработчик (text/event-stream)
+│   │   ├── extension_connection.py # Отслеживание подключения расширения
 │   │   └── fake_proxies.py    # Генерация тестовых прокси (--count-proxy)
 │   ├── servers/
 │   │   ├── base_server.py     # ABC BaseServer
@@ -274,7 +278,16 @@ flowlink-proxy/
 │       ├── test_system_autostart.py
 │       ├── test_tray_menu.py
 │       ├── test_tray_platform.py
-│       └── test_tray_popup.py
+│       ├── test_tray_popup.py
+│       ├── test_tray_fallback.py
+│       ├── test_main_launch_browser.py
+│       ├── test_main_autostart.py
+│       ├── test_extension_timeout.py
+│       ├── test_extension_connection.py
+│       ├── test_dialogs.py
+│       ├── test_build_scripts.py
+│       ├── test_browser_process.py
+│       └── test_api_routes.py
 │
 ├── extension/                 # Chrome-расширение (Manifest V3)
 │   ├── manifest.json          # Манифест расширения
@@ -288,7 +301,6 @@ flowlink-proxy/
 │   │   ├── crud-mask.js       # CRUD-операции с масками
 │   │   ├── ping.js            # Пинг прокси
 │   │   ├── settings.js        # Настройки порта API
-│   │   ├── autostart.js       # Настройки автозапуска браузера
 │   │   ├── tab-status.js      # Статус текущей вкладки
 │   │   ├── modal.js           # Модальные окна
 │   │   ├── help.js            # Окно помощи
@@ -341,6 +353,7 @@ flowlink-proxy/
 ├── DEBUG.md                   # Отладка, CLI-флаги, API
 ├── PRIVACY_POLICY.md          # Политика конфиденциальности
 ├── README.md                  # Этот файл
+├── EULA.rtf                   # Лицензионное соглашение конечного пользователя
 └── LICENSE.txt                # GNU AGPL v3
 ```
 
@@ -386,6 +399,25 @@ flowlink-proxy/
 |---|---|
 | Linux / macOS | `~/.FlowHack/FlowLink Proxy/` |
 | Windows | `%APPDATA%\FlowHack\FlowLink Proxy\` |
+
+---
+
+## FAQ (Часто задаваемые вопросы)
+
+### Какие порты использует FlowLink Proxy?
+По умолчанию прокси-сервер слушает порт **8080**, а HTTP API — порт **8081**. При необходимости их можно изменить флагами `--proxy-port` и `--api-port`. Расширение автоматически обнаруживает порт API в диапазоне 8080–8090.
+
+### Как настроить автозапуск браузера?
+Автозапуск браузера настраивается в расширении (вкладка «Настройки») или через трей-меню («Автозапуск браузера»). Настройки сохраняются в файле `.flowlink-settings` в директории данных.
+
+### Как выбрать браузер для запуска?
+Выбор браузера доступен в трей-меню («Выбрать браузер...») или в расширении. FlowLink Proxy автоматически обнаруживает установленные браузеры (Chrome, Edge, Yandex, Firefox, Opera, Brave и др.) и предлагает выбрать нужный.
+
+### Можно ли запустить несколько экземпляров параллельно?
+Да. Запустите несколько экземпляров с разными портами, например `--proxy-port 8080 --api-port 8081` и `--proxy-port 8090 --api-port 8091`. Расширение автоматически подключится к найденному бэкенду в диапазоне портов 8080–8090.
+
+### Где хранятся данные и логи?
+Данные (config.json, зашифрованные пароли, ключи) и логи хранятся в директории данных: `~/.FlowHack/FlowLink Proxy/` (Linux/macOS) или `%APPDATA%\FlowHack\FlowLink Proxy\` (Windows). Логи — в подпапке `logs/FlowLink Proxy.log`.
 
 ---
 

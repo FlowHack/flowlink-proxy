@@ -36,8 +36,9 @@ async def _pipe_data(
     finally:
         try:
             dst.close()
-        except OSError:
-            pass
+        except OSError as e:
+            logger.debug('Ошибка закрытия сокета %s при разрыве потока: %s',
+                         name, e)
 
 
 async def pipe(

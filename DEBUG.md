@@ -64,7 +64,7 @@ python -m server --debug --test-fallback-icon
 
 ### `--debug`
 
-Включает подробное логирование — все действия бэкенда записываются в консоль и файл `logs/flowlink.log`:
+Включает подробное логирование — все действия бэкенда записываются в консоль и файл `FlowLink Proxy.log` в директории данных:
 - Все входящие HTTP-запросы (адрес, метод, тело)
 - SOCKS5-соединения (какой прокси выбран, результат подключения)
 - Маршрутизация (какая маска совпала с URL)
@@ -73,7 +73,7 @@ python -m server --debug --test-fallback-icon
 ### `--dev`
 
 Включает `--debug` плюс:
-- **Автообновление** — при изменении любого `.py` файла сервер автоматически перезапускается (удобно при разработке: сохранил файл — сервер перезапустился сам)
+- **Автообновление** — при изменении любого `.py` файла процесс завершается (`os._exit(0)`). Для автоматического перезапуска используйте внешнюю обёртку (например, `while true; do python -m server --dev; done`)
 - **Тестовый SOCKS5-сервер** — встроенный сервер-заглушка на случайном порту. Имитирует реальный SOCKS5-прокси, чтобы пинг и подключения работали без покупки аккаунта
 
 Не предназначен для продакшена.
@@ -142,7 +142,7 @@ tkinter `TclError`), бэкенд не падает — ошибка перех�
 
 Как диагностировать:
 
-- Запустите с `--debug` и смотрите `logs/flowlink.log`
+- Запустите с `--debug` и смотрите `FlowLink Proxy.log` в директории данных
 - При переключении на запасной вариант в логе появятся строки:
   - `Основной трей не запустился (runtime ошибка): ...`
   - `Альтернативный трей (pystray, нативное меню) запущен`
@@ -232,14 +232,16 @@ python -m server --debug --no-tkinter
 | Куда | Уровень | Где найти |
 |------|---------|-----------|
 | Консоль (stdout) | INFO+, DEBUG с `--debug` | Терминал |
-| Файл | DEBUG+ | `logs/flowlink.log` |
+| Файл | DEBUG+ | `FlowLink Proxy.log` в директории данных |
 
 ### Расположение файла
 
 | Среда | Путь |
 |-------|------|
-| Python (из исходника) | `logs/flowlink.log` в корне проекта |
-| Standalone-бинарник | `logs/flowlink.log` рядом с `.exe` |
+| Linux / macOS | `~/.FlowHack/FlowLink Proxy/logs/FlowLink Proxy.log` |
+| Windows | `%APPDATA%\FlowHack\FlowLink Proxy\logs\FlowLink Proxy.log` |
+
+> Standalone-бинарник пишет логи в ту же директорию данных, что и запуск из исходников.
 
 ### Ротация
 
@@ -263,7 +265,7 @@ python -m server --debug --no-tkinter
 | `GET` | `/api/status` | Статус backend (proxiesCount, masksCount, debug, needUpdate) |
 | `GET` | `/api/version` | Версия сервера: `{"version": "X.X.X"}` |
 | `POST` | `/api/ping` | Пинг прокси. Тело: `{"proxyId": "..."}` |
-| `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`) |
+| `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`, `autostart_browser_changed`, `system_autostart_changed`, `browser_config_changed`) |
 | `GET` | `/api/autostart-browser` | Автозапуск браузера: `{"autostartBrowser": true/false}` |
 | `GET` | `/api/system-autostart` | Статус автозапуска с системой |
 | `POST` | `/api/system-autostart` | Включить/выключить автозапуск с системой. Тело: `{"enabled": true/false}` |
@@ -304,6 +306,9 @@ curl -X POST http://127.0.0.1:8081/api/ping \
 |---------|--------|----------|
 | `config_changed` | `{}` | Конфигурация изменена (прокси, маски, тоггл) |
 | `need_update` | `{"version": "X.X.X"}` | Доступно обновление |
+| `autostart_browser_changed` | `{"autostartBrowser": true/false}` | Изменена настройка автозапуска браузера |
+| `system_autostart_changed` | `{"enabled": true/false}` | Изменена настройка автозапуска с системой |
+| `browser_config_changed` | `{"browserPath": "..."}` | Изменён выбранный браузер |
 
 ### Структура конфигурации
 
@@ -376,7 +381,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 | Симптом | Причина и решение |
 |---------|-------------------|
-| Меню не открывается, в логе ошибка рендера | Ошибка tkinter-рендера. Бэкенд продолжает работать — смотрите трейсбек в `logs/flowlink.log` |
+| Меню не открывается, в логе ошибка рендера | Ошибка tkinter-рендера. Бэкенд продолжает работать — смотрите трейсбек в `FlowLink Proxy.log` в директории данных |
 | Приложение сразу завершается при запуске | Ни один трей-бэкенд не запустился. В логе: `critical: Не удалось запустить трей (запуск): Все трей-бэкенды недоступны`. Проверьте установку tkinter (`python -m tkinter`) и pystray (`pip show pystray`) |
 | tkinter недоступен | Запустите с `--no-tkinter` — меню отобразится нативным стилем ОС, либо установите пакет tkinter для вашей ОС |
 

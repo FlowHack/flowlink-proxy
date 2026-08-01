@@ -16,7 +16,7 @@ from ipaddress import ip_address
 
 from server.protocols import ProxyError, get_protocol
 from server.services.pipe import pipe, pipe_http_request, pipe_http_response
-from server.utils import proxy_addr
+from server.utils import proxy_addr, safe_close_writer
 
 logger = logging.getLogger('flowlink.tunnel')
 
@@ -53,7 +53,11 @@ def unregister_tunnel(proxy_id: str, writer: asyncio.StreamWriter) -> None:
         try:
             writers.remove(writer)
         except ValueError:
-            pass
+            logger.debug(
+                'Туннель: writer не найден в списке активных туннелей '
+                'для прокси %s',
+                proxy_id,
+            )
         if not writers:
             _active_tunnels.pop(proxy_id, None)
 
@@ -68,8 +72,9 @@ def close_tunnels_for_proxy(proxy_id: str) -> None:
     for w in writers:
         try:
             w.close()
-        except OSError:
-            pass
+        except OSError as e:
+            logger.debug('Туннель: ошибка закрытия writer прокси %s: %s',
+                         proxy_id, e)
         _all_writers.discard(w)
 
 
@@ -88,8 +93,9 @@ def close_all_connections() -> None:
     for w in list(_all_writers):
         try:
             w.close()
-        except OSError:
-            pass
+        except OSError as e:
+            logger.debug('Туннель: ошибка закрытия writer при глобальном '
+                         'закрытии соединений: %s', e)
     _all_writers.clear()
     _active_tunnels.clear()
 
@@ -247,6 +253,12 @@ async def _tunnel_context(
             _all_writers.discard(remote_writer)
             if proxy_id:
                 unregister_tunnel(proxy_id, remote_writer)
+            # Закрываем удалённый writer в ЛЮБОМ случае. Если клиент оборвал
+            # соединение до pipe (writer.write/drain упали), remote_writer уже
+            # удалён из трекеров, но остаётся открытым — без закрытия это
+            # утечка TCP-соединения. safe_close_writer идемпотентен:
+            # повторное закрытие уже закрытого writer безопасно.
+            safe_close_writer(remote_writer)
 
 
 async def tunnel_connect(

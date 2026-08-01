@@ -105,6 +105,8 @@ def _check_windows() -> bool:
     try:
         # winreg доступен только на Windows
         import winreg  # pylint: disable=import-outside-toplevel
+        # type: ignore[reportAttributeAccessIssue] — модуль winreg доступен только
+        # на Windows; pyright не видит его атрибуты (модуль не установлен в dev-среде).
         _get_executable_info()
         key_path = winreg.HKEY_CURRENT_USER  # type: ignore[reportAttributeAccessIssue]
         with winreg.OpenKey(  # type: ignore[reportAttributeAccessIssue]
@@ -114,7 +116,8 @@ def _check_windows() -> bool:
                 key, _APP_NAME,
             )
             return True
-    except (ImportError, OSError):
+    except (ImportError, OSError) as e:
+        logger.debug('Не удалось проверить автозапуск Windows: %s', e)
         return False
 
 
@@ -123,6 +126,8 @@ def _set_windows(enabled: bool) -> bool:
     try:
         # winreg доступен только на Windows
         import winreg  # pylint: disable=import-outside-toplevel
+        # type: ignore[reportAttributeAccessIssue] — модуль winreg доступен только
+        # на Windows; pyright не видит его атрибуты (модуль не установлен в dev-среде).
         exe, args = _get_executable_info()
         cmd = f'"{exe}"' + (' ' + ' '.join(args) if args else '')
 

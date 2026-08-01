@@ -263,3 +263,21 @@ class TestAutostartBrowserAtStartup(unittest.TestCase):
         self.assertTrue(any(
             'не выбран или невалиден' in message for message in logs.output
         ))
+
+    def test_write_port_file_error_does_not_kill_server(self):
+        """Ошибка записи порт-файла не останавливает уже запущенные серверы."""
+        args = _make_args()
+        callbacks: dict = {}
+
+        async def run() -> None:
+            with ExitStack() as stack:
+                _enter_runtime_patches(stack, None, callbacks)
+                # write_port_file бросает OSError — сервер не должен падать
+                stack.enter_context(patch(
+                    'server.__main__.write_port_file',
+                    side_effect=OSError('permission denied'),
+                ))
+                await _run_server(args)
+
+        # Не должно бросать исключение — сервер продолжает работу
+        asyncio.run(run())

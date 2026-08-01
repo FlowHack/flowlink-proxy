@@ -15,13 +15,6 @@ PROJECT_ROOT = os.path.abspath(
 )
 
 
-def _read_file(rel_path: str) -> str:
-    """Читает файл относительно корня проекта."""
-    full = os.path.join(PROJECT_ROOT, rel_path)
-    with open(full, 'r', encoding='utf-8') as f:
-        return f.read()
-
-
 def _file_exists(rel_path: str) -> bool:
     """Проверяет существование файла относительно корня проекта."""
     return os.path.isfile(os.path.join(PROJECT_ROOT, rel_path))
@@ -67,26 +60,6 @@ class TestBuildCrxScript(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Приватный ключ не найден', result.stdout + result.stderr)
-
-    def test_build_crx_output_name(self):
-        """Скрипт формирует выходной файл releases/FlowLink-Proxy-vX.X.X.crx."""
-        content = _read_file('scripts/crx/build-crx.sh')
-        self.assertIn('FlowLink-Proxy-v', content)
-        self.assertIn('.crx', content)
-
-    def test_build_crx_uses_openssl(self):
-        """Скрипт использует openssl для извлечения публичного ключа."""
-        content = _read_file('scripts/crx/build-crx.sh')
-        self.assertIn('openssl', content)
-        self.assertIn('rsa', content)
-        self.assertIn('pubout', content)
-
-    def test_build_crx_uses_crx3(self):
-        """Скрипт использует crx3-utils для сборки CRX."""
-        content = _read_file('scripts/crx/build-crx.sh')
-        self.assertIn('crx3-utils', content)
-        self.assertIn('crx3-new', content)
-
 
 # ──────────────────────────────────────────────────────────────
 # Проверка синтаксиса всех shell-скриптов

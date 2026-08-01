@@ -6,17 +6,24 @@ function Info  { Write-Host "[+] $args" -ForegroundColor Green }
 function Warn  { Write-Host "[!] $args" -ForegroundColor Yellow }
 function Error { Write-Host "[X] $args" -ForegroundColor Red; exit 1 }
 
+$pythonCmd = "python"
 $py = Get-Command "python" -ErrorAction SilentlyContinue
+if (-not $py) {
+    # Пробуем py-лаунчер (Windows Store Python), если python нет в PATH
+    $py = Get-Command "py" -ErrorAction SilentlyContinue
+    if ($py) {
+        $pythonCmd = "py"
+    }
+}
 if (-not $py) {
     Error "Python не найден. Установите Python 3.10+ с python.org"
 }
 Info "Python найден"
 
-# Проверка tkinter
-$tkCheck = & python -c "import tkinter" 2>&1
+# Проверка версии Python (нужна 3.10+)
+& $pythonCmd -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)"
 if ($LASTEXITCODE -ne 0) {
-    Warn "tkinter не установлен — трей-меню не будет работать."
-    Warn "Переустановите Python с python.org с отметкой 'tcl/tk and IDLE'."
+    Error "Требуется Python 3.10 или новее."
 }
 
 $devVenv = Join-Path $ProjectRoot "venv"
@@ -30,7 +37,7 @@ if (Test-Path $devVenv) {
     $venvPath = $buildVenv
     $cleanVenv = $true
     Info "Создание временного venv..."
-    & python -m venv $venvPath
+    & $pythonCmd -m venv $venvPath
     if ($LASTEXITCODE -ne 0) {
         Error "Не удалось создать venv"
     }
@@ -38,6 +45,13 @@ if (Test-Path $devVenv) {
 
 $pip = Join-Path $venvPath "Scripts" | Join-Path -ChildPath "pip.exe"
 $python = Join-Path $venvPath "Scripts" | Join-Path -ChildPath "python.exe"
+
+# Проверка tkinter в venv (системный python мог отличаться от venv-питона)
+$tkCheck = & $python -c "import tkinter" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Warn "tkinter не установлен — трей-меню не будет работать."
+    Warn "Переустановите Python с python.org с отметкой 'tcl/tk and IDLE'."
+}
 
 Info "Обновление pip..."
 & $python -m pip install --upgrade pip -q
@@ -47,10 +61,6 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Info "Установка зависимостей..."
-& $pip install -q pysocks
-if ($LASTEXITCODE -ne 0) {
-    Warn "Не удалось установить pysocks — SOCKS-поддержка pip может не работать"
-}
 & $pip install -q -r "server/requirements.txt"
 if ($LASTEXITCODE -ne 0) {
     if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }
@@ -119,7 +129,12 @@ if ($buildExit -ne 0) {
 # Копирование в releases/
 New-Item -ItemType Directory -Force -Path "releases" | Out-Null
 $destPath = Join-Path "releases" $binaryName
-Move-Item "server/dist/$binaryName" $destPath -Force
+try {
+    Move-Item "server/dist/$binaryName" $destPath -Force -ErrorAction Stop
+} catch {
+    if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }
+    Error "Не удалось переместить бинарник в releases/: $($_.Exception.Message)"
+}
 Remove-Item -Recurse -Force "server/dist" -ErrorAction SilentlyContinue
 
 $binary = Get-Item $destPath -ErrorAction SilentlyContinue

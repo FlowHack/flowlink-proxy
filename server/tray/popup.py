@@ -29,14 +29,12 @@ import tkinter as tk
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, List, Optional
 
+from server.ui.theme import ThemeColors as PopupColors
+
 logger = logging.getLogger('flowlink.tray.popup')
 
 
-from server.ui.theme import \
-    ThemeColors as PopupColors  # pylint: disable=wrong-import-position
-
-
-class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
+class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # состояние виджетов и флагов UI
     """
     Кастомное popup-меню для системного трей.
 
@@ -50,6 +48,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
     """
 
     def __init__(self) -> None:
+        """Инициализирует кастомное popup-меню.
+
+        Создаёт пустую очередь задач и подготавливает внутреннее
+        состояние для отложенного создания tkinter-окна.
+        """
         self._root = None
         self._popup = None
         self._queue = Queue()
@@ -319,10 +322,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             return y
 
         try:
+            # self._popup может быть None вне жизненного цикла окна
             sh = self._popup.winfo_screenheight()  # type: ignore[reportOptionalMemberAccess]
         except tk.TclError:
             sh = 1080
-
+        # self._root может быть None до вызова show()
         pointer_y = self._root.winfo_pointery()  # type: ignore[union-attr]
         above_y = pointer_y - height - 8
         if above_y >= 0:
@@ -406,6 +410,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         # «Выход» гарантированно помещалась на экране (real_h может
         # оказаться больше расчётной height из-за переноса текста).
         try:
+            # self._popup может быть None вне жизненного цикла окна
             sh = self._popup.winfo_screenheight()  # type: ignore[reportOptionalMemberAccess]
         except tk.TclError:
             sh = 1080
@@ -432,6 +437,12 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         # Автозакрытие при потере фокуса
         try:
             def _bind_focus_out() -> None:
+                """Привязывает обработчик потери фокуса.
+
+                Если команда ещё выполняется или popup не существует,
+                обработчик не устанавливается. Иначе при потере фокуса
+                окно автоматически закрывается.
+                """
                 if self._command_running:
                     return
                 if (
@@ -484,6 +495,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
 
         try:
             # Верхний padding
+            # stubs tkinter не знают runtime-аргументы конструктора
             tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, height=3,
             ).pack(fill='x')
@@ -515,6 +527,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             )
 
             # Разделитель под статусбаром
+            # stubs tkinter не знают runtime-аргументы конструктора
             tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BORDER, height=1,
             ).pack(fill='x', padx=8, pady=(1, 1))
@@ -549,6 +562,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                     )
 
             # Нижний padding
+            # stubs tkinter не знают runtime-аргументы конструктора
             tk.Frame(  # type: ignore[reportCallIssue]
                 self._popup, bg=PopupColors.BG, height=3,
             ).pack(fill='x')
@@ -577,7 +591,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             tooltip: Инлайн-подсказка в статусбаре (опционально).
         """
         try:
-            frame = tk.Frame(  # type: ignore[reportCallIssue]
+            frame = tk.Frame(  # type: ignore[reportCallIssue]  # pyright не знает tkinter
                 self._popup, bg=PopupColors.BG,
             )
             frame.pack(fill='x', padx=4, pady=(2, 2))
@@ -636,7 +650,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             tooltip: Инлайн-подсказка в статусбаре (опционально).
         """
         try:
-            frame = tk.Frame(  # type: ignore[reportCallIssue]
+            frame = tk.Frame(  # type: ignore[reportCallIssue]  # pyright не знает tkinter
                 self._popup, bg=PopupColors.BG, cursor='hand2',
             )
             frame.pack(fill='x', padx=4, pady=(0, 2))
@@ -671,11 +685,14 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 _event: tk.Event[tk.Tk],
                 fr: tk.Frame = frame,
             ) -> None:
+                """Подсвечивает пункт меню при наведении курсора."""
                 for child in fr.winfo_children():
                     child.configure(
+                        # configure() принимает любые runtime-атрибуты
                         bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
                     )
                 fr.configure(
+                    # configure() принимает любые runtime-атрибуты
                     bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
                 )
 
@@ -683,8 +700,10 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 _event: tk.Event[tk.Tk],
                 fr: tk.Frame = frame,
             ) -> None:
+                """Возвращает фон пункта меню при уходе курсора."""
                 for child in fr.winfo_children():
                     child.configure(
+                        # configure() принимает любые runtime-атрибуты
                         bg=PopupColors.BG,  # type: ignore[reportCallIssue]
                     )
                 fr.configure(bg=PopupColors.BG)
@@ -693,6 +712,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 _event: tk.Event[tk.Tk],
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
+                """Обрабатывает клик по пункту меню.
+
+                Освобождает grab popup, запускает команду пункта
+                и закрывает popup после завершения.
+                """
                 logger.debug('Popup: клик по пункту меню')
                 # Освобождаем grab popup, чтобы диалог мог установить свой grab,
                 # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
@@ -732,8 +756,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 self.dismiss()
 
             for widget in [frame] + frame.winfo_children():
+                # bind() в runtime принимает любой callable
                 widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
+                # bind() в runtime принимает любой callable
                 widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
+                # bind() в runtime принимает любой callable
                 widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
                 # Тултип: показываем мгновенно при наведении,
                 # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
@@ -747,6 +774,8 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 'Popup: ошибка данных в _add_menu_item: %s', e,
             )
 
+    # Подавление: метод строит пункт меню с чекбоксом и тремя
+    # hover/клик-обработчиками; разбиение ухудшит читаемость.
     def _add_check_item(  # pylint: disable=too-many-locals
         self,
         text: str,
@@ -765,7 +794,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
             tooltip: Инлайн-подсказка в статусбаре (опционально).
         """
         try:
-            frame = tk.Frame(  # type: ignore[reportCallIssue]
+            frame = tk.Frame(  # type: ignore[reportCallIssue]  # pyright не знает tkinter
                 self._popup, bg=PopupColors.BG, cursor='hand2',
             )
             frame.pack(fill='x', padx=4, pady=(0, 2))
@@ -812,11 +841,14 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 _event: tk.Event[tk.Tk],
                 fr: tk.Frame = frame,
             ) -> None:
+                """Подсвечивает пункт с чекбоксом при наведении курсора."""
                 for child in fr.winfo_children():
                     child.configure(
+                        # configure() принимает любые runtime-атрибуты
                         bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
                     )
                 fr.configure(
+                    # configure() принимает любые runtime-атрибуты
                     bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
                 )
 
@@ -824,8 +856,10 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 _event: tk.Event[tk.Tk],
                 fr: tk.Frame = frame,
             ) -> None:
+                """Возвращает фон пункта с чекбоксом при уходе курсора."""
                 for child in fr.winfo_children():
                     child.configure(
+                        # configure() принимает любые runtime-атрибуты
                         bg=PopupColors.BG,  # type: ignore[reportCallIssue]
                     )
                 fr.configure(bg=PopupColors.BG)
@@ -834,6 +868,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 _event: tk.Event[tk.Tk],
                 cmd: Optional[Callable[[], None]] = command,
             ) -> None:
+                """Обрабатывает клик по пункту с чекбоксом.
+
+                Освобождает grab popup, запускает команду пункта
+                и закрывает popup после завершения.
+                """
                 logger.debug('Popup: клик по пункту с чекбоксом')
                 # Освобождаем grab popup, чтобы диалог мог установить свой grab,
                 # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
@@ -873,8 +912,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
                 self.dismiss()
 
             for widget in [frame] + frame.winfo_children():
+                # bind() в runtime принимает любой callable
                 widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
+                # bind() в runtime принимает любой callable
                 widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
+                # bind() в runtime принимает любой callable
                 widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
                 # Тултип: показываем мгновенно при наведении,
                 # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
@@ -891,11 +933,12 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
     def _add_separator(self) -> None:
         """Добавляет разделитель."""
         try:
-            frame = tk.Frame(  # type: ignore[reportCallIssue]
+            frame = tk.Frame(  # type: ignore[reportCallIssue]  # pyright не знает tkinter
                 self._popup, bg=PopupColors.BG, height=4,
             )
             frame.pack(fill='x')
             frame.pack_propagate(False)
+            # stubs tkinter не знают runtime-аргументы конструктора
             tk.Frame(frame, bg=PopupColors.BORDER, height=1).pack(  # type: ignore[reportCallIssue]
                 fill='x', padx=8, pady=1,
             )
@@ -1004,11 +1047,13 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes
         if not tooltip:
             return
         try:
+            # bind() в runtime принимает любой callable
             widget.bind(  # type: ignore[reportArgumentType]
                 '<Enter>',
                 lambda _e, t=tooltip: self._show_tooltip(t),
                 add='+',
             )
+            # bind() в runtime принимает любой callable
             widget.bind(  # type: ignore[reportArgumentType]
                 '<Leave>',
                 lambda _e: self._hide_tooltip(),

@@ -65,6 +65,8 @@ def _detect_windows() -> list[tuple[str, str]]:
     try:
         # winreg доступен только на Windows
         import winreg  # pylint: disable=import-outside-toplevel
+        # type: ignore[reportAttributeAccessIssue] — модуль winreg доступен только
+        # на Windows; pyright не видит его атрибуты (модуль не установлен в dev-среде).
         reg_paths = [
             (winreg.HKEY_CURRENT_USER,  # type: ignore[reportAttributeAccessIssue]
              r'Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe'),
@@ -317,7 +319,12 @@ def launch_browser(
         else:
             kwargs['start_new_session'] = True
 
-        subprocess.Popen(**kwargs)  # pylint: disable=consider-using-with
+        # Запуск браузера в отдельном процессе (fire-and-forget).
+        # Контекстный менеджер закрывает стандартные потоки (DEVNULL),
+        # а сам процесс продолжает работать независимо от родителя —
+        # ожидать его завершения или читать вывод не требуется.
+        with subprocess.Popen(**kwargs):
+            pass
         logger.info('Браузер запущен: %s', ' '.join(args))
     except (OSError, ValueError) as e:
         logger.error('Не удалось запустить браузер %s: %s', browser_path, e)

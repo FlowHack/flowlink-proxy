@@ -4,7 +4,8 @@
 и help.html. Используется как в Python (tkinter), так и как эталон для CSS.
 """
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods — класс хранит только статические
+# константы (цвета темы), методов у него нет по назначению
 
 
 class ThemeColors:

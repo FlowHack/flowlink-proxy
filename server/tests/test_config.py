@@ -73,6 +73,41 @@ class TestConfigExceptions(TempConfigEnabledMixin, unittest.TestCase):
             loaded = cfg.load_config()
         self.assertEqual(loaded['proxies'][0].get('username', None), '')
 
+    def test_load_decrypt_error_sets_password_failed_flag(self):
+        """Ошибка расшифровки пароля → прокси помечается passwordDecryptFailed"""
+        data = {
+            'proxies': [{'proxyId': 'p1', 'host': '1.2.3.4', 'port': 1080,
+                         'username': 'user', 'password': 'bad_cipher', 'isEnabled': True}],
+            'masks': [],
+        }
+        config_repo.save_raw(data)
+        with patch.object(crypto_mod, 'decrypt', side_effect=Exception('Decrypt failed')):
+            loaded = cfg.load_config()
+        proxy = loaded['proxies'][0]
+        self.assertTrue(proxy.get('passwordDecryptFailed'))
+        self.assertEqual(proxy.get('password'), '')
+
+    def test_save_removes_password_failed_flag(self):
+        """Флаг passwordDecryptFailed не попадает в config.json при сохранении"""
+        data = {
+            'proxies': [{'proxyId': 'p1', 'host': '1.2.3.4', 'port': 1080,
+                         'username': 'user', 'password': 'pass',
+                         'passwordDecryptFailed': True, 'isEnabled': True}],
+            'masks': [],
+        }
+        with patch.object(crypto_mod, 'encrypt', return_value='encrypted'):
+            cfg.save_config(data)
+        saved = config_repo.load_raw()
+        self.assertNotIn('passwordDecryptFailed', saved['proxies'][0])
+
+    def test_crypto_field_returns_none_on_error(self):
+        """_crypto_field возвращает None при ошибке (не пустую строку)"""
+        with patch.object(crypto_mod, 'decrypt', side_effect=Exception('Decrypt failed')):
+            result = cfg._crypto_field(  # pylint: disable=protected-access  # internal: проверка возврата None
+                'bad_cipher', 'расшифровки пароля', 'p1', 'password',
+            )
+        self.assertIsNone(result)
+
     def test_proxy_without_ids_in_config(self):
         """Прокси без proxyId не ломает загрузку"""
         data = {

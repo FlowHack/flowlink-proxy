@@ -16,11 +16,7 @@ import socket
 import struct
 
 from server.protocols.base import ProxyError, ProxyProtocol
-from server.utils import safe_close_writer
-
-logger = logging.getLogger('flowlink.socks5')
-
-from server.protocols.socks5_constants import (  # pylint: disable=wrong-import-position
+from server.protocols.socks5_constants import (
     ATYP_DOMAIN,
     ATYP_IPV4,
     CMD_CONNECT,
@@ -34,6 +30,9 @@ from server.protocols.socks5_constants import (  # pylint: disable=wrong-import-
     USERPASS_SUCCESS,
     USERPASS_VERSION,
 )
+from server.utils import safe_close_writer
+
+logger = logging.getLogger('flowlink.socks5')
 
 
 class Socks5Error(ProxyError):
@@ -44,6 +43,12 @@ class Socks5Protocol(ProxyProtocol):
     """Реализация SOCKS5 прокси-протокола."""
 
     def __init__(self, config: dict):
+        """Инициализирует протокол SOCKS5.
+
+        Args:
+            config: Словарь с параметрами прокси (host, port,
+                username, password).
+        """
         super().__init__(config)
         self._host = config.get('host', '')
         self._port = config.get('port', 0)
@@ -93,7 +98,9 @@ class Socks5Protocol(ProxyProtocol):
                 asyncio.open_connection(self._host, self._port),
                 timeout=timeout,
             )
-        except (OSError, ConnectionError, asyncio.TimeoutError):
+        except (OSError, ConnectionError, asyncio.TimeoutError) as e:
+            logger.debug('SOCKS5 ping: не удалось подключиться к %s:%d: %s',
+                         self._host, self._port, e)
             return False
 
         try:
@@ -180,7 +187,9 @@ class Socks5Protocol(ProxyProtocol):
         """Кодирует адрес в формат SOCKS5 (IPv4 или домен)."""
         try:
             return ATYP_IPV4, socket.inet_aton(host)
-        except OSError:
+        except OSError as e:
+            logger.debug('SOCKS5: адрес %s не является IPv4, использую домен: %s',
+                         host, e)
             host_bytes = host.encode()
             return ATYP_DOMAIN, bytes([len(host_bytes)]) + host_bytes
 
@@ -216,6 +225,9 @@ class Socks5Protocol(ProxyProtocol):
         Ответ сервера:
           [ver, rep, rsv, atyp, bind_addr, bind_port]
         """
+        # Отмена по таймауту (asyncio.wait_for) на этапе open_connection
+        # не требует очистки: writer ещё не создан, а CancelledError не
+        # перехватывается блоком ниже и распространяется автоматически.
         try:
             reader, writer = await asyncio.open_connection(self._host, self._port)
         except (OSError, ConnectionError) as e:
@@ -255,6 +267,12 @@ class Socks5Protocol(ProxyProtocol):
 
             await self._skip_bind_address(reader, atyp_resp)
 
+        except asyncio.CancelledError:
+            # Отмена по таймауту (asyncio.wait_for): соединение уже открыто,
+            # но CONNECT не завершён. Без закрытия writer TCP-соединение
+            # утекает — закрываем и перевыбрасываем отмену.
+            safe_close_writer(writer)
+            raise
         except (OSError, ConnectionError, asyncio.IncompleteReadError, Socks5Error) as e:
             # Закрываем writer при ЛЮБОЙ ошибке (включая Socks5Error из _handshake),
             # чтобы не допустить утечки TCP-соединения.

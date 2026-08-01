@@ -6,9 +6,6 @@ License:        AGPLv3
 URL:            https://github.com/FlowHack/flowlink-proxy
 Source0:        %{name}-%{version}.tar.gz
 
-BuildArch:      x86_64
-Requires:       python3 >= 3.10
-
 %description
 FlowLink Proxy — Python proxy-gateway с Chrome-расширением
 для маршрутизации трафика через SOCKS5 прокси с масками.
@@ -22,7 +19,7 @@ FlowLink Proxy — Python proxy-gateway с Chrome-расширением
 %install
 mkdir -p %{buildroot}/usr/local/bin
 mkdir -p %{buildroot}/usr/local/share/%{name}
-mkdir -p %{buildroot}/usr/share/applications
+mkdir -p %{buildroot}%{_datadir}/applications
 
 install -m 755 flowlink-proxy %{buildroot}/usr/local/bin/flowlink-proxy
 
@@ -33,16 +30,14 @@ for doc in EULA.rtf LICENSE.txt; do
 done
 
 if [ -f flowlink.desktop ]; then
-    install -m 644 flowlink.desktop %{buildroot}/usr/share/applications/flowlink-proxy.desktop
+    install -m 644 flowlink.desktop %{buildroot}%{_datadir}/applications/flowlink-proxy.desktop
 fi
 
 %files
 %license LICENSE.txt
 %doc EULA.rtf
 /usr/local/bin/flowlink-proxy
-/usr/local/share/%{name}/EULA.rtf
-/usr/local/share/%{name}/LICENSE.txt
-/usr/share/applications/flowlink-proxy.desktop
+%{_datadir}/applications/flowlink-proxy.desktop
 
 %changelog
 * Sat Jul 13 2026 FlowLink Proxy <flowlink.proxy@atomicmail.io> - 0.3.0-1

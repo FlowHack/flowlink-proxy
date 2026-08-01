@@ -146,6 +146,7 @@ def _show_browser_already_running_dialog(
         return False
 
     try:
+        # Ленивый импорт: tkinter-диалог нужен только при работе с треем
         from server.ui.dialogs import \
             show_info  # pylint: disable=import-outside-toplevel
     except ImportError:
@@ -237,6 +238,7 @@ def _show_browser_not_selected_dialog(callbacks: dict) -> None:
         return
 
     try:
+        # Ленивый импорт: tkinter-диалог нужен только при работе с треем
         from server.ui.dialogs import \
             show_info  # pylint: disable=import-outside-toplevel
     except ImportError:
@@ -380,7 +382,7 @@ def _launch_browser_callback(
             result['value'] = _browser_config.launch_browser(
                 browser_path, proxy_port=proxy_port,
             )
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
             result['error'] = e
         finally:
             try:
@@ -414,6 +416,9 @@ def _launch_browser_callback(
     return bool(result['value'])
 
 
+# Подавление: функция собирает колбэки для всех пунктов меню трея;
+# локальные переменные — это сами колбэки и меню. Вынос в хелперы
+# разорвал бы целостность настройки трея.
 def _start_tray_icon(  # pylint: disable=too-many-locals
     loop: asyncio.AbstractEventLoop,
     stop_event: asyncio.Event,
@@ -545,6 +550,8 @@ def _start_alt_tray(callbacks: dict):
     """
     try:
         # Ленивый импорт: функция обёрнута в server/tray/__init__.py
+        # protected-access: вызов приватной функции-обёртки пакета tray —
+        # публичного аналога для запуска fallback-трея нет.
         from server.tray import \
             _start_pystray_fallback  # pylint: disable=import-outside-toplevel,protected-access
         return _start_pystray_fallback(callbacks)
@@ -552,7 +559,7 @@ def _start_alt_tray(callbacks: dict):
         logger.error(
             'Альтернативный трей: модуль fallback недоступен: %s', e,
         )
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
         logger.error(
             'Альтернативный трей: непредвиденная ошибка: %s',
             e, exc_info=True,
@@ -586,10 +593,14 @@ def _try_start_tray(
     # Шаг 1: основной платформенный бэкенд
     try:
         # _HAS_TRAY=True гарантирует импорт start_tray
+        # type: ignore[reportPossiblyUnbound] — pyright не отслеживает
+        # инвариант _HAS_TRAY=True → start_tray определён
         assert start_tray is not None  # type: ignore[reportPossiblyUnbound]
         icon = start_tray(  # type: ignore[reportPossiblyUnbound]
             callbacks, no_tkinter=no_tkinter,
         )
+    # Последний рубеж: любой сбой бэкенда не должен уронить процесс,
+    # а должен привести к цепочке fallback на другой трей.
     except Exception as exc:  # pylint: disable=broad-exception-caught
         icon = None
         label = _labels.get(type(exc), 'непредвиденная ошибка')
@@ -689,6 +700,7 @@ async def _watch_api_connection(server_dir: str, callbacks: dict) -> None:
             'https://github.com/FlowHack/flowlink-proxy/blob/main/SETUP.md'
         )
         try:
+            # Ленивый импорт: диалог подключения расширения показывается редко
             from server.ui.dialogs import \
                 ask_yes_no  # pylint: disable=import-outside-toplevel
 
@@ -721,7 +733,7 @@ async def _watch_api_connection(server_dir: str, callbacks: dict) -> None:
                     webbrowser.open(f'file://{os.path.abspath(help_path)}')
                 else:
                     webbrowser.open(github_md_url)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
             # tkinter может упасть (TclError, RuntimeError) в потоке —
             # не роняем daemon-поток, а открываем инструкцию в браузере.
             logger.warning('Не удалось показать диалог уведомления (%s), '
@@ -780,8 +792,15 @@ def _autostart_browser_on_startup(
     _launch_browser_sync(callbacks, browser_path, args.proxy_port)
 
 
-async def _run_server(args: argparse.Namespace) -> None:
-    """Запускает proxy + API серверы и ждёт сигнала остановки."""
+async def _run_server(  # pylint: disable=too-many-statements  # сложная оркестрация запуска серверов и трея, разбиение нецелесообразно
+    args: argparse.Namespace,
+) -> None:
+    """Запускает proxy + API серверы и ждёт сигнала остановки.
+
+    Метод последовательно инициализирует маршрутизатор, серверы, трей,
+    автозапуск браузера и обработку сигналов — вынос в отдельные функции
+    разорвал бы единый жизненный цикл сервера.
+    """
     try:
         router = MaskRouter()
     except RuntimeError as e:
@@ -804,14 +823,6 @@ async def _run_server(args: argparse.Namespace) -> None:
         )
         logger.info('Прокси-сервер слушает 127.0.0.1:%d', args.proxy_port)
         logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
-        write_port_file(args.api_port, args.proxy_port)
-        # Словарь callbacks создаётся заранее и передаётся в _watch_api_connection,
-        # чтобы уведомление могло привязаться к tk_root трея (заполняется позже).
-        callbacks = {}
-        asyncio.create_task(_watch_api_connection(
-            os.path.dirname(os.path.abspath(__file__)),
-            callbacks,
-        ))
     except OSError as e:
         if 'address already in use' in str(e).lower():
             logger.error(
@@ -821,6 +832,23 @@ async def _run_server(args: argparse.Namespace) -> None:
         else:
             logger.error('Ошибка запуска сервера: %s', e)
         return
+
+    # Запись порт-файла выполняется ПОСЛЕ успешного старта серверов и вне
+    # try-блока запуска: ошибка записи (например, отсутствие прав на каталог)
+    # не должна останавливать уже работающие серверы — файл нужен только
+    # для отладки и внешних инструментов.
+    try:
+        write_port_file(args.api_port, args.proxy_port)
+    except OSError as e:
+        logger.warning('Не удалось записать файл портов: %s', e)
+
+    # Словарь callbacks создаётся заранее и передаётся в _watch_api_connection,
+    # чтобы уведомление могло привязаться к tk_root трея (заполняется позже).
+    callbacks = {}
+    asyncio.create_task(_watch_api_connection(
+        os.path.dirname(os.path.abspath(__file__)),
+        callbacks,
+    ))
 
     logger.info('FlowLink Proxy запущен. Нажмите Ctrl+C для остановки.')
 
@@ -953,7 +981,7 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
         # Последний рубеж: логируем и корректно завершаем процесс
         logger = logging.getLogger('flowlink')
         logger.critical(

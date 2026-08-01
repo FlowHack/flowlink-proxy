@@ -32,6 +32,8 @@ def reopen_logging(recreate: bool = True) -> None:
     for handler in root.handlers[:]:
         if isinstance(handler, logging.handlers.RotatingFileHandler):
             old_handler = handler
+            # type: ignore[attr-defined] — baseFilename назначается в runtime
+            # в FileHandler.__init__, pyright не видит его в стабах stdlib
             log_file = handler.baseFilename  # type: ignore[attr-defined]
             break
 

@@ -31,7 +31,7 @@ if [ ! -f "server/version.py" ]; then
     error "Файл server/version.py не найден."
 fi
 
-VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)")
+VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)" 2>/dev/null) || error "Не удалось определить версию из server/version.py"
 
 if [ "${1:-}" = "--version" ]; then
     echo "$VERSION"
@@ -40,7 +40,9 @@ fi
 
 # --- Определение платформы ---
 case "$(uname -s)" in
-    Linux*)  OS_NAME="linux";  ARCH="x64";;
+    Linux*)  OS_NAME="linux"
+             ARCH_UNAME="$(uname -m)"
+             if [ "$ARCH_UNAME" = "aarch64" ] || [ "$ARCH_UNAME" = "arm64" ]; then ARCH="arm64"; else ARCH="x64"; fi;;
     Darwin*) ARCH_UNAME="$(uname -m)"
              OS_NAME="macos"
              if [ "$ARCH_UNAME" = "arm64" ]; then ARCH="arm64"; else ARCH="x64"; fi;;

@@ -15,9 +15,13 @@ from server.tray.menu import build_menu_items, load_icon
 from server.tray.popup import FlowLinkPopup
 
 if TYPE_CHECKING:
+    # type: ignore[reportMissingImports] — pystray опциональная зависимость
+    # (не установлен в dev-среде); импорт нужен только для аннотаций типов
     import pystray  # type: ignore[reportMissingImports]
 
 
+# Слишком много атрибутов: класс хранит состояние иконки и popup-меню,
+# разделение нецелесообразно.
 class PystrayTray:  # pylint: disable=too-many-instance-attributes
     """
     Базовый класс pystray-бэкенда для Linux и macOS.
@@ -76,9 +80,11 @@ class PystrayTray:  # pylint: disable=too-many-instance-attributes
     def _run(self) -> None:
         """Запускает pystray + tkinter в отдельном потоке."""
         try:
-            # Ленивый импорт: pystray/Pillow — опциональные зависимости
-            import pystray  # type: ignore[reportMissingImports]  # pylint: disable=import-outside-toplevel
-            from PIL import Image  # pylint: disable=import-outside-toplevel
+            # Ленивый импорт: pystray/Pillow — опциональные зависимости;
+            # модуль не установлен в dev-среде (см. TYPE_CHECKING выше)
+            # pylint: disable=import-outside-toplevel — ленивый импорт
+            import pystray  # type: ignore[reportMissingImports]
+            from PIL import Image  # pylint: disable=import-outside-toplevel  # ленивый импорт: Pillow — опциональная зависимость
         except ImportError as e:
             self._logger.error(
                 'Tray %s: импорт pystray/Pillow не удался: %s',

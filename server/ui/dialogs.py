@@ -45,9 +45,9 @@ def _set_window_icon(window: tk.Tk | tk.Toplevel) -> None:
             if os.path.isfile(ico_path):
                 img = tk.PhotoImage(file=ico_path)
                 window.iconphoto(True, img)
-    except (tk.TclError, Exception):  # pylint: disable=broad-except
+    except tk.TclError as e:
         # Иконка не критична — пропускаем
-        pass
+        logger.debug('Не удалось установить иконку окна: %s', e)
 
 
 def _get_or_create_root(title: str) -> tk.Tk:
@@ -125,13 +125,19 @@ def _make_button(
         cursor='hand2',
     )
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_enter(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Подсвечивает кнопку при наведении курсора."""
         btn.configure(bg=hover_bg)
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_leave(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Возвращает исходный фон кнопки при уходе курсора."""
         btn.configure(bg=bg)
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_click(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Выполняет команду кнопки при клике."""
         if command:
             command()
 
@@ -191,17 +197,23 @@ def _make_item_row(
     sep = tk.Frame(row, height=1, bg=ThemeColors.BORDER)
     sep.pack(fill='x')
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_enter(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Подсвечивает строку списка при наведении курсора."""
         row.configure(bg=ThemeColors.SURFACE_HOVER)
         lbl.configure(bg=ThemeColors.SURFACE_HOVER)
         sub.configure(bg=ThemeColors.SURFACE_HOVER)
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_leave(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Возвращает исходный фон строки при уходе курсора."""
         row.configure(bg=ThemeColors.SURFACE)
         lbl.configure(bg=ThemeColors.SURFACE)
         sub.configure(bg=ThemeColors.SURFACE)
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_click(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Выполняет команду строки при клике."""
         if command:
             command()
 
@@ -308,21 +320,27 @@ def _make_compact_item_row(
     # Пересчитываем обрезку при изменении размера строки
     row.bind('<Configure>', lambda _e: _fit_path())
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_enter(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Подсвечивает компактную строку при наведении курсора."""
         row.configure(bg=ThemeColors.SURFACE_HOVER)
         name_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
         path_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
         if selected_lbl is not None:
             selected_lbl.configure(bg=ThemeColors.SURFACE_HOVER)
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_leave(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Возвращает исходный фон компактной строки при уходе курсора."""
         row.configure(bg=row_bg)
         name_lbl.configure(bg=row_bg)
         path_lbl.configure(bg=row_bg)
         if selected_lbl is not None:
             selected_lbl.configure(bg=row_bg)
 
+    # Параметр event обязателен по протоколу tkinter bind, но не используется
     def _on_click(event: Optional[tk.Event] = None) -> None:  # pylint: disable=unused-argument
+        """Выполняет команду компактной строки при клике."""
         if command:
             command()
 
@@ -343,6 +361,9 @@ def _make_compact_item_row(
     return row
 
 
+# Подавление: сложный модальный UI-диалог (кнопки, подписи, результат).
+# Разбиение на подфункции нецелесообразно — вся логика завязана на общий
+# результат и локальные виджеты одного окна.
 def show_info(  # pylint: disable=too-many-locals,too-many-statements
     title: str,
     message: str,
@@ -433,7 +454,16 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
         primary = btn_data.get('primary', False)
 
         def _make_action(b_data: dict) -> Callable[[], None]:
+            """Создаёт замыкание действия для кнопки диалога.
+
+            Args:
+                b_data: Словарь кнопки с ключами 'text' и 'action'.
+
+            Returns:
+                Функция, выполняющая действие кнопки и закрывающая диалог.
+            """
             def _action() -> None:
+                """Выполняет действие кнопки и закрывает диалог."""
                 action = b_data.get('action')
                 if action:
                     action()
@@ -463,6 +493,10 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
 
     # Обработка закрытия окна
     def _on_close() -> None:
+        """Обрабатывает закрытие диалога.
+
+        Сохраняет результат 'closed' и закрывает окно.
+        """
         result['value'] = 'closed'
         dialog.destroy()
         if owns_root:
@@ -503,9 +537,11 @@ def ask_yes_no(
     result = {'value': False}
 
     def _on_yes() -> None:
+        """Устанавливает положительный результат диалога."""
         result['value'] = True
 
     def _on_no() -> None:
+        """Устанавливает отрицательный результат диалога."""
         result['value'] = False
 
     buttons = [
@@ -517,6 +553,9 @@ def ask_yes_no(
     return result['value']
 
 
+# Подавление: сложный UI-диалог выбора элемента (список, прокрутка,
+# кнопки, ручной ввод). Разбиение нецелесообразно: аргументы задают
+# контракт вызова, а локальные переменные — виджеты одного окна.
 def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too-many-arguments,too-many-positional-arguments
     title: str,
     message: str,
@@ -599,7 +638,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
 
         scrollable_frame.bind(
             '<Configure>',
-            lambda e: canvas.configure(scrollregion=canvas.bbox('all')),  # pylint: disable=undefined-variable
+            lambda _event: canvas.configure(scrollregion=canvas.bbox('all')),
         )
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
@@ -615,7 +654,17 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     # Добавляем элементы списка
     for item in items:
         def _make_item_action(itm: dict) -> Callable[[], None]:
+            """Создаёт замыкание выбора элемента списка.
+
+            Args:
+                itm: Словарь выбранного элемента.
+
+            Returns:
+                Функция, вызывающая on_select с элементом
+                и закрывающая диалог.
+            """
             def _action() -> None:
+                """Вызывает on_select для выбранного элемента и закрывает диалог."""
                 on_select(itm)
                 dialog.destroy()
                 if owns_root:
@@ -640,6 +689,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
         manual_result = {'clicked': False}
 
         def _on_manual() -> None:
+            """Закрывает диалог и помечает ручной ввод как выбранный."""
             manual_result['clicked'] = True
             dialog.destroy()
             if owns_root:
@@ -655,6 +705,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
 
     # Кнопка "Отмена"
     def _on_cancel() -> None:
+        """Закрывает диалог выбора без результата."""
         dialog.destroy()
         if owns_root:
             root.quit()
@@ -689,6 +740,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
 
     # Обработка закрытия окна
     def _on_close() -> None:
+        """Обрабатывает закрытие диалога выбора."""
         dialog.destroy()
         if owns_root:
             root.quit()

@@ -120,6 +120,8 @@ def _start_win32_tray_with_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
 def _start_pystray_with_tkinter(callbacks: Dict[str, Any]) -> Optional[Any]:
     """Запуск pystray с нативным меню (если tkinter есть)."""
     try:
+        # Ленивый импорт: модуль fallback подключается только при
+        # необходимости (pystray может быть не установлен)
         from server.tray.fallback import \
             start_pystray_fallback  # pylint: disable=import-outside-toplevel
     except ImportError as e:
@@ -140,7 +142,7 @@ def _start_pystray_with_tkinter(callbacks: Dict[str, Any]) -> Optional[Any]:
             'pystray+tkinter: runtime ошибка: %s', e,
         )
         return None
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: логируем и не роняем трей
         logger.error(
             'pystray+tkinter: непредвиденная ошибка: %s', e,
             exc_info=True,
@@ -174,7 +176,7 @@ def _init_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
             'Win32: ошибка создания/запуска: %s', e,
         )
         return None
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: логируем и не роняем трей
         logger.error(
             'Win32: непредвиденная ошибка при создании '
             'или запуске: %s', e, exc_info=True,
@@ -182,6 +184,8 @@ def _init_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
         return None
 
     # Ждём до 2 секунд пока поток создаст иконку
+    # Внутренний атрибут Win32Tray (публичного API нет) — событие
+    # инициализации иконки в фоновом потоке.
     try:
         ready = tray._icon_ready.wait(timeout=2.0)  # pylint: disable=protected-access
     except AttributeError as e:
@@ -212,6 +216,7 @@ def _start_win32_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
         return None
 
     try:
+        # Внутренний атрибут Win32Tray — публичного API для HWND нет.
         if tray._hwnd:  # pylint: disable=protected-access
             return tray
     except AttributeError as e:
@@ -255,7 +260,7 @@ def _start_linux_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
             'Linux: некорректные аргументы трея: %s', e,
         )
         return None
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: логируем и не роняем трей
         logger.error(
             'Linux: непредвиденная ошибка трея: %s', e,
             exc_info=True,
@@ -293,7 +298,7 @@ def _start_macos_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
             'macOS: некорректные аргументы трея: %s', e,
         )
         return None
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: логируем и не роняем трей
         logger.error(
             'macOS: непредвиденная ошибка трея: %s', e,
             exc_info=True,
@@ -326,7 +331,7 @@ def _start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
             'Fallback: runtime ошибка запуска трея: %s', e,
         )
         return None
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: логируем и не роняем трей
         logger.error(
             'Fallback: непредвиденная ошибка трея: %s', e,
             exc_info=True,

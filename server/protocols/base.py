@@ -20,6 +20,11 @@ class ProxyProtocol(ABC):
     """Интерфейс прокси-протокола."""
 
     def __init__(self, config: dict):
+        """Инициализирует базовый протокол.
+
+        Args:
+            config: Словарь с параметрами прокси.
+        """
         self._config = config
 
     @abstractmethod

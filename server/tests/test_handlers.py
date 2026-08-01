@@ -297,6 +297,7 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
 
     def test_post_config_non_dict_returns_error(self):
         """POST /api/config с не-данными возвращает ошибку"""
+        # type: ignore[reportArgumentType] — намеренно передаём не-словарь для проверки ошибки
         result = asyncio.run(
             handle_post_config('not a dict', self.router),  # type: ignore[reportArgumentType]
         )
@@ -359,6 +360,7 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
     def test_non_dict_returns_error(self):
         """POST /api/enabled с не-данными → ошибка"""
         result = asyncio.run(
+            # type: ignore[reportArgumentType] — намеренно передаём строку для проверки ошибки
             handle_post_enabled('invalid', self.router),  # type: ignore[reportArgumentType]
         )
         self.assertIn('error', result)

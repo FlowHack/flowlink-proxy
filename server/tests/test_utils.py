@@ -450,6 +450,7 @@ class TestWritePortFile(unittest.TestCase):
     def test_non_int_port_raises(self):
         """Не-int порт вызывает TypeError."""
         with self.assertRaises(TypeError):
+            # type: ignore[reportArgumentType] — намеренно передаём строку для проверки ошибки
             write_port_file('8081', 8080)  # type: ignore[reportArgumentType]
 
 

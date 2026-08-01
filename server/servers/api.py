@@ -28,10 +28,22 @@ from server.services.router import MaskRouter
 logger = logging.getLogger('flowlink.api')
 
 MAX_POST_BODY = 10 * 1024 * 1024  # 10 MB
+# Защита от медленного DoS: максимум 50 заголовков и 16 КБ суммарного размера
+MAX_HEADERS = 50
+MAX_HEADER_SIZE = 16 * 1024  # 16 КБ
+HEADER_READ_TIMEOUT = 10  # секунд на чтение request-line/заголовков
 
 
 class _RequestTooLarge(Exception):
     """Тело запроса превышает MAX_POST_BODY."""
+
+
+class _RequestHeaderLimit(Exception):
+    """Превышен лимит количества или суммарного размера заголовков."""
+
+
+class _RequestTimeout(Exception):
+    """Таймаут чтения request-line или заголовков запроса."""
 
 
 # Тип обработчика: принимает (data, router, debug, need_update, peername)
@@ -175,12 +187,23 @@ async def _parse_http_request(
     reader: asyncio.StreamReader,
     peername: tuple,
 ) -> tuple[str | None, str | None, bytes]:
-    """Парсит HTTP-запрос: читает request-line, заголовки, тело."""
-    request_line = await asyncio.wait_for(reader.readline(), timeout=10)
+    """Парсит HTTP-запрос: читает request-line, заголовки, тело.
+
+    Защита от медленного DoS: чтение request-line и каждого заголовка
+    ограничено таймаутом HEADER_READ_TIMEOUT, количество заголовков —
+    MAX_HEADERS, суммарный размер — MAX_HEADER_SIZE. При превышении
+    лимитов выбрасывается _RequestTimeout или _RequestHeaderLimit.
+    """
+    try:
+        request_line = await asyncio.wait_for(reader.readline(), timeout=HEADER_READ_TIMEOUT)
+    except asyncio.TimeoutError:
+        # Клиент не прислал даже request-line — отвечаем 408
+        logger.warning('API: таймаут ожидания request-line от %s', peername)
+        raise _RequestTimeout() from None
     if not request_line:
         return None, None, b''
 
-    parts = request_line.decode(errors='ignore').strip().split(' ')
+    parts = request_line.decode(errors='replace').strip().split(' ')
     if len(parts) < 2:
         logger.warning('API: неверный формат запроса от %s', peername)
         return None, None, b''
@@ -189,18 +212,34 @@ async def _parse_http_request(
     path = parts[1]
 
     content_length = 0
-    while True:
-        line = await reader.readline()
-        if not line or line == b'\r\n':
-            break
-        header_line = line.decode().strip().lower()
-        if header_line.startswith('content-length:'):
-            try:
-                content_length = int(header_line.split(':')[1].strip())
-            except (ValueError, IndexError) as e:
-                # Некорректный Content-Length — логируем и игнорируем (тело не читаем)
-                logger.debug('API: некорректный Content-Length от %s: %r (%s)',
-                             peername, header_line, e)
+    header_count = 0
+    total_header_size = 0
+    try:
+        while True:
+            line = await asyncio.wait_for(reader.readline(), timeout=HEADER_READ_TIMEOUT)
+            if not line or line == b'\r\n':
+                break
+            header_count += 1
+            total_header_size += len(line)
+            if header_count > MAX_HEADERS or total_header_size > MAX_HEADER_SIZE:
+                logger.warning(
+                    'API: превышен лимит заголовков (%d шт, %d байт) от %s',
+                    header_count, total_header_size, peername,
+                )
+                raise _RequestHeaderLimit()
+            header_line = line.decode(errors='replace').strip().lower()
+            if header_line.startswith('content-length:'):
+                try:
+                    content_length = int(header_line.split(':')[1].strip())
+                except (ValueError, IndexError) as e:
+                    # Некорректный Content-Length — логируем и игнорируем (тело не читаем)
+                    logger.debug('API: некорректный Content-Length от %s: %r (%s)',
+                                 peername, header_line, e)
+    except asyncio.TimeoutError:
+        # Клиент держит соединение, не отправляя пустую строку —
+        # защита от медленного DoS: отвечаем 408 Request Timeout.
+        logger.warning('API: таймаут чтения заголовков от %s', peername)
+        raise _RequestTimeout() from None
 
     if content_length > MAX_POST_BODY:
         logger.warning('API: слишком большой запрос (%s байт) от %s',
@@ -229,7 +268,7 @@ async def _build_response(
         response_json = json.dumps({'error': 'Внутренняя ошибка сервера'}, ensure_ascii=False)
     reason = {
         200: 'OK', 400: 'Bad Request', 404: 'Not Found',
-        413: 'Request Entity Too Large',
+        408: 'Request Timeout', 413: 'Request Entity Too Large',
     }.get(status_code, 'Error')
     response_headers = (
         f'HTTP/1.1 {status_code} {reason}\r\n'
@@ -323,10 +362,15 @@ class ApiServer(BaseServer):
             )
             return 500, {'error': msg}
 
-    async def _handle_client(
+    async def _handle_client(  # pylint: disable=too-many-branches
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
     ) -> None:
-        """Диспетчеризует входящие HTTP-запросы к API."""
+        """Диспетчеризует входящие HTTP-запросы к API.
+
+        Метод содержит множество ветвей обработки исключений (413, 400,
+        408, таймаут, сетевые ошибки, страховочный 500) — вынос каждой
+        ветви в отдельный метод раздробил бы логику диспетчера.
+        """
         peername = writer.get_extra_info('peername', ('?', 0))
         try:
             method, path, body = await _parse_http_request(reader, peername)
@@ -364,6 +408,17 @@ class ApiServer(BaseServer):
                 writer, 413,
                 {'error': f'Тело запроса слишком большое '
                           f'(максимум {MAX_POST_BODY} байт)'},
+            )
+        except _RequestHeaderLimit:
+            await _build_response(
+                writer, 400,
+                {'error': f'Слишком много заголовков или превышен их суммарный '
+                          f'размер (максимум {MAX_HEADERS} шт / {MAX_HEADER_SIZE} байт)'},
+            )
+        except _RequestTimeout:
+            await _build_response(
+                writer, 408,
+                {'error': 'Таймаут ожидания запроса'},
             )
         except asyncio.TimeoutError:
             logger.debug('API: таймаут ожидания запроса')

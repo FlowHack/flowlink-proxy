@@ -57,10 +57,14 @@ NOTIFYICON_VERSION_4 = 4
 TRAY_CALLBACK = WM_APP + 1
 
 # ───── Win32 API ─────
+# type: ignore[reportAttributeAccessIssue] — pyright не знает runtime-атрибуты
+# ctypes.windll (модули user32/kernel32/shell32 доступны только на Windows).
 _user32 = ctypes.windll.user32  # type: ignore[reportAttributeAccessIssue]
 _kernel32 = ctypes.windll.kernel32  # type: ignore[reportAttributeAccessIssue]
 _shell32 = ctypes.windll.shell32  # type: ignore[reportAttributeAccessIssue]
 
+# type: ignore[reportAttributeAccessIssue] — pyright не знает ctypes.WINFUNCTYPE
+# (динамический конструктор Win32-типа колбэка, существует только в runtime).
 WNDPROC = ctypes.WINFUNCTYPE(  # type: ignore[reportAttributeAccessIssue]
     ctypes.c_ssize_t, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM,
 )
@@ -135,6 +139,11 @@ class Win32Tray:
     _UID = 1
 
     def __init__(self, callbacks):
+        """Инициализирует Win32-бэкенд системного трея.
+
+        Args:
+            callbacks: Словарь с коллбэками (stop, autostart_getter, и т.д.).
+        """
         self._callbacks = callbacks
         self._stop = self.stop
         self._hwnd = None
@@ -201,6 +210,8 @@ class Win32Tray:
         """Обновляет popup-меню (вызывается при изменении конфига)."""
         # Popup рендерит свежее состояние при каждом открытии
 
+    # Подавление: последовательная инициализация tkinter root,
+    # атрибутов окна и обработчиков; разбиение нецелесообразно.
     def _init_tk(self) -> bool:  # pylint: disable=too-many-statements
         """
         Инициализирует tkinter root и withdraw.
@@ -430,7 +441,7 @@ class Win32Tray:
             self._wndproc = WNDPROC(self._wnd_proc)
         except (TypeError, ValueError) as e:
             logger.error(
-                'Tray Win32: ошибка создания WNDPROC回调а: %s', e,
+                'Tray Win32: ошибка создания WNDPROC-колбэка: %s', e,
             )
             raise
 
@@ -466,6 +477,7 @@ class Win32Tray:
 
         atom = _user32.RegisterClassW(ctypes.byref(wc))
         if not atom:
+            # ctypes.WinError — Win32 ctypes API (см. шапку файла)
             raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
 
         hwnd = _user32.CreateWindowExW(
@@ -477,6 +489,7 @@ class Win32Tray:
             None,
         )
         if not hwnd:
+            # ctypes.WinError — Win32 ctypes API (см. шапку файла)
             raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
 
         # Регистрируем WM_TASKBAR_CREATED для пересоздания иконки
@@ -539,6 +552,7 @@ class Win32Tray:
             NIM_ADD, ctypes.byref(nid),
         )
         if not ok:
+            # ctypes.WinError — Win32 ctypes API (см. шапку файла)
             raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
 
         nid.uVersion = NOTIFYICON_VERSION_4
@@ -566,6 +580,8 @@ class Win32Tray:
 
     def _load_fallback_font(self):
         """Загружает шрифт для дефолтной иконки."""
+        # Ленивый импорт: Pillow — опциональная зависимость,
+        # нужна только для fallback-иконки
         from PIL import ImageFont  # pylint: disable=import-outside-toplevel
         try:
             return ImageFont.truetype('arial.ttf', 7)
@@ -589,6 +605,8 @@ class Win32Tray:
             HICON или 0 при ошибке.
         """
         try:
+            # Ленивый импорт: Pillow — опциональная зависимость
+            # (fallback-иконка рисуется только если файл .ico не найден)
             from PIL import (Image,  # pylint: disable=import-outside-toplevel
                              ImageDraw)
         except ImportError:
@@ -598,6 +616,7 @@ class Win32Tray:
             return 0
 
         try:
+            # Ленивый импорт: tempfile нужен только для временного .ico
             import tempfile  # pylint: disable=import-outside-toplevel
 
             img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
@@ -693,9 +712,9 @@ class Win32Tray:
                 self._popup_timer_id = self._tk_root.after(
                     50, self._poll_popup_flag,
                 )
-            except (tk.TclError, RuntimeError, OSError):
-                # ошибка планирования – игнорируем
-                pass
+            except (tk.TclError, RuntimeError, OSError) as e:
+                # Ошибка планирования — игнорируем
+                logger.debug('Tray Win32: ошибка планирования _poll_popup_flag: %s', e)
 
     def _safe_show_popup(self) -> None:
         """

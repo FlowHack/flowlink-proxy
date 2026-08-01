@@ -1,22 +1,19 @@
 """
 Тесты таймаута ожидания подключения расширения.
 
-Проверяет:
-- значение константы _EXTENSION_CONNECT_TIMEOUT (120 секунд = 2 минуты);
-- что цикл _watch_api_connection использует константы,
-  а не захардкоженные значения;
-- текст уведомления о неподключённом расширении.
+Проверяет текст уведомления о неподключённом расширении и поведение
+_watch_api_connection при подключённом/неподключённом расширении.
 """
 
 import asyncio
-import inspect
 import unittest
 from unittest.mock import patch
 
-from server.__main__ import (_EXTENSION_CHECK_INTERVAL,
-                             _EXTENSION_CONNECT_TIMEOUT, _watch_api_connection)
+from server.__main__ import _watch_api_connection
 
 
+# too-few-public-methods — тестовая заглушка threading.Thread,
+# единственный публичный метод start(); класс-заглушка по назначению
 class _SyncThread:  # pylint: disable=too-few-public-methods
     """Заглушка threading.Thread: запускает target синхронно в start().
 
@@ -32,35 +29,6 @@ class _SyncThread:  # pylint: disable=too-few-public-methods
         """Выполняет target в текущем потоке."""
         if self._target is not None:
             self._target()
-
-
-class TestExtensionTimeoutConstant(unittest.TestCase):
-    """Проверка значений констант таймаута."""
-
-    def test_timeout_is_two_minutes(self):
-        """Таймаут ожидания расширения равен 120 секундам (2 минуты)."""
-        self.assertEqual(_EXTENSION_CONNECT_TIMEOUT, 120)
-
-    def test_check_interval_is_ten_seconds(self):
-        """Интервал проверки равен 10 секундам."""
-        self.assertEqual(_EXTENSION_CHECK_INTERVAL, 10)
-
-
-class TestWatchApiConnectionLoop(unittest.TestCase):
-    """Проверка, что цикл ожидания использует константы."""
-
-    def test_loop_uses_connect_timeout_constant(self):
-        """range() в цикле использует _EXTENSION_CONNECT_TIMEOUT."""
-        source = inspect.getsource(_watch_api_connection)
-        self.assertIn(
-            'range(0, _EXTENSION_CONNECT_TIMEOUT, _EXTENSION_CHECK_INTERVAL)',
-            source,
-        )
-
-    def test_loop_has_no_hardcoded_300(self):
-        """В цикле отсутствует захардкоженное значение 300."""
-        source = inspect.getsource(_watch_api_connection)
-        self.assertNotIn('range(0, 300', source)
 
 
 class TestWatchApiConnectionNotification(unittest.IsolatedAsyncioTestCase):

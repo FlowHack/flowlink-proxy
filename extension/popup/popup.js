@@ -302,34 +302,39 @@ async function quickPing() {
 
 /** Опрашивает бэкенд и обновляет UI (с экспоненциальной задержкой при отказе). */
 async function pollBackend() {
-  const ok = await quickPing();
-  if (ok && !state.connected) {
-    // Бэкенд появился — перезагружаем всё
-    _pollInterval = POLL_INTERVAL;
-    showError(false);
-    await loadAndRender();
-  } else if (!ok && state.connected) {
-    // Бэкенд пропал
-    _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);
-    showError(true);
-  } else if (ok && state.connected) {
-    // Бэкенд жив — сброс интервала, проверяем флаг обновления конфига
-    _pollInterval = POLL_INTERVAL;
-    const storage = await chrome.storage.local.get('configChanged');
-    if (storage.configChanged) {
-      await chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления из storage:', e));
+  try {
+    const ok = await quickPing();
+    if (ok && !state.connected) {
+      // Бэкенд появился — перезагружаем всё
+      _pollInterval = POLL_INTERVAL;
+      showError(false);
       await loadAndRender();
+    } else if (!ok && state.connected) {
+      // Бэкенд пропал
+      _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);
+      showError(true);
+    } else if (ok && state.connected) {
+      // Бэкенд жив — сброс интервала, проверяем флаг обновления конфига
+      _pollInterval = POLL_INTERVAL;
+      const storage = await chrome.storage.local.get('configChanged');
+      if (storage.configChanged) {
+        await chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления из storage:', e));
+        await loadAndRender();
+      } else {
+        // SSE может быть недоступно (service worker спит) — сами проверяем
+        // browser-config, чтобы баннер «браузер не указан» скрывался
+        // без ожидания SSE-события.
+        await refreshBrowserConfig();
+      }
     } else {
-      // SSE может быть недоступно (service worker спит) — сами проверяем
-      // browser-config, чтобы баннер «браузер не указан» скрывался
-      // без ожидания SSE-события.
-      await refreshBrowserConfig();
+      // Был не connected, всё ещё не connected — увеличиваем интервал
+      _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);
     }
-  } else {
-    // Был не connected, всё ещё не connected — увеличиваем интервал
-    _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);
+  } finally {
+    // Перезапускаем таймер ВСЕГДА — даже если storage API или loadAndRender
+    // бросили исключение. Иначе поллинг умрёт навсегда до перезагрузки popup.
+    schedulePoll();
   }
-  schedulePoll();
 }
 
 function schedulePoll() {

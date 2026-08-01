@@ -67,6 +67,7 @@ class TestValidateBrowserPath(unittest.TestCase):
 
     def test_none_invalid(self):
         """None невалиден."""
+        # type: ignore[reportArgumentType] — намеренно передаём None для проверки валидации
         self.assertFalse(validate_browser_path(None))  # type: ignore[reportArgumentType]
 
     def test_nonexistent_file_invalid(self):
@@ -90,6 +91,7 @@ class TestValidateBrowserPathDetailed(unittest.TestCase):
 
     def test_none_path(self):
         """None — невалидно."""
+        # type: ignore[reportArgumentType] — намеренно передаём None для проверки валидации
         result = validate_browser_path_detailed(None)  # type: ignore[reportArgumentType]
         self.assertFalse(result['valid'])
 

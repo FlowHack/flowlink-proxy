@@ -87,8 +87,9 @@ class ProxyServer(BaseServer):
                         f'{body}'.encode(),
                     )
                     await writer.drain()
-                except (ConnectionError, OSError):
-                    pass
+                except (ConnectionError, OSError) as exc:
+                    logger.debug('Не удалось отправить ответ 502 клиенту %s: %s',
+                                 peername, exc)
             logger.error('Ошибка обработки клиента %s: %s',
                          peername, e, exc_info=True)
         except Exception as e:  # pylint: disable=broad-exception-caught

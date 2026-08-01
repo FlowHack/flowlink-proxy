@@ -7,6 +7,10 @@ import unittest
 from server.protocols.parser import (RE_CONNECT, RE_HTTP, parse_connect,
                                      parse_http)
 
+# type: ignore[reportOptionalMemberAccess] / [reportGeneralTypeIssues] ниже:
+# pyright не знает, что assertIsNotNone(match) сужает тип Optional до match;
+# в тестах доступ к группам и распаковка безопасны после явной проверки.
+
 
 class TestProxyRegex(unittest.TestCase):
     """Тестируем regex-паттерны парсера."""

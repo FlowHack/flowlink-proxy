@@ -45,7 +45,7 @@ def truncate(text: str, max_len: int = 2000) -> str:
 
 
 def log_config_state(is_startup: bool = False) -> None:
-    """Выводит текущее состояние конфига в debug-ログ (без паролей).
+    """Выводит текущее состояние конфига в debug-лог (без паролей).
 
     Args:
         is_startup: Если True — выводит начальное сообщение при старте сервера.

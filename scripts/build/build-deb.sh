@@ -15,10 +15,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Чтение версии из server/version.py
-VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || exit 1)
+VERSION=$(PROJECT_DIR="$PROJECT_DIR" python3 -c "import os, sys; sys.path.insert(0, os.environ['PROJECT_DIR']); from server.version import __version__; print(__version__)" 2>/dev/null || exit 1)
 PKG_NAME="flowlink-proxy"
-ARCH="amd64"
+ARCH="$(dpkg --print-architecture 2>/dev/null || echo "amd64")"
 BUILD_DIR="$PROJECT_DIR/releases/deb-build"
+
+# --- Очистка временной папки сборки даже при ошибке ---
+trap 'rm -rf "$BUILD_DIR"' EXIT
 
 echo "[+] Сборка $PKG_NAME v$VERSION (.deb)"
 
@@ -65,7 +68,6 @@ Version: $VERSION
 Section: net
 Priority: optional
 Architecture: $ARCH
-Depends: python3 (>= 3.10)
 Maintainer: FlowLink Proxy <flowlink.proxy@atomicmail.io>
 Description: FlowLink Proxy - traffic routing gateway
  FlowLink Proxy is a Python proxy-gateway with Chrome extension

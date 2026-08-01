@@ -47,11 +47,12 @@ def _crypto_field(
     field_name: str,
     *,
     encrypt: bool = False,
-) -> str:
+) -> str | None:
     """Шифрует или расшифровывает одно поле прокси (username/password).
 
-    При ошибке логирует предупреждение/ошибку и возвращает пустую строку,
-    чтобы не прерывать обработку остальных прокси.
+    При ошибке логирует предупреждение/ошибку и возвращает None,
+    чтобы вызвавший код мог отличить сбой от легитимно пустого значения
+    (пустая строка может быть настоящим значением поля).
 
     Args:
         value: Значение поля для шифрования/дешифрования.
@@ -61,7 +62,7 @@ def _crypto_field(
         encrypt: True для шифрования, False для дешифрования.
 
     Returns:
-        Зашифрованное/расшифрованное значение или пустая строка при ошибке.
+        Зашифрованное/расшифрованное значение или None при ошибке.
     """
     try:
         return crypto.encrypt(value) if encrypt else crypto.decrypt(value)
@@ -71,7 +72,7 @@ def _crypto_field(
             'Ошибка %s для прокси %s, поле %s: %s',
             operation, proxy_id, field_name, e,
         )
-        return ''
+        return None
 
 
 def _load_cached() -> dict:
@@ -93,18 +94,40 @@ def invalidate_cache() -> None:
 
 
 def _decrypt_proxies(data: dict) -> dict:
-    """Расшифровывает username/password у всех прокси."""
+    """Расшифровывает username/password у всех прокси.
+
+    Если пароль не удалось расшифровать (например, ключ шифрования был
+    пересоздан), прокси помечается флагом passwordDecryptFailed: true,
+    чтобы UI мог показать предупреждение. Флаг добавляется только в
+    возвращаемые данные — в config.json он не записывается.
+    """
     for proxy in data.get('proxies', []):
         if proxy.get('username'):
-            proxy['username'] = _crypto_field(
+            decrypted_username = _crypto_field(
                 proxy['username'], 'расшифровки имени',
                 proxy.get('proxyId', '?'), 'username',
             )
+            if decrypted_username is None:
+                # Расшифровать имя не удалось (ключ пересоздан или данные
+                # повреждены) — оставляем пустую строку, чтобы UI не показывал
+                # нечитаемый блоб. Поведение обратно совместимо со старыми
+                # версиями (пустая строка вместо зашифрованного значения).
+                proxy['username'] = ''
+            else:
+                proxy['username'] = decrypted_username
         if proxy.get('password'):
-            proxy['password'] = _crypto_field(
+            decrypted_password = _crypto_field(
                 proxy['password'], 'расшифровки пароля',
                 proxy.get('proxyId', '?'), 'password',
             )
+            if decrypted_password is None:
+                # Ключ пересоздан или данные повреждены — расшифровать пароль
+                # невозможно. Помечаем прокси, чтобы UI показал предупреждение,
+                # пароль оставляем пустым (не отдаём в UI нечитаемый блоб).
+                proxy['passwordDecryptFailed'] = True
+                proxy['password'] = ''
+            else:
+                proxy['password'] = decrypted_password
     return data
 
 
@@ -133,18 +156,24 @@ def save_config(data: dict) -> None:
 
     for proxy in data.get('proxies', []):
         proxy_copy = dict(proxy)
+        # Служебный флаг passwordDecryptFailed существует только в возвращаемых
+        # данных — в config.json он не должен попадать.
+        proxy_copy.pop('passwordDecryptFailed', None)
         if proxy_copy.get('username'):
-            proxy_copy['username'] = _crypto_field(
+            encrypted_username = _crypto_field(
                 proxy_copy['username'], 'шифрования имени',
                 proxy_copy.get('proxyId', '?'), 'username',
                 encrypt=True,
             )
+            # При ошибке шифрования не записываем null — оставляем пустую строку
+            proxy_copy['username'] = encrypted_username if encrypted_username is not None else ''
         if proxy_copy.get('password'):
-            proxy_copy['password'] = _crypto_field(
+            encrypted_password = _crypto_field(
                 proxy_copy['password'], 'шифрования пароля',
                 proxy_copy.get('proxyId', '?'), 'password',
                 encrypt=True,
             )
+            proxy_copy['password'] = encrypted_password if encrypted_password is not None else ''
         to_save['proxies'].append(proxy_copy)
 
     proxy_count = len(to_save['proxies'])

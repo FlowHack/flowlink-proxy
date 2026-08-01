@@ -25,6 +25,10 @@ class MaskRouter:
     """
 
     def __init__(self):
+        """Инициализирует маршрутизатор масок.
+
+        Загружает конфигурацию и перестраивает правила маршрутизации.
+        """
         self._rules: list[dict] = []
         self._proxy_map: dict[str, dict] = {}
         self._rebuild()

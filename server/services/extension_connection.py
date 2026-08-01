@@ -31,6 +31,9 @@ _lock = threading.Lock()
 
 def mark_connected() -> None:
     """Регистрирует новое активное SSE-соединение от расширения."""
+    # Изменяем mutable-счётчик под блокировкой (см. шапку файла):
+    # глобальное состояние неизбежно, т.к. счётчик живёт на уровне модуля.
+    global _active_connections  # pylint: disable=global-statement
     global _active_connections  # pylint: disable=global-statement
     with _lock:
         _active_connections += 1
@@ -42,6 +45,9 @@ def mark_connected() -> None:
 
 def mark_disconnected() -> None:
     """Регистрирует закрытие SSE-соединения от расширения."""
+    # Изменяем mutable-счётчик под блокировкой (см. шапку файла):
+    # глобальное состояние неизбежно, т.к. счётчик живёт на уровне модуля.
+    global _active_connections  # pylint: disable=global-statement
     global _active_connections  # pylint: disable=global-statement
     with _lock:
         if _active_connections > 0:

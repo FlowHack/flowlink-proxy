@@ -17,6 +17,8 @@ from server.tray.menu import get_autostart_state, load_icon, safe_open_folder
 from server.utils import get_data_dir
 
 if TYPE_CHECKING:
+    # type: ignore[reportMissingImports] — pystray опциональная зависимость
+    # (не установлен в dev-среде); импорт нужен только для аннотаций типов
     import pystray  # type: ignore[reportMissingImports]
 
 # Внимание: pystray.Icon в pystray/__init__.py — это значение
