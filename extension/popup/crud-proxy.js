@@ -24,6 +24,18 @@ export function openAddProxyModal() {
  * @param {object} proxy — объект прокси (поля: proxyId, host, port, username, password, label).
  */
 export function openEditProxyModal(proxy) {
+  if (!proxy) return;
+  // Сброс видимости пароля при открытии редактирования
+  const pwdInput = document.getElementById('proxy-password');
+  const pwdBtn = document.getElementById('btn-password-toggle');
+  if (pwdInput) pwdInput.type = 'password';
+  if (pwdBtn) {
+    pwdBtn.title = 'Показать пароль';
+    const closed = pwdBtn.querySelector('.eye-closed');
+    const open = pwdBtn.querySelector('.eye-open');
+    if (closed) closed.classList.remove('hidden');
+    if (open) open.classList.add('hidden');
+  }
   document.getElementById('modal-proxy-title').textContent = 'Редактировать прокси';
   document.getElementById('proxy-id').value = proxy.proxyId;
   document.getElementById('proxy-host').value = proxy.host;
@@ -111,7 +123,6 @@ export async function handleSaveProxy(loadAndRender) {
     );
     if (duplicates.length > 0) {
       showFieldError('proxy-host', 'Прокси с таким host:port уже существует');
-      setLoading(saveBtn, false);
       return;
     }
 
@@ -132,7 +143,12 @@ export async function handleSaveProxy(loadAndRender) {
     closeModal();
     await loadAndRender();
   } catch (e) {
-    const msg = e.message.includes('Failed to fetch') || e.message.includes('HTTP')
+    console.error('[FlowLink Proxy] Ошибка сохранения прокси:', e);
+    let isNetworkError = false;
+    if (e.message.startsWith('NETWORK:') || e.message.includes('Failed to fetch')) {
+      isNetworkError = true;
+    }
+    const msg = isNetworkError
       ? 'Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy.'
       : e.message;
     showFieldError('proxy-host', msg);
