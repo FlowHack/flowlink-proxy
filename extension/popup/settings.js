@@ -19,6 +19,7 @@ export async function handleSettingsSave(loadAndRender, showToast) {
 
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     input.focus();
+    if (showToast) showToast('Порт должен быть числом от 1 до 65535');
     return;
   }
 

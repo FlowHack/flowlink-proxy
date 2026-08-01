@@ -566,10 +566,6 @@ export function openHelpModal(tab, isUpdate, updateTag, context) {
     console.warn('[FlowLink Proxy] Заголовок модального окна помощи не найден');
     return;
   }
-  if (!title) {
-    console.warn('[FlowLink Proxy] Заголовок модального окна помощи не найден');
-    return;
-  }
   if (isUpdate || _context === 'update') {
     title.textContent = 'Обновление';
   } else {
@@ -719,13 +715,13 @@ function _renderSubTabContent(tab, sub) {
   if (tab === 'macos') {
     const text = _MACOS_SUB_TEXTS[sub];
     if (!text) return '<p>Раздел в разработке.</p>';
-    return typeof text === 'function' ? text() : text;
+    return (typeof text === 'function' ? text() : text) + _EMAIL_FOOTER;
   }
   // Под-подвкладки macOS (macos-intel/macos-arm)
   if (tab === 'macos-intel' || tab === 'macos-arm') {
     const text = _MACOS_SUB_TEXTS[sub];
     if (!text) return '<p>Раздел в разработке.</p>';
-    return text;
+    return typeof text === 'function' ? text() : text;
   }
   return '<p>Раздел в разработке.</p>';
 }

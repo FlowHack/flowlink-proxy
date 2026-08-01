@@ -4,7 +4,7 @@
  * Единственная ответственность: связывание UI с данными API.
  */
 
-import { apiGet } from '../shared/api.js';
+import { apiGet, apiPost } from '../shared/api.js';
 import { escapeHtml } from '../shared/dom.js';
 import { API_BASE, setApiPort } from '../shared/constants.js';
 import { copyEmailToClipboard } from '../shared/utils.js';
@@ -271,14 +271,7 @@ async function handleGlobalToggle(checkbox) {
   // SSE-события config_changed прочитал актуальное значение, а не устаревшее.
   await chrome.storage.local.set({ extEnabled: enabled }).catch(e => console.warn('[FlowLink Proxy] Ошибка записи в storage:', e));
   try {
-    const res = await fetch(`${API_BASE}/enabled`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+    await apiPost('/enabled', { enabled });
     state.enabled = enabled;
     render(state);
   } catch (e) {
@@ -293,14 +286,17 @@ async function handleGlobalToggle(checkbox) {
 
 /** Быстрая проверка — доступен ли бэкенд (GET /api/version с таймаутом). */
 async function quickPing() {
+  const ctrl = new AbortController();
+  // Таймаут устанавливается ДО запроса и гарантированно очищается в finally
+  const timer = setTimeout(() => ctrl.abort(), POLL_TIMEOUT);
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), POLL_TIMEOUT);
     const res = await fetch(`${API_BASE}/version`, { signal: ctrl.signal });
-    clearTimeout(timer);
     return res.ok;
   } catch {
     return false;
+  } finally {
+    // ВСЕГДА очищаем таймер — даже при исключении fetch (сеть недоступна и т.п.)
+    clearTimeout(timer);
   }
 }
 
@@ -588,9 +584,18 @@ function attachGlobalListeners() {
   // Переключение видимости пароля
   document.getElementById('btn-password-toggle')?.addEventListener('click', togglePasswordVisibility);
 
-  // Копирование email в буфер обмена
+  // Копирование email в буфер обмена (футер popup)
   document.getElementById('contact-email')?.addEventListener('click',
     () => copyEmailToClipboard('flowlink.proxy@atomicmail.io', showToast));
+
+  // Копирование email в футере помощи (help-email-copy) — делегирование,
+  // т.к. контент помощи рендерится динамически через innerHTML.
+  document.addEventListener('click', (e) => {
+    const emailEl = e.target.closest('.help-email-copy');
+    if (emailEl && emailEl.dataset.email) {
+      copyEmailToClipboard(emailEl.dataset.email, showToast);
+    }
+  });
 }
 
 /** Переключает видимость пароля в форме прокси. */

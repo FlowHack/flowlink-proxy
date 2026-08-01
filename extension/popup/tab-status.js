@@ -24,7 +24,11 @@ export async function renderTabStatus(url, state) {
     }
     // Ищем первую маску, под которую попадает URL вкладки
     const matchedMask = state.masks.find(m => {
-      try { return new RegExp(m.regexString).test(url); } catch { return false; }
+      try { return new RegExp(m.regexString).test(url); } catch (e) {
+        // Невалидный regex в маске — маска не матчится, но не роняем popup
+        console.warn('[FlowLink Proxy] Невалидный regex маски:', m.regexString, e);
+        return false;
+      }
     });
     if (matchedMask) {
       const proxy = state.proxies.find(p => p.proxyId === matchedMask.proxyId);

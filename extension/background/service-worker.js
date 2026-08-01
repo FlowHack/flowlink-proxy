@@ -73,7 +73,7 @@ async function pushEnabledState() {
   try {
     const result = await chrome.storage.local.get('extEnabled');
     // По умолчанию расширение включено (true)
-    const enabled = result.extEnabled === true;
+    const enabled = result.extEnabled !== undefined ? result.extEnabled : true;
     await fetch(`http://127.0.0.1:${apiPort}/api/enabled`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
