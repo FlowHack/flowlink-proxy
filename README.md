@@ -325,6 +325,10 @@ flowlink-proxy/
 │   │   ├── flowlink.spec          # RPM-спецификация
 │   │   ├── build-pkg.sh           # macOS: сборка .pkg-пакета
 │   │   └── create-release.sh      # Упаковка архивов релиза
+│   ├── crx/
+│   │   ├── build-crx.sh           # Linux/macOS: сборка CRX-расширения
+│   │   ├── build-crx.ps1          # Windows: сборка CRX-расширения
+│   │   └── crx-private-key.pem    # Приватный ключ подписи CRX (не коммитится)
 │   ├── install/
 │   │   └── install.sh             # Универсальный standalone-установщик
 │   └── autostart/

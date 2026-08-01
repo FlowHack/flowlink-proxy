@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Сборка CRX расширения FlowLink Proxy.
 # Использование:
-#   ./scripts/build/build-crx.sh                    # использует crx-private-key.pem
-#   ./scripts/build/build-crx.sh --key ./mykey.pem  # кастомный ключ
+#   ./scripts/crx/build-crx.sh                    # использует crx-private-key.pem
+#   ./scripts/crx/build-crx.sh --key ./mykey.pem  # кастомный ключ
 #
 # На выходе: releases/flowlink-proxy.crx
 

@@ -43,7 +43,7 @@ logs/
 *.log
 
 # --- CRX private key (не коммитить!) ---
-scripts/build/crx-private-key.pem
+scripts/crx/crx-private-key.pem
 *.crx
 
 # --- Конфигурация прокси (пароли в открытом виде не хранятся) ---
