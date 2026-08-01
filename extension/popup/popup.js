@@ -61,7 +61,6 @@ export function showNotification(type, message, options = {}) {
 }
 
 /** Показывает toast-уведомление на 2 секунды (алиас для обратной совместимости). */
-export function showToast(msg) {
 export function showToast(msg, type = 'info') {
   showNotification(type, msg, { duration: 2000 });
 }
@@ -270,7 +269,7 @@ async function handleGlobalToggle(checkbox) {
   checkbox.disabled = true;
   // Сохраняем в storage ДО отправки на бэкенд, чтобы service-worker при обработке
   // SSE-события config_changed прочитал актуальное значение, а не устаревшее.
-  chrome.storage.local.set({ extEnabled: enabled });
+  await chrome.storage.local.set({ extEnabled: enabled }).catch(e => console.warn('[FlowLink Proxy] Ошибка записи в storage:', e));
   try {
     const res = await fetch(`${API_BASE}/enabled`, {
       method: 'POST',
@@ -322,7 +321,7 @@ async function pollBackend() {
     _pollInterval = POLL_INTERVAL;
     const storage = await chrome.storage.local.get('configChanged');
     if (storage.configChanged) {
-      await chrome.storage.local.remove('configChanged');
+      await chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления из storage:', e));
       await loadAndRender();
     } else {
       // SSE может быть недоступно (service worker спит) — сами проверяем
@@ -421,7 +420,6 @@ function renderBrowserWarning() {
  * Отрисовывает UI на основе состояния.
  * @param {object} state — глобальное состояние.
  */
-function render(state) {
 function render() {
   renderBrowserWarning();
   renderProxyList();
