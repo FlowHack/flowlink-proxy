@@ -173,7 +173,7 @@ export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления прокси:', e);
-    showToast('Не удалось удалить прокси. Проверьте соединение с бэкендом.');
+    showToast('Не удалось удалить прокси. Проверьте соединение с бэкендом.', 'error');
   } finally {
     setLoading(btn, false);
   }
@@ -197,7 +197,7 @@ export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения прокси:', e);
-    showToast('Не удалось переключить прокси. Проверьте соединение с бэкендом.');
+    showToast('Не удалось переключить прокси. Проверьте соединение с бэкендом.', 'error');
   } finally {
     checkbox.disabled = false;
   }
