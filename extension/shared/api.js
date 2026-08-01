@@ -18,8 +18,12 @@ async function _handleApiError(res, method) {
   let msg = `${method} — HTTP ${res.status}`;
   try {
     const err = await res.json();
-    if (err.error) msg = err.error;
-  } catch { /* тело не JSON — оставляем стандартное сообщение */ }
+    if (err.error) {
+      msg = typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
+    }
+  } catch (e) {
+    console.debug('[FlowLink Proxy] _handleApiError: тело ответа не JSON:', e);
+  }
   return msg;
 }
 
@@ -29,14 +33,21 @@ async function _handleApiError(res, method) {
  * @returns {Promise<object>} — распарсенный JSON-ответ.
  */
 export async function apiGet(endpoint) {
-  const res = await fetch(`${API_BASE}${endpoint}`);
-  if (!res.ok) {
-    throw new Error(await _handleApiError(res, 'GET'));
-  }
   try {
-    return await res.json();
-  } catch {
-    throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      throw new Error(await _handleApiError(res, 'GET'));
+    }
+    try {
+      return await res.json();
+    } catch (e) {
+      console.warn('[FlowLink Proxy] apiGet: невалидный JSON:', e);
+      throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+    }
+  } catch (e) {
+    throw new Error('NETWORK:' + e.message);
   }
 }
 
@@ -47,18 +58,24 @@ export async function apiGet(endpoint) {
  * @returns {Promise<object>} — распарсенный JSON-ответ.
  */
 export async function apiPost(endpoint, body) {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw new Error(await _handleApiError(res, 'POST'));
-  }
   try {
-    return await res.json();
-  } catch {
-    throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      throw new Error(await _handleApiError(res, 'POST'));
+    }
+    try {
+      return await res.json();
+    } catch (e) {
+      console.warn('[FlowLink Proxy] apiPost: невалидный JSON:', e);
+      throw new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.');
+    }
+  } catch (e) {
+    throw new Error('NETWORK:' + e.message);
   }
 }
 
@@ -70,15 +87,21 @@ export async function apiPost(endpoint, body) {
  * @returns {Promise<{status: number, data: object}>} — код + тело.
  */
 export async function apiPostRaw(endpoint, body) {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
   try {
-    const data = await res.json();
-    return { status: res.status, data };
-  } catch {
-    return { status: res.status, data: {} };
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+    try {
+      const data = await res.json();
+      return { status: res.status, data };
+    } catch (e) {
+      console.warn('[FlowLink Proxy] apiPostRaw: невалидный JSON:', e);
+      return { status: res.status, data: {} };
+    }
+  } catch (e) {
+    throw new Error('NETWORK:' + e.message);
   }
 }
