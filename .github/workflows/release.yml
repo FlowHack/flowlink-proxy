@@ -13,13 +13,37 @@ jobs:
     steps:
       - name: Клонирование репозитория
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Определение версии из тега
         id: version
         run: |
+          # 1. Пробуем взять тег из head_branch (для tag-пуша)
           TAG="${{ github.event.workflow_run.head_branch }}"
-          VERSION=$(echo "$TAG" | sed 's/^v//')
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VERSION="${TAG#v}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "source=head_branch" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 2. Fallback: определяем ближайший тег по SHA коммита
+          #    (workflow_run.head_branch для tag-пуша возвращает ветку, а не тег)
+          git fetch --tags --force
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          TAG_FROM_SHA=$(git describe --tags --abbrev=0 "$SHA" 2>/dev/null || true)
+          if [[ "$TAG_FROM_SHA" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VERSION="${TAG_FROM_SHA#v}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "source=git-describe" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 3. Последний fallback: версия из server/version.py
+          VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)" 2>/dev/null || echo "0.0.0")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source=version.py" >> "$GITHUB_OUTPUT"
 
       - name: Загрузка всех артефактов
         uses: actions/download-artifact@v4
@@ -38,7 +62,7 @@ jobs:
         with:
           draft: true
           generate_release_notes: true
-          tag_name: ${{ github.event.workflow_run.head_branch }}
+          tag_name: v${{ steps.version.outputs.version }}
           name: FlowLink Proxy v${{ steps.version.outputs.version }}
           files: release-files/*
           body: |
