@@ -69,6 +69,16 @@ if ! $PYTHON -c "import tkinter" 2>/dev/null; then
     fi
 fi
 
+# --- Проверка python3-venv (ensurepip) ---
+if [ "$CLEAN_VENV" = true ]; then
+    if ! $PYTHON -m venv --help >/dev/null 2>&1; then
+        warn "python3-venv не установлен — создание venv может не сработать."
+        if command -v apt &>/dev/null; then
+            sudo apt install -y python3-venv 2>/dev/null && info "python3-venv установлен." || warn "Установите: sudo apt install python3-venv"
+        fi
+    fi
+fi
+
 # --- Создание/использование venv ---
 if [ "$CLEAN_VENV" = true ]; then
     info "Создание временного venv..."

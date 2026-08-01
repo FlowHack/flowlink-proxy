@@ -1,9 +1,14 @@
 ; FlowLink Proxy — Inno Setup Installer
-; Version 0.3.0
-; Requires: Inno Setup 6+
+; Requires: Inno Setup 6.3+ (из-за ArchitecturesInstallIn64BitMode=x64compatible)
+;
+; Версия передаётся из CI через /DMyAppVersion=X.Y.Z.
+; По умолчанию — 0.0.0 (если не передана).
+
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 
 #define MyAppName "FlowLink Proxy"
-#define MyAppVersion "0.3.0"
 #define MyAppPublisher "FlowLink"
 #define MyAppURL "https://github.com/FlowHack/flowlink-proxy"
 #define MyAppExeName "FlowLink Proxy.exe"

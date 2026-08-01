@@ -65,6 +65,8 @@ info "Бинарник найден: $BINARY"
 
 # --- Создание временной папки ---
 TEMP_DIR=$(mktemp -d)
+# Очистка временной папки даже при ошибке
+trap 'rm -rf "$TEMP_DIR"' EXIT
 RELEASE_DIR="$TEMP_DIR/$RELEASE_NAME"
 mkdir -p "$RELEASE_DIR"
 

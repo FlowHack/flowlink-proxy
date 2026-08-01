@@ -41,6 +41,10 @@ $python = Join-Path $venvPath "Scripts" | Join-Path -ChildPath "python.exe"
 
 Info "Обновление pip..."
 & $python -m pip install --upgrade pip -q
+if ($LASTEXITCODE -ne 0) {
+    if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }
+    Error "Не удалось обновить pip"
+}
 
 Info "Установка зависимостей..."
 & $pip install -q pysocks
@@ -63,6 +67,10 @@ Info "Очистка предыдущей сборки..."
 Remove-Item -Recurse -Force "server/dist", "server/work" -ErrorAction SilentlyContinue
 
 $VERSION = & $python -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)"
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($VERSION)) {
+    if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }
+    Error "Не удалось определить версию из server/version.py"
+}
 Info "Сборка FlowLink Proxy v$VERSION для Windows..."
 
 # Иконки из scripts/icons/

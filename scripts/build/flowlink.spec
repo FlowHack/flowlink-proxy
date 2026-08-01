@@ -24,7 +24,7 @@ mkdir -p %{buildroot}/usr/local/bin
 mkdir -p %{buildroot}/usr/local/share/%{name}
 mkdir -p %{buildroot}/usr/share/applications
 
-install -m 755 "FlowLink Proxy" %{buildroot}/usr/local/bin/FlowLink Proxy
+install -m 755 flowlink-proxy %{buildroot}/usr/local/bin/flowlink-proxy
 
 for doc in EULA.rtf LICENSE.txt; do
     if [ -f "$doc" ]; then
@@ -39,7 +39,7 @@ fi
 %files
 %license LICENSE.txt
 %doc EULA.rtf
-/usr/local/bin/FlowLink Proxy
+/usr/local/bin/flowlink-proxy
 /usr/local/share/%{name}/EULA.rtf
 /usr/local/share/%{name}/LICENSE.txt
 /usr/share/applications/flowlink-proxy.desktop

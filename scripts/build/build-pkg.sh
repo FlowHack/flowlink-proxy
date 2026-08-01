@@ -14,7 +14,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || echo "0.3.0")
+VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || exit 1)
 PKG_NAME="flowlink-proxy"
 IDENTIFIER="com.flowlink.proxy"
 INSTALL_DIR="/usr/local"

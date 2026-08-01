@@ -42,6 +42,11 @@ jobs:
       - name: Сборка .rpm-пакета
         run: ./scripts/build/build-rpm.sh
 
+      - name: Копирование .rpm в releases/
+        run: |
+          mkdir -p releases
+          find "$HOME/rpmbuild/RPMS" -name "*.rpm" -exec cp {} releases/ \;
+
       - name: Загрузка артефактов
         uses: actions/upload-artifact@v4
         with:
@@ -49,7 +54,7 @@ jobs:
           path: |
             releases/*.tar.gz
             releases/*.deb
-            ~/rpmbuild/RPMS/**/*.rpm
+            releases/*.rpm
           retention-days: 7
 
   build-macos-intel:
@@ -157,10 +162,16 @@ jobs:
       - name: Сборка standalone-бинарника
         run: powershell -ExecutionPolicy Bypass -File scripts/build/build.ps1
 
+      - name: Определение версии
+        id: version
+        run: |
+          $version = python -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)"
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Сборка установщика
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          & $iscc scripts/installer/flowlink-installer.iss
+          & $iscc /DMyAppVersion=${{ steps.version.outputs.version }} scripts/installer/flowlink-installer.iss
 
       - name: Загрузка артефактов
         uses: actions/upload-artifact@v4
@@ -180,6 +191,10 @@ jobs:
           node-version: "20"
       - name: Восстановление ключа
         run: |
+          if [ -z "${{ secrets.CRX_PRIVATE_KEY }}" ]; then
+            echo "::error::Секрет CRX_PRIVATE_KEY не задан. Добавьте его в настройках репозитория (Settings → Secrets)."
+            exit 1
+          fi
           mkdir -p scripts/crx
           echo "${{ secrets.CRX_PRIVATE_KEY }}" > scripts/crx/crx-private-key.pem
       - name: Сборка CRX

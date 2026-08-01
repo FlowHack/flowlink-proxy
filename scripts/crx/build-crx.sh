@@ -11,11 +11,31 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-KEY_FILE="${2:-$SCRIPT_DIR/crx-private-key.pem}"
+# Разбор аргументов: --key <путь> или позиционный <путь>
+KEY_FILE="$SCRIPT_DIR/crx-private-key.pem"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --key)
+            KEY_FILE="${2:-}"
+            shift 2
+            ;;
+        *)
+            KEY_FILE="$1"
+            shift
+            ;;
+    esac
+done
 
 if [ ! -f "$KEY_FILE" ]; then
     echo "[!] Приватный ключ не найден: $KEY_FILE"
     echo "    Сгенерируйте: openssl genrsa -out $KEY_FILE 2048"
+    exit 1
+fi
+
+# Проверка, что ключ не пустой (например, секрет не задан в CI)
+if [ ! -s "$KEY_FILE" ]; then
+    echo "[!] Приватный ключ пуст: $KEY_FILE"
+    echo "    Убедитесь, что секрет CRX_PRIVATE_KEY задан в настройках репозитория."
     exit 1
 fi
 
@@ -46,11 +66,14 @@ fi
 
 # Добавление key в manifest.json
 python3 -c "
-import json, subprocess, base64
+import json, subprocess, base64, sys
 with open('$TMP_DIR/manifest.json') as f:
     m = json.load(f)
 r = subprocess.run(['openssl', 'rsa', '-pubout', '-in', '$KEY_FILE', '-outform', 'DER'],
                   capture_output=True)
+if r.returncode != 0 or not r.stdout:
+    sys.stderr.write('Не удалось извлечь публичный ключ из ключа: ' + r.stderr.decode('utf-8', 'replace') + '\n')
+    sys.exit(1)
 m['key'] = base64.b64encode(r.stdout).decode('ascii')
 with open('$TMP_DIR/manifest.json', 'w') as f:
     json.dump(m, f, indent=2)

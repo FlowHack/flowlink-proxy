@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Чтение версии из server/version.py
-VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || echo "0.3.0")
+VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || exit 1)
 PKG_NAME="flowlink-proxy"
 ARCH="amd64"
 BUILD_DIR="$PROJECT_DIR/releases/deb-build"
@@ -43,7 +43,7 @@ if [ -z "$BINARY" ]; then
     exit 1
 fi
 
-install -m 755 "$BINARY" "$BUILD_DIR/usr/local/bin/FlowLink Proxy"
+install -m 755 "$BINARY" "$BUILD_DIR/usr/local/bin/flowlink-proxy"
 
 # --- Копирование EULA и LICENSE ---
 for doc in EULA.rtf LICENSE.txt; do
@@ -76,5 +76,8 @@ EOF
 # --- Сборка ---
 mkdir -p "$PROJECT_DIR/releases"
 dpkg-deb --build "$BUILD_DIR" "$PROJECT_DIR/releases/${PKG_NAME}_${VERSION}_${ARCH}.deb"
+
+# Очистка временной папки сборки
+rm -rf "$BUILD_DIR"
 
 echo "[+] .deb пакет создан: releases/${PKG_NAME}_${VERSION}_${ARCH}.deb"

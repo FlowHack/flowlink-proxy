@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Чтение версии
-VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || echo "0.3.0")
+VERSION=$(python3 -c "import sys; sys.path.insert(0, '$PROJECT_DIR'); from server.version import __version__; print(__version__)" 2>/dev/null || exit 1)
 PKG_NAME="flowlink-proxy"
 
 echo "[+] Сборка $PKG_NAME v$VERSION (.rpm)"
@@ -46,7 +46,7 @@ if [ -z "$BINARY" ]; then
     exit 1
 fi
 
-install -m 755 "$BINARY" "$TARBALL_DIR/FlowLink Proxy"
+install -m 755 "$BINARY" "$TARBALL_DIR/flowlink-proxy"
 
 # Копирование EULA и LICENSE
 for doc in EULA.rtf LICENSE.txt; do
