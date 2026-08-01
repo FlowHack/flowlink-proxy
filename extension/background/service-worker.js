@@ -23,7 +23,7 @@ chrome.alarms.get('flowlink-keepalive').then((a) => {
   if (!a) {
     chrome.alarms.create('flowlink-keepalive', { periodInMinutes: 0.5 });
   }
-});
+}).catch(() => {});
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'flowlink-keepalive') {
@@ -73,7 +73,7 @@ async function pushEnabledState() {
   try {
     const result = await chrome.storage.local.get('extEnabled');
     // По умолчанию расширение включено (true)
-    const enabled = result.extEnabled !== undefined ? result.extEnabled : true;
+    const enabled = result.extEnabled === true;
     await fetch(`http://127.0.0.1:${apiPort}/api/enabled`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,6 +142,7 @@ function connectSSE() {
 
     eventSource.onopen = () => {
       console.log('[FlowLink Proxy] SSE: подключено');
+      _sseErrorCount = 0;
       pushEnabledState();
     };
   } catch (e) {
@@ -175,7 +176,7 @@ function ensureSSEConnected() {
       }
     })
     .catch((e) => {
-      console.debug('[FlowLink Proxy] SSE: бэкенд недоступен, жду следующей проверки:', e.message);
+      console.debug('[FlowLink Proxy] SSE: бэкенд недоступен, жду следующей проверки:', (e && e.message) ? e.message : e);
       // Бэкенд недоступен — ждём следующей проверки
     });
 }
