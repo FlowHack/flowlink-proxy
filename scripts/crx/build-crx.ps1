@@ -3,7 +3,8 @@
 #   .\scripts\crx\build-crx.ps1                    # использует crx-private-key.pem
 #   .\scripts\crx\build-crx.ps1 -Key .\mykey.pem   # кастомный ключ
 #
-# На выходе: releases\flowlink-proxy.crx
+# На выходе: releases\FlowLink-Proxy-vX.X.X.crx
+# Версия берётся из extension\manifest.json (канонический источник версии расширения).
 #
 # Требования:
 #   - Node.js (npm) с npx — для crx3-utils
@@ -29,6 +30,20 @@ if (-not (Test-Path $Key)) {
     Write-Host "    Сгенерируйте: openssl genrsa -out $Key 2048"
     exit 1
 }
+
+# Версия расширения из manifest.json
+$ManifestSrc = Join-Path $ProjectDir 'extension\manifest.json'
+if (-not (Test-Path $ManifestSrc)) {
+    Write-Host "[!] Не найден extension\manifest.json" -ForegroundColor Red
+    exit 1
+}
+$ManifestMeta = Get-Content $ManifestSrc -Raw | ConvertFrom-Json
+$Version = $ManifestMeta.version
+if (-not $Version) {
+    Write-Host "[!] Не удалось определить версию из extension\manifest.json" -ForegroundColor Red
+    exit 1
+}
+$CrxName = "FlowLink-Proxy-v$Version.crx"
 
 # Проверка наличия openssl
 if (-not (Get-Command openssl -ErrorAction SilentlyContinue)) {
@@ -83,7 +98,7 @@ try {
     # бинарных данных (в PowerShell pipe искажает байты).
     $ReleasesDir = Join-Path $ProjectDir 'releases'
     New-Item -ItemType Directory -Path $ReleasesDir -Force | Out-Null
-    $OutCrx = Join-Path $ReleasesDir 'flowlink-proxy.crx'
+    $OutCrx = Join-Path $ReleasesDir $CrxName
 
     $CmdLine = "npx -p crx3-utils crx3-new `"$Key`" < `"$ZipPath`" > `"$OutCrx`""
     cmd /c $CmdLine

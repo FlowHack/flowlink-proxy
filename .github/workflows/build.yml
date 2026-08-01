@@ -155,7 +155,7 @@ jobs:
           pip install -r server/requirements.txt pyinstaller
 
       - name: Сборка standalone-бинарника
-        run: python scripts/build/build.ps1
+        run: powershell -ExecutionPolicy Bypass -File scripts/build/build.ps1
 
       - name: Сборка установщика
         run: |
@@ -179,37 +179,14 @@ jobs:
         with:
           node-version: "20"
       - name: Восстановление ключа
-        run: echo "${{ secrets.CRX_PRIVATE_KEY }}" > crx-private-key.pem
-      - name: Подготовка ZIP
         run: |
-          mkdir -p /tmp/crx-build
-          cp -r extension/* /tmp/crx-build/
-          python3 -c "
-          import json, subprocess, base64
-          with open('/tmp/crx-build/manifest.json') as f:
-              m = json.load(f)
-          r = subprocess.run(['openssl','rsa','-pubout','-in','crx-private-key.pem','-outform','DER'],
-                            capture_output=True)
-          m['key'] = base64.b64encode(r.stdout).decode('ascii')
-          with open('/tmp/crx-build/manifest.json','w') as f:
-              json.dump(m, f, indent=2)
-          "
-          cd /tmp/crx-build
-          python3 -c "
-          import zipfile, os
-          with zipfile.ZipFile('/tmp/extension.zip','w',zipfile.ZIP_DEFLATED) as zf:
-              for root, dirs, files in os.walk('.'):
-                  for fn in files:
-                      fp = os.path.join(root, fn)
-                      zf.write(fp, os.path.relpath(fp, '.'))
-          "
+          mkdir -p scripts/crx
+          echo "${{ secrets.CRX_PRIVATE_KEY }}" > scripts/crx/crx-private-key.pem
       - name: Сборка CRX
-        run: |
-          mkdir -p releases
-          npx -p crx3-utils crx3-new crx-private-key.pem < /tmp/extension.zip > releases/flowlink-proxy.crx
+        run: bash scripts/crx/build-crx.sh
       - name: Загрузка артефакта
         uses: actions/upload-artifact@v4
         with:
           name: crx-artifact
-          path: releases/flowlink-proxy.crx
+          path: releases/FlowLink-Proxy-*.crx
           retention-days: 7

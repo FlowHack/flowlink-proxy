@@ -19,6 +19,14 @@ PKG_NAME="flowlink-proxy"
 IDENTIFIER="com.flowlink.proxy"
 INSTALL_DIR="/usr/local"
 
+# Определение архитектуры (для уникального имени pkg на intel и arm)
+ARCH_UNAME="$(uname -m)"
+if [ "$ARCH_UNAME" = "arm64" ]; then
+    ARCH="arm64"
+else
+    ARCH="x64"
+fi
+
 echo "[+] Сборка $PKG_NAME v$VERSION (.pkg)"
 
 # --- Поиск бинарника ---
@@ -65,9 +73,9 @@ fi
 
 productbuild --package "$BUILD_DIR/$PKG_NAME-component.pkg" \
     $LICENSE_FLAG \
-    "$PROJECT_DIR/releases/${PKG_NAME}-${VERSION}-macos.pkg"
+    "$PROJECT_DIR/releases/${PKG_NAME}-${VERSION}-macos-${ARCH}.pkg"
 
 # --- Очистка ---
 rm -rf "$BUILD_DIR"
 
-echo "[+] .pkg создан: releases/${PKG_NAME}-${VERSION}-macos.pkg"
+echo "[+] .pkg создан: releases/${PKG_NAME}-${VERSION}-macos-${ARCH}.pkg"

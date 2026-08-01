@@ -3,7 +3,7 @@ Version:        %{?version}%{!?version:0.3.0}
 Release:        1%{?dist}
 Summary:        FlowLink Proxy — шлюз для маршрутизации трафика
 License:        AGPLv3
-URL:            https://github.com/anomalyco/flowlink-proxy
+URL:            https://github.com/FlowHack/flowlink-proxy
 Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      x86_64

@@ -33,19 +33,19 @@ def _file_exists(rel_path: str) -> bool:
 
 
 class TestBuildCrxScript(unittest.TestCase):
-    """Тесты скрипта scripts/build/build-crx.sh."""
+    """Тесты скрипта scripts/crx/build-crx.sh."""
 
     def test_build_crx_script_exists(self):
         """Скрипт build-crx.sh существует."""
         self.assertTrue(
-            _file_exists('scripts/build/build-crx.sh'),
-            'scripts/build/build-crx.sh не найден',
+            _file_exists('scripts/crx/build-crx.sh'),
+            'scripts/crx/build-crx.sh не найден',
         )
 
     def test_build_crx_script_syntax(self):
         """Скрипт build-crx.sh проходит проверку bash -n."""
         result = subprocess.run(
-            ['bash', '-n', 'scripts/build/build-crx.sh'],
+            ['bash', '-n', 'scripts/crx/build-crx.sh'],
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
@@ -59,7 +59,7 @@ class TestBuildCrxScript(unittest.TestCase):
     def test_build_crx_requires_key(self):
         """При отсутствии ключа скрипт завершается с ошибкой."""
         result = subprocess.run(
-            ['bash', 'scripts/build/build-crx.sh', '--key', '/tmp/nonexistent_key.pem'],
+            ['bash', 'scripts/crx/build-crx.sh', '--key', '/tmp/nonexistent_key.pem'],
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
@@ -69,20 +69,21 @@ class TestBuildCrxScript(unittest.TestCase):
         self.assertIn('Приватный ключ не найден', result.stdout + result.stderr)
 
     def test_build_crx_output_name(self):
-        """Скрипт формирует выходной файл releases/flowlink-proxy.crx."""
-        content = _read_file('scripts/build/build-crx.sh')
-        self.assertIn('flowlink-proxy.crx', content)
+        """Скрипт формирует выходной файл releases/FlowLink-Proxy-vX.X.X.crx."""
+        content = _read_file('scripts/crx/build-crx.sh')
+        self.assertIn('FlowLink-Proxy-v', content)
+        self.assertIn('.crx', content)
 
     def test_build_crx_uses_openssl(self):
         """Скрипт использует openssl для извлечения публичного ключа."""
-        content = _read_file('scripts/build/build-crx.sh')
+        content = _read_file('scripts/crx/build-crx.sh')
         self.assertIn('openssl', content)
         self.assertIn('rsa', content)
         self.assertIn('pubout', content)
 
     def test_build_crx_uses_crx3(self):
         """Скрипт использует crx3-utils для сборки CRX."""
-        content = _read_file('scripts/build/build-crx.sh')
+        content = _read_file('scripts/crx/build-crx.sh')
         self.assertIn('crx3-utils', content)
         self.assertIn('crx3-new', content)
 
@@ -96,7 +97,7 @@ class TestShellSyntax(unittest.TestCase):
     """Проверка синтаксиса всех build shell-скриптов."""
 
     SHELL_SCRIPTS = [
-        'scripts/build/build-crx.sh',
+        'scripts/crx/build-crx.sh',
         'scripts/build/build.sh',
         'scripts/build/create-release.sh',
         'scripts/build/build-deb.sh',

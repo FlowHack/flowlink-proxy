@@ -5,7 +5,7 @@
 #define MyAppName "FlowLink Proxy"
 #define MyAppVersion "0.3.0"
 #define MyAppPublisher "FlowLink"
-#define MyAppURL "https://github.com/anomalyco/flowlink-proxy"
+#define MyAppURL "https://github.com/FlowHack/flowlink-proxy"
 #define MyAppExeName "FlowLink Proxy.exe"
 
 [Setup]
@@ -17,7 +17,7 @@ AppPublisherURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile=..\..\EULA.rtf
-OutputDir=..\Output
+OutputDir=..\..\releases
 OutputBaseFilename=FlowLink-Proxy-v{#MyAppVersion}-Setup
 SetupIconFile=..\icons\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}

@@ -4,7 +4,8 @@
 #   ./scripts/crx/build-crx.sh                    # использует crx-private-key.pem
 #   ./scripts/crx/build-crx.sh --key ./mykey.pem  # кастомный ключ
 #
-# На выходе: releases/flowlink-proxy.crx
+# На выходе: releases/FlowLink-Proxy-vX.X.X.crx
+# Версия берётся из extension/manifest.json (канонический источник версии расширения).
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,6 +18,18 @@ if [ ! -f "$KEY_FILE" ]; then
     echo "    Сгенерируйте: openssl genrsa -out $KEY_FILE 2048"
     exit 1
 fi
+
+# Версия расширения из manifest.json
+VERSION=$(python3 -c "
+import json
+with open('$PROJECT_DIR/extension/manifest.json') as f:
+    print(json.load(f)['version'])
+")
+if [ -z "$VERSION" ]; then
+    echo "[!] Не удалось определить версию из extension/manifest.json"
+    exit 1
+fi
+CRX_NAME="FlowLink-Proxy-v${VERSION}.crx"
 
 # Подготовка временной папки с расширением
 TMP_DIR=$(mktemp -d)
@@ -63,7 +76,7 @@ if ! command -v npx &>/dev/null; then
     echo "    macOS:   brew install node"
     exit 1
 fi
-npx -p crx3-utils crx3-new "$KEY_FILE" < /tmp/extension.zip > "$PROJECT_DIR/releases/flowlink-proxy.crx"
+npx -p crx3-utils crx3-new "$KEY_FILE" < /tmp/extension.zip > "$PROJECT_DIR/releases/$CRX_NAME"
 
 rm -rf "$TMP_DIR" /tmp/extension.zip
-echo "[+] CRX создан: $PROJECT_DIR/releases/flowlink-proxy.crx"
+echo "[+] CRX создан: $PROJECT_DIR/releases/$CRX_NAME"
