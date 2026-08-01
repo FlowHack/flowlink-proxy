@@ -56,7 +56,6 @@ chrome.storage.local.get('apiPort').then((result) => {
 // Слушаем изменения порта
 chrome.storage.onChanged.addListener((changes) => {
   try {
-    if (changes.apiPort) {
     if (changes.apiPort && Number.isInteger(changes.apiPort.newValue)) {
       apiPort = changes.apiPort.newValue;
       connectSSE();
