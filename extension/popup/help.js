@@ -840,13 +840,9 @@ function _setupUpdateSubTabHandler(tab) {
         contentContainer.innerHTML = '<p>Ошибка рендеринга. Перезагрузите popup.</p>';
       }
 
-      // Если это вложенные подвкладки — настраиваем их
+      // Вложенные подвкладки обновления
       if (sub === 'update-linux') {
         _setupUpdateSubTabHandler('update-linux');
-      } // ... и т.д.
-    });
-  });
-}
       } else if (sub === 'update-macos') {
         _setupUpdateSubTabHandler('update-macos');
       } else if (sub === 'update-macos-intel') {
