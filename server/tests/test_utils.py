@@ -16,7 +16,8 @@ from unittest.mock import patch
 
 from server.logging_config import reopen_logging
 from server.utils import (_validate_port, clear_all_data, clear_data_only,
-                          clear_logs_only, get_data_dir, write_port_file)
+                          clear_logs_only, get_data_dir, redact_url,
+                          write_port_file)
 
 
 class TestGetDataDirEnvVar(unittest.TestCase):
@@ -452,6 +453,48 @@ class TestWritePortFile(unittest.TestCase):
         with self.assertRaises(TypeError):
             # type: ignore[reportArgumentType] — намеренно передаём строку для проверки ошибки
             write_port_file('8081', 8080)  # type: ignore[reportArgumentType]
+
+
+class TestRedactUrl(unittest.TestCase):
+    """Тесты redact_url — удаление query-параметров из URL для логов."""
+
+    def test_removes_query_string(self):
+        """URL с query-строкой → возвращается без query-части."""
+        self.assertEqual(
+            redact_url('http://127.0.0.1:8081/api/config?token=secret'),
+            'http://127.0.0.1:8081/api/config',
+        )
+
+    def test_removes_query_with_multiple_params(self):
+        """URL с несколькими query-параметрами → без query-части."""
+        self.assertEqual(
+            redact_url('http://example.com/path?a=1&b=2&token=abc'),
+            'http://example.com/path',
+        )
+
+    def test_url_without_query_unchanged(self):
+        """URL без query-строки → возвращается без изменений."""
+        url = 'http://127.0.0.1:8081/api/config'
+        self.assertEqual(redact_url(url), url)
+
+    def test_empty_string_returns_empty(self):
+        """Пустая строка → возвращается как есть."""
+        self.assertEqual(redact_url(''), '')
+
+    def test_none_returns_none(self):
+        """None → возвращается как есть (не падает)."""
+        self.assertIsNone(redact_url(None))
+
+    def test_relative_path_with_query(self):
+        """Относительный путь с query → без query-части."""
+        self.assertEqual(redact_url('/api/events?token=abc'), '/api/events')
+
+    def test_url_with_fragment_removes_query_and_fragment(self):
+        """URL с фрагментом (#) → query и фрагмент убираются (всё после '?')."""
+        self.assertEqual(
+            redact_url('http://example.com/path?token=abc#section'),
+            'http://example.com/path',
+        )
 
 
 if __name__ == '__main__':

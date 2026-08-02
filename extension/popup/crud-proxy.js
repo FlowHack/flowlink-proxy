@@ -144,10 +144,10 @@ export async function handleSaveProxy(loadAndRender) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка сохранения прокси:', e);
-    let isNetworkError = false;
-    if (e.message.startsWith('NETWORK:') || e.message.includes('Failed to fetch')) {
-      isNetworkError = true;
-    }
+    // Типизированная ошибка (ApiError.kind) или обратная совместимость
+    const isNetworkError = e.kind === 'network' || e.kind === 'timeout'
+      || e.message.startsWith('NETWORK:') || e.message.startsWith('TIMEOUT:')
+      || e.message.includes('Failed to fetch');
     const msg = isNetworkError
       ? 'Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy.'
       : e.message;

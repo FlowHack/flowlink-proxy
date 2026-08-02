@@ -77,12 +77,16 @@ async function pushEnabledState() {
     // По умолчанию расширение включено (true)
     const enabled = result.extEnabled !== undefined ? result.extEnabled : true;
     const token = await getAuthToken(`http://127.0.0.1:${apiPort}/api`);
-    await fetch(`http://127.0.0.1:${apiPort}/api/enabled`, {
+    const res = await fetch(`http://127.0.0.1:${apiPort}/api/enabled`, {
       method: 'POST',
       headers: authHeaders(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ enabled }),
       signal: AbortSignal.timeout(5000),
     });
+    if (!res.ok) {
+      console.warn('[FlowLink Proxy] Бэкенд вернул HTTP', res.status, 'при отправке состояния');
+      return;
+    }
     console.log('[FlowLink Proxy] Отправлено состояние бэкенду:', enabled);
   } catch (e) {
     console.warn('[FlowLink Proxy] Не удалось отправить состояние бэкенду:', e);
@@ -152,6 +156,12 @@ function _openEventSource(url) {
       void chrome.storage.local.set({ needUpdate: true, needUpdateVersion: version, needUpdateAt: Date.now() }).catch(e => console.warn('[FlowLink Proxy] SSE: ошибка записи в storage:', e));
     });
 
+    // Бэкенд перезапустился — расширение перечитывает конфиг
+    eventSource.addEventListener('backend_ready', () => {
+      console.log('[FlowLink Proxy] SSE: бэкенд готов, перечитываю конфиг');
+      void chrome.storage.local.set({ configChanged: true, configChangedAt: Date.now() }).catch(e => console.warn('[FlowLink Proxy] SSE: ошибка записи в storage:', e));
+    });
+
     eventSource.onerror = (err) => {
       _sseErrorCount++;
       if (_sseErrorCount % 5 === 0) {
@@ -163,6 +173,7 @@ function _openEventSource(url) {
     eventSource.onopen = () => {
       console.log('[FlowLink Proxy] SSE: подключено');
       _sseErrorCount = 0;
+      updateBadge(true);
       pushEnabledState();
     };
   } catch (e) {
@@ -178,12 +189,31 @@ function _openEventSource(url) {
  * EventSource может не переподключиться автоматически — здесь мы
  * принудительно пересоздаём соединение, когда бэкенд становится доступен.
  */
+/**
+ * Обновляет badge на иконке расширения.
+ * При недоступности бэкенда — красный badge '!', при доступности — сброс.
+ * @param {boolean} backendAvailable — доступен ли бэкенд.
+ */
+function updateBadge(backendAvailable) {
+  try {
+    if (backendAvailable) {
+      void chrome.action.setBadgeText({ text: '' });
+    } else {
+      void chrome.action.setBadgeText({ text: '!' });
+      void chrome.action.setBadgeBackgroundColor({ color: '#d32f2f' });
+    }
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Не удалось обновить badge:', e);
+  }
+}
+
 function ensureSSEConnected() {
   // Если соединение уже открыто — не трогаем.
   // Если eventSource застрял в состоянии CONNECTING (бэкенд появился позже),
   // EventSource может не переподключиться сам — здесь мы принудительно
   // пересоздаём соединение, когда бэкенд становится доступен.
   if (eventSource && eventSource.readyState === EventSource.OPEN) {
+    updateBadge(true);
     return;
   }
   // eventSource ещё не создан или закрыт — пробуем переподключиться
@@ -192,11 +222,15 @@ function ensureSSEConnected() {
     .then((res) => {
       if (res.ok) {
         console.log('[FlowLink Proxy] SSE: бэкенд доступен, переподключаюсь');
+        updateBadge(true);
         connectSSE();
+      } else {
+        updateBadge(false);
       }
     })
     .catch((e) => {
       console.debug('[FlowLink Proxy] SSE: бэкенд недоступен, жду следующей проверки:', (e && e.message) ? e.message : e);
+      updateBadge(false);
       // Бэкенд недоступен — ждём следующей проверки
     });
 }

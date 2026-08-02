@@ -13,6 +13,9 @@ let backendVersion = null;
 /** Тег последнего доступного обновления (например 'v0.3.0') или пустая строка. */
 let latestTag = null;
 
+/** Флаг: подсказка про VPN/прокси уже показана (не спамим). */
+let _vpnHintShown = false;
+
 export { backendVersion, latestTag };
 
 /**
@@ -56,7 +59,10 @@ export async function checkForUpdates(simulate = false, simulateVersion = '') {
     const resp = await fetch(GITHUB_API_RELEASES, {
       signal: AbortSignal.timeout(8000),
     });
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      _showVpnHint();
+      return;
+    }
     const release = await resp.json();
     latestTag = release.tag_name || '';
     if (!latestTag) return;
@@ -68,6 +74,28 @@ export async function checkForUpdates(simulate = false, simulateVersion = '') {
     }
   } catch (e) {
     console.warn('[FlowLink Proxy] Ошибка проверки обновлений GitHub:', e);
+    // GitHub может быть заблокирован (например, в РФ) — подсказываем про VPN
+    _showVpnHint();
+  }
+}
+
+/**
+ * Показывает подсказку про VPN/прокси при недоступности GitHub API.
+ * Показывается один раз за сессию, чтобы не спамить пользователя.
+ */
+function _showVpnHint() {
+  if (_vpnHintShown) return;
+  _vpnHintShown = true;
+  try {
+    const showToast = window.__flowlinkShowToast;
+    if (typeof showToast === 'function') {
+      showToast(
+        'Не удалось проверить обновления. Возможно, GitHub заблокирован — используйте VPN или прокси.',
+        'warning',
+      );
+    }
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Не удалось показать подсказку про VPN:', e);
   }
 }
 

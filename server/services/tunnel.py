@@ -16,7 +16,7 @@ from ipaddress import ip_address
 
 from server.protocols import ProxyError, get_protocol
 from server.services.pipe import pipe, pipe_http_request, pipe_http_response
-from server.utils import proxy_addr, safe_close_writer
+from server.utils import proxy_addr, redact_url, safe_close_writer
 
 logger = logging.getLogger('flowlink.tunnel')
 
@@ -115,12 +115,12 @@ async def _send_error(
     Returns:
         None.
     """
-    logger.warning('%s для %s', message, url)
+    logger.warning('%s для %s', message, redact_url(url))
     try:
         client_writer.write(b'HTTP/1.1 502 Bad Gateway\r\n\r\n')
         await client_writer.drain()
     except (OSError, ConnectionError) as e:
-        logger.debug('Не удалось отправить 502 клиенту (%s): %s', url, e)
+        logger.debug('Не удалось отправить 502 клиенту (%s): %s', redact_url(url), e)
 
 
 async def validate_target(host: str, port: int) -> None:
@@ -220,19 +220,20 @@ async def _handle_tunnel_error(
     Returns:
         None. Все ошибки логируются внутри и наружу не пробрасываются.
     """
+    safe_url = redact_url(url)
     if isinstance(error, ProxyError):
-        msg = f'{prefix}Ошибка SOCKS5 для {url} через {proxy_addr_str}: {error}'
+        msg = f'{prefix}Ошибка SOCKS5 для {safe_url} через {proxy_addr_str}: {error}'
         await _send_error(client_writer, url, msg)
     elif isinstance(error, (asyncio.TimeoutError, OSError, ConnectionError)):
-        msg = (f'{prefix}Ошибка соединения для {url} '
+        msg = (f'{prefix}Ошибка соединения для {safe_url} '
                f'через {proxy_addr_str}: {error}')
         await _send_error(client_writer, url, msg)
     else:
         logger.error(
             '%sНеожиданная ошибка для %s через %s: %s',
-            prefix, url, proxy_addr_str, error,
+            prefix, safe_url, proxy_addr_str, error,
         )
-        msg = f'{prefix}Ошибка для {url} через {proxy_addr_str}: {error}'
+        msg = f'{prefix}Ошибка для {safe_url} через {proxy_addr_str}: {error}'
         await _send_error(client_writer, url, msg)
 
 
@@ -311,12 +312,16 @@ async def tunnel_connect(
     proxy: dict | None = None,
 ) -> None:
     """Устанавливает HTTPS-туннель через SOCKS5 (если proxy) или напрямую."""
+    # Значения по умолчанию на случай ошибки ДО yield в _tunnel_context:
+    # тогда proxy_addr_str/target_host/target_port не присваиваются,
+    # но используются в except-блоке.
+    proxy_addr_str = proxy_addr(proxy, 'direct')
+    target_host, target_port = target
     try:
         async with _tunnel_context(
             client, target, url, proxy,
         ) as (remote_reader, remote_writer, proxy_addr_str):
             client_reader, client_writer = client
-            target_host, target_port = target
 
             client_writer.write(b'HTTP/1.1 200 Connection Established\r\n\r\n')
             await client_writer.drain()
@@ -330,11 +335,16 @@ async def tunnel_connect(
                 'Туннель %s:%s через %s завершён',
                 target_host, target_port, proxy_addr_str,
             )
-    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError):
+    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError) as e:
         # Ошибка соединения уже обработана внутри _tunnel_context
         # (клиенту отправлен 502). Здесь перехватываем перевыброшенную
         # ошибку, чтобы не логировать её как неожиданную в proxy.py.
-        pass
+        # Ошибки ПОСЛЕ yield (обрыв при передаче данных) не проходят через
+        # except генератора — логируем их здесь на debug-уровне.
+        logger.debug(
+            'Туннель %s:%s через %s прерван: %s',
+            target_host, target_port, proxy_addr_str, e,
+        )
 
 
 async def tunnel_http(
@@ -358,8 +368,13 @@ async def tunnel_http(
             )
             await pipe_http_request(client_reader, remote_writer)
             await pipe_http_response(remote_reader, client_writer)
-    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError):
+    except (ProxyError, asyncio.TimeoutError, OSError, ConnectionError) as e:
         # Ошибка соединения уже обработана внутри _tunnel_context
         # (клиенту отправлен 502). Здесь перехватываем перевыброшенную
         # ошибку, чтобы не логировать её как неожиданную в proxy.py.
-        pass
+        # Ошибки ПОСЛЕ yield (обрыв при передаче данных) не проходят через
+        # except генератора — логируем их здесь на debug-уровне.
+        logger.debug(
+            'HTTP-туннель для %s прерван: %s',
+            redact_url(url), e,
+        )

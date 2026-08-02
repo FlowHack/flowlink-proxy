@@ -359,3 +359,30 @@ def proxy_addr(proxy: dict | None, default: str = 'direct') -> str:
     host = proxy.get('host', '?')
     port = proxy.get('port', '?')
     return f'{host}:{port}'
+
+
+def redact_url(url: str | None) -> str | None:
+    """Убирает query-параметры из URL для безопасного логирования.
+
+    В query-строке могут содержаться секреты (токены, api_key, access_token),
+    которые не должны попадать в файл лога. Функция возвращает URL без
+    query-части (схема + хост + порт + путь).
+
+    Args:
+        url: Исходный URL (может содержать query-строку). None допустим —
+            функция отказоустойчива и вернёт None.
+
+    Returns:
+        URL без query-параметров. При ошибке парсинга — исходный URL.
+        Для None — None.
+    """
+    if not url:
+        return url
+    try:
+        # Отрезаем query-часть по первому '?' (без полного URL-парсинга,
+        # т.к. url может быть относительным или содержать нестандартные схемы)
+        return url.split('?', 1)[0]
+    except (ValueError, AttributeError):
+        # Некорректный URL — возвращаем как есть (не падаем)
+        logger.debug('redact_url: не удалось обработать URL %r', url)
+        return url

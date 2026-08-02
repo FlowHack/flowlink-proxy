@@ -4,63 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FlowLink Proxy — Установка расширения</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0d0d1a;
-      color: #e0e0e0;
-      padding: 2rem;
-      line-height: 1.6;
-    }
-    .container { max-width: 640px; margin: 0 auto; }
-    h1 { color: #7c6bff; margin-bottom: 1rem; font-size: 1.5rem; }
-    h2 { color: #9d8fff; margin: 1.5rem 0 0.5rem; font-size: 1.1rem; }
-    p { margin-bottom: 0.8rem; }
-    a { color: #7c6bff; }
-    ol, ul { padding-left: 1.5rem; margin-bottom: 1rem; }
-    li { margin-bottom: 0.4rem; }
-    code {
-      background: #1a1a2e;
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
-      font-size: 0.9rem;
-    }
-    .step {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
-      border-radius: 8px;
-      padding: 1rem 1.2rem;
-      margin-bottom: 1rem;
-    }
-    .step-num {
-      display: inline-block;
-      background: #7c6bff;
-      color: #fff;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 24px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      margin-right: 0.5rem;
-    }
-    .note {
-      background: #1a1a2e;
-      border-left: 3px solid #f0ad4e;
-      padding: 0.6rem 1rem;
-      margin: 1rem 0;
-      font-size: 0.9rem;
-    }
-    .footer {
-      margin-top: 2rem;
-      padding-top: 1rem;
-      border-top: 1px solid #2a2a4a;
-      color: #666;
-      font-size: 0.85rem;
-    }
-  </style>
+  <link rel="stylesheet" href="help.css">
 </head>
 <body>
   <div class="container">
@@ -98,17 +42,6 @@
       &middot; Поддержка: <a href="mailto:flowlink.proxy@atomicmail.io">flowlink.proxy@atomicmail.io</a>
     </div>
   </div>
-  <script>
-    /* Подставляет актуальный URL релизов из shared/constants.js вместо хардкода */
-    fetch(chrome.runtime.getURL('shared/constants.js'))
-      .then(function(r) { return r.text(); })
-      .then(function(code) {
-        var match = code.match(/GITHUB_RELEASES_URL\s*=\s*'([^']+)'/);
-        if (match) {
-          document.querySelectorAll('a[href*="github.com/FlowHack/flowlink-proxy/releases"]')
-            .forEach(function(a) { a.href = match[1]; });
-        }
-      });
-  </script>
+  <script src="help-page.js"></script>
 </body>
 </html>

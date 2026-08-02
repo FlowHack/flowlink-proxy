@@ -87,32 +87,47 @@ class Socks5Protocol(ProxyProtocol):
             ) from e
         return reader, writer
 
-    async def ping(self, timeout: float = 5) -> bool:
+    async def ping(self, timeout: float = 5) -> tuple[bool, str | None]:
         """
         Проверяет доступность SOCKS5-прокси (TCP + handshake без CONNECT).
 
-        Returns True, если прокси ответил на handshake, иначе False.
+        Returns:
+            Кортеж (alive, error_kind): alive — True если прокси ответил,
+            error_kind — тип ошибки ('timeout' | 'refused' | 'reset' |
+            'handshake' | None при успехе).
         """
         try:
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(self._host, self._port),
                 timeout=timeout,
             )
-        except (OSError, ConnectionError, asyncio.TimeoutError) as e:
+        except asyncio.TimeoutError:
+            logger.debug('SOCKS5 ping: таймаут подключения к %s:%d',
+                         self._host, self._port)
+            return False, 'timeout'
+        except ConnectionRefusedError:
+            logger.debug('SOCKS5 ping: соединение отклонено %s:%d',
+                         self._host, self._port)
+            return False, 'refused'
+        except ConnectionResetError:
+            logger.debug('SOCKS5 ping: соединение сброшено %s:%d',
+                         self._host, self._port)
+            return False, 'reset'
+        except OSError as e:
             logger.debug('SOCKS5 ping: не удалось подключиться к %s:%d: %s',
                          self._host, self._port, e)
-            return False
+            return False, 'network'
 
         try:
             await self._handshake(reader, writer)
-            return True
+            return True, None
         except (ProxyError, asyncio.IncompleteReadError,
                 ValueError, asyncio.TimeoutError) as e:
             # Расширенный перехват: не только Socks5Error, но и ошибки
             # чтения/распаковки ответа — ping не должен падать.
             logger.debug('SOCKS5 ping: прокси %s:%d недоступен: %s',
                          self._host, self._port, e)
-            return False
+            return False, 'handshake'
         finally:
             writer.close()
 

@@ -203,10 +203,11 @@ async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
         logger.info('Пинг %s: %s мс', addr, result['latency'])
     else:
         err = result.get('error')
+        err_kind = result.get('errorKind')
         if err:
-            logger.warning('Пинг %s: недоступен — %s', addr, err)
+            logger.warning('Пинг %s: недоступен — %s (тип: %s)', addr, err, err_kind)
         else:
-            logger.warning('Пинг %s: недоступен', addr)
+            logger.warning('Пинг %s: недоступен (тип: %s)', addr, err_kind)
 
     return result, 200
 

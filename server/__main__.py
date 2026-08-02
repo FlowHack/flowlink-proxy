@@ -555,6 +555,11 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
                     return
                 result['value'] = bool(second_result)
             except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
+                # Логируем в файл — иначе ошибка видна только в диалоге
+                logger.error(
+                    'Ошибка перезапуска браузера %s: %s',
+                    browser_path, e, exc_info=True,
+                )
                 result['error'] = e
             finally:
                 try:
@@ -587,6 +592,11 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
                 browser_path, proxy_port=proxy_port,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
+            # Логируем в файл — иначе ошибка видна только в диалоге
+            logger.error(
+                'Ошибка запуска браузера %s: %s',
+                browser_path, e, exc_info=True,
+            )
             result['error'] = e
         finally:
             try:
@@ -1111,6 +1121,10 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
         write_port_file(args.api_port, args.proxy_port)
     except OSError as e:
         logger.warning('Не удалось записать файл портов: %s', e)
+
+    # Уведомляем расширение о готовности бэкенда (после перезапуска).
+    # Расширение может переподключиться к SSE и перечитать конфиг.
+    asyncio.create_task(emit_event('backend_ready', {'apiPort': args.api_port}))
 
     # Словарь callbacks создаётся заранее и передаётся в _watch_api_connection,
     # чтобы уведомление могло привязаться к tk_root трея (заполняется позже).

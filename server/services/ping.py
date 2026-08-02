@@ -40,10 +40,10 @@ async def ping_proxy(proxy_id: str) -> dict:
         logger.warning('Неизвестный тип прокси %s: %s', proxy.get('proxyId'), e)
         return {'alive': False, 'latency': None, 'error': f'Неизвестный тип прокси: {e}'}
 
-    alive = await proto.ping(timeout=5)
+    alive, error_kind = await proto.ping(timeout=5)
 
     if not alive:
-        return {'alive': False, 'latency': None}
+        return {'alive': False, 'latency': None, 'errorKind': error_kind}
 
     latency = int((time.monotonic() - start) * 1000)
     return {'alive': True, 'latency': latency}

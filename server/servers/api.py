@@ -466,6 +466,8 @@ class ApiServer(BaseServer):
         need_update: bool = False,
         auth_token: str | None = None):
         """
+        Инициализирует API-сервер FlowLink Proxy.
+
         Args:
             router: Экземпляр MaskRouter (refresh после сохранения конфига).
             host: Интерфейс (по умолч. localhost).
@@ -586,7 +588,7 @@ class ApiServer(BaseServer):
                 )
             }
 
-    async def _handle_client(  # pylint: disable=too-many-branches,too-many-locals
+    async def _handle_client(  # pylint: disable=too-many-branches,too-many-locals  # диспетчер всех HTTP-методов; разбиение ухудшит читаемость
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
     ) -> None:
         """Диспетчеризует входящие HTTP-запросы к API.
@@ -666,7 +668,9 @@ class ApiServer(BaseServer):
             logger.debug('API: таймаут ожидания запроса')
         except (ConnectionError, OSError,
                 asyncio.IncompleteReadError) as e:
-            logger.error('API ошибка: %s', e, exc_info=True)
+            # Штатный разрыв соединения (клиент закрыл fetch/SSE) — не ошибка.
+            # Логируем на debug без стека, чтобы не засорять логи.
+            logger.debug('API: соединение разорвано: %s', e)
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Страховка от непредвиденных ошибок: не роняем сервер,
             # а отвечаем 500 и логируем полный стек.

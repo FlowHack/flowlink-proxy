@@ -8,6 +8,31 @@ import { API_BASE } from './constants.js';
 import { getAuthToken, authHeaders } from './auth.js';
 
 /**
+ * Типизированная ошибка API.
+ *
+ * Поле `kind` позволяет различать тип ошибки:
+ * - 'timeout' — таймаут запроса (AbortError)
+ * - 'network' — сеть недоступна (TypeError 'Failed to fetch')
+ * - 'http' — бэкенд ответил HTTP-кодом != 2xx
+ * - 'json' — бэкенд вернул невалидный JSON
+ *
+ * Для обратной совместимости message сохраняет префикс 'NETWORK:'
+ * для сетевых/таймаут-ошибок (проверяется в crud-proxy.js/crud-mask.js).
+ */
+export class ApiError extends Error {
+  /**
+   * @param {string} message — текст ошибки.
+   * @param {'timeout'|'network'|'http'|'json'} kind — тип ошибки.
+   */
+  constructor(message, kind) {
+    super(message);
+    this.name = 'ApiError';
+    this.kind = kind;
+    this._apiError = true;
+  }
+}
+
+/**
  * Извлекает сообщение об ошибке из ответа сервера.
  * Пытается распарсить JSON-тело и вернуть поле `error`.
  * При неудаче — возвращает стандартное сообщение с HTTP-кодом.
@@ -29,6 +54,18 @@ async function _handleApiError(res, method) {
 }
 
 /**
+ * Классифицирует ошибку fetch по типу.
+ * @param {Error} e — перехваченное исключение.
+ * @returns {'timeout'|'network'} — тип ошибки.
+ */
+function _classifyFetchError(e) {
+  if (e && e.name === 'AbortError') {
+    return 'timeout';
+  }
+  return 'network';
+}
+
+/**
  * GET-запрос к API.
  * @param {string} endpoint — путь вида '/config', '/status' и т.д.
  * @returns {Promise<object>} — распарсенный JSON-ответ.
@@ -41,20 +78,23 @@ export async function apiGet(endpoint) {
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
-      throw Object.assign(new Error(await _handleApiError(res, 'GET')), { _apiError: true });
+      throw new ApiError(await _handleApiError(res, 'GET'), 'http');
     }
     try {
       return await res.json();
     } catch (e) {
       console.warn('[FlowLink Proxy] apiGet: невалидный JSON:', e);
-      throw Object.assign(new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.'), { _apiError: true });
+      throw new ApiError('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.', 'json');
     }
   } catch (e) {
-    // Если ошибка возникла внутри нашего try (HTTP/JSON) — пробрасываем без префикса NETWORK
-    if (e._apiError) {
+    // Если ошибка уже типизирована (HTTP/JSON) — пробрасываем как есть
+    if (e instanceof ApiError) {
       throw e;
     }
-    throw new Error('NETWORK:' + (e.message || String(e)));
+    // Сетевая ошибка или таймаут — классифицируем
+    const kind = _classifyFetchError(e);
+    const prefix = kind === 'timeout' ? 'TIMEOUT:' : 'NETWORK:';
+    throw new ApiError(prefix + (e.message || String(e)), kind);
   }
 }
 
@@ -74,20 +114,23 @@ export async function apiPost(endpoint, body) {
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
-      throw Object.assign(new Error(await _handleApiError(res, 'POST')), { _apiError: true });
+      throw new ApiError(await _handleApiError(res, 'POST'), 'http');
     }
     try {
       return await res.json();
     } catch (e) {
       console.warn('[FlowLink Proxy] apiPost: невалидный JSON:', e);
-      throw Object.assign(new Error('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.'), { _apiError: true });
+      throw new ApiError('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.', 'json');
     }
   } catch (e) {
-    // Если ошибка возникла внутри нашего try (HTTP/JSON) — пробрасываем без префикса NETWORK
-    if (e._apiError) {
+    // Если ошибка уже типизирована (HTTP/JSON) — пробрасываем как есть
+    if (e instanceof ApiError) {
       throw e;
     }
-    throw new Error('NETWORK:' + (e.message || String(e)));
+    // Сетевая ошибка или таймаут — классифицируем
+    const kind = _classifyFetchError(e);
+    const prefix = kind === 'timeout' ? 'TIMEOUT:' : 'NETWORK:';
+    throw new ApiError(prefix + (e.message || String(e)), kind);
   }
 }
 
@@ -115,7 +158,9 @@ export async function apiPostRaw(endpoint, body) {
       return { status: res.status, data: {} };
     }
   } catch (e) {
-    // Сетевая ошибка или непредвиденное исключение — добавляем префикс NETWORK
-    throw new Error('NETWORK:' + (e.message || String(e)));
+    // Сетевая ошибка или таймаут — классифицируем
+    const kind = _classifyFetchError(e);
+    const prefix = kind === 'timeout' ? 'TIMEOUT:' : 'NETWORK:';
+    throw new ApiError(prefix + (e.message || String(e)), kind);
   }
 }

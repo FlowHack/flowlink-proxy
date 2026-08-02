@@ -16,7 +16,7 @@ import { openAddMaskModal, openEditMaskModal, handleSaveMask, handleDeleteMask, 
 import { renderTabStatus } from './tab-status.js';
 import { checkBackendVersion, checkForUpdates, backendVersion, latestTag } from './updater.js';
 import { handleSettingsSave } from './settings.js';
-import { discoverPort } from '../shared/port_discovery.js';
+import { discoverPort, extractPortFromBase } from '../shared/port_discovery.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -77,6 +77,8 @@ const POLL_TIMEOUT = 3000;
 
 let _pollTimer = null;
 let _pollInterval = POLL_INTERVAL;
+/** Счётчик последовательных неудачных опросов (для автопереподключения порта). */
+let _pollFailCount = 0;
 
 /** Загружает сохранённый порт из chrome.storage. */
 async function loadStoredPort() {
@@ -291,7 +293,9 @@ async function quickPing() {
   const timer = setTimeout(() => ctrl.abort(), POLL_TIMEOUT);
   try {
     const res = await fetch(`${API_BASE}/version`, { signal: ctrl.signal });
-    return res.ok;
+    // Бэкенд жив, если получен ЛЮБОЙ HTTP-ответ (даже 500) — процесс работает.
+    // Только сетевая ошибка/таймаут означают «бэкенд недоступен».
+    return res.status >= 100 && res.status < 600;
   } catch {
     return false;
   } finally {
@@ -307,15 +311,18 @@ async function pollBackend() {
     if (ok && !state.connected) {
       // Бэкенд появился — перезагружаем всё
       _pollInterval = POLL_INTERVAL;
+      _pollFailCount = 0;
       showError(false);
       await loadAndRender();
     } else if (!ok && state.connected) {
       // Бэкенд пропал
       _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);
+      _pollFailCount++;
       showError(true);
     } else if (ok && state.connected) {
       // Бэкенд жив — сброс интервала, проверяем флаг обновления конфига
       _pollInterval = POLL_INTERVAL;
+      _pollFailCount = 0;
       const storage = await chrome.storage.local.get('configChanged');
       if (storage.configChanged) {
         await chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления из storage:', e));
@@ -329,6 +336,22 @@ async function pollBackend() {
     } else {
       // Был не подключён, всё ещё не подключён — увеличиваем интервал
       _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);
+      _pollFailCount++;
+      // После 3 неудачных опросов — пробуем пересканировать порты
+      // (бэкенд мог перезапуститься на другом порту)
+      if (_pollFailCount >= 3) {
+        _pollFailCount = 0;
+        console.log('[FlowLink Proxy] Бэкенд не отвечает, пересканирую порты...');
+        try {
+          const foundPort = await discoverPort();
+          if (foundPort !== extractPortFromBase(API_BASE)) {
+            console.log('[FlowLink Proxy] Найден новый порт:', foundPort);
+            await loadAndRender();
+          }
+        } catch (e) {
+          console.warn('[FlowLink Proxy] Ошибка пересканирования портов:', e);
+        }
+      }
     }
   } finally {
     // Перезапускаем таймер ВСЕГДА — даже если storage API или loadAndRender

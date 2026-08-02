@@ -757,6 +757,113 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         finally:
             self._command_running = False
 
+    def _build_item_row(
+        self,
+        text: str,
+        icon: str = '',
+        command: Optional[Callable[[], None]] = None,
+        color: Optional[str] = None,
+        tooltip: Optional[str] = None,
+    ) -> tk.Frame:
+        """Строит базовую строку пункта меню: frame, иконка, текст, hover/клик.
+
+        Общий каркас для обычных пунктов и пунктов с чекбоксом (DRY).
+        Возвращает frame, к которому вызывающий метод может добавить
+        дополнительные виджеты (например, чекбокс справа).
+
+        Args:
+            text: Текст пункта.
+            icon: Unicode-иконка (опционально).
+            command: Обработчик клика (опционально).
+            color: Цвет текста (опционально).
+            tooltip: Инлайн-подсказка в статусбаре (опционально).
+
+        Returns:
+            tk.Frame — построенная строка пункта меню.
+        """
+        frame = tk.Frame(  # type: ignore[reportCallIssue]  # pyright не знает tkinter
+            self._popup, bg=PopupColors.BG, cursor='hand2',
+        )
+        frame.pack(fill='x', padx=4, pady=(0, 2))
+
+        # Иконка
+        if icon:
+            icon_lbl = tk.Label(
+                frame,
+                text=icon,
+                bg=PopupColors.BG,
+                fg=color or PopupColors.ACCENT,
+                font=('Segoe UI', 12),
+                width=2,
+                anchor='center',
+            )
+            icon_lbl.pack(side='left', padx=(4, 4))
+
+        # Текст
+        fg = color or PopupColors.TEXT
+        text_lbl = tk.Label(
+            frame,
+            text=text,
+            bg=PopupColors.BG,
+            fg=fg,
+            font=('Segoe UI', 10),
+            anchor='w',
+        )
+        text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=4)
+
+        # Hover + клик
+        def on_enter(
+            _event: tk.Event[tk.Tk],
+            fr: tk.Frame = frame,
+        ) -> None:
+            """Подсвечивает пункт меню при наведении курсора."""
+            for child in fr.winfo_children():
+                child.configure(
+                    # configure() принимает любые runtime-атрибуты
+                    bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
+                )
+            fr.configure(
+                # configure() принимает любые runtime-атрибуты
+                bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
+            )
+
+        def on_leave(
+            _event: tk.Event[tk.Tk],
+            fr: tk.Frame = frame,
+        ) -> None:
+            """Возвращает фон пункта меню при уходе курсора."""
+            for child in fr.winfo_children():
+                child.configure(
+                    # configure() принимает любые runtime-атрибуты
+                    bg=PopupColors.BG,  # type: ignore[reportCallIssue]
+                )
+            fr.configure(bg=PopupColors.BG)
+
+        def on_click(
+            _event: tk.Event[tk.Tk],
+            cmd: Optional[Callable[[], None]] = command,
+        ) -> None:
+            """Обрабатывает клик по пункту меню.
+
+            Закрывает popup ДО выполнения команды и запускает
+            команду через общий метод _execute_menu_command.
+            """
+            logger.debug('Popup: клик по пункту меню')
+            self._execute_menu_command(cmd)
+
+        for widget in [frame] + frame.winfo_children():
+            # bind() в runtime принимает любой callable
+            widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
+            # bind() в runtime принимает любой callable
+            widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
+            # bind() в runtime принимает любой callable
+            widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
+            # Тултип: показываем мгновенно при наведении,
+            # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
+            self._bind_tooltip(widget, tooltip)
+
+        return frame
+
     def _add_menu_item(
         self,
         text: str,
@@ -775,86 +882,13 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             tooltip: Инлайн-подсказка в статусбаре (опционально).
         """
         try:
-            frame = tk.Frame(  # type: ignore[reportCallIssue]  # pyright не знает tkinter
-                self._popup, bg=PopupColors.BG, cursor='hand2',
-            )
-            frame.pack(fill='x', padx=4, pady=(0, 2))
-
-            # Иконка
-            if icon:
-                icon_lbl = tk.Label(
-                    frame,
-                    text=icon,
-                    bg=PopupColors.BG,
-                    fg=color or PopupColors.ACCENT,
-                    font=('Segoe UI', 12),
-                    width=2,
-                    anchor='center',
-                )
-                icon_lbl.pack(side='left', padx=(4, 4))
-
-            # Текст
-            fg = color or PopupColors.TEXT
-            text_lbl = tk.Label(
-                frame,
+            self._build_item_row(
                 text=text,
-                bg=PopupColors.BG,
-                fg=fg,
-                font=('Segoe UI', 10),
-                anchor='w',
+                icon=icon,
+                command=command,
+                color=color,
+                tooltip=tooltip,
             )
-            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=4)
-
-            # Hover + клик
-            def on_enter(
-                _event: tk.Event[tk.Tk],
-                fr: tk.Frame = frame,
-            ) -> None:
-                """Подсвечивает пункт меню при наведении курсора."""
-                for child in fr.winfo_children():
-                    child.configure(
-                        # configure() принимает любые runtime-атрибуты
-                        bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
-                    )
-                fr.configure(
-                    # configure() принимает любые runtime-атрибуты
-                    bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
-                )
-
-            def on_leave(
-                _event: tk.Event[tk.Tk],
-                fr: tk.Frame = frame,
-            ) -> None:
-                """Возвращает фон пункта меню при уходе курсора."""
-                for child in fr.winfo_children():
-                    child.configure(
-                        # configure() принимает любые runtime-атрибуты
-                        bg=PopupColors.BG,  # type: ignore[reportCallIssue]
-                    )
-                fr.configure(bg=PopupColors.BG)
-
-            def on_click(
-                _event: tk.Event[tk.Tk],
-                cmd: Optional[Callable[[], None]] = command,
-            ) -> None:
-                """Обрабатывает клик по пункту меню.
-
-                Закрывает popup ДО выполнения команды и запускает
-                команду через общий метод _execute_menu_command.
-                """
-                logger.debug('Popup: клик по пункту меню')
-                self._execute_menu_command(cmd)
-
-            for widget in [frame] + frame.winfo_children():
-                # bind() в runtime принимает любой callable
-                widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
-                # bind() в runtime принимает любой callable
-                widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
-                # bind() в runtime принимает любой callable
-                widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
-                # Тултип: показываем мгновенно при наведении,
-                # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
-                self._bind_tooltip(widget, tooltip)
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_menu_item: %s', e,
@@ -864,9 +898,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                 'Popup: ошибка данных в _add_menu_item: %s', e,
             )
 
-    # Подавление: метод строит пункт меню с чекбоксом и тремя
-    # hover/клик-обработчиками; разбиение ухудшит читаемость.
-    def _add_check_item(  # pylint: disable=too-many-locals
+    def _add_check_item(
         self,
         text: str,
         icon: str = '',
@@ -884,36 +916,14 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             tooltip: Инлайн-подсказка в статусбаре (опционально).
         """
         try:
-            frame = tk.Frame(  # type: ignore[reportCallIssue]  # pyright не знает tkinter
-                self._popup, bg=PopupColors.BG, cursor='hand2',
-            )
-            frame.pack(fill='x', padx=4, pady=(0, 2))
-
-            # Иконка
-            if icon:
-                icon_lbl = tk.Label(
-                    frame,
-                    text=icon,
-                    bg=PopupColors.BG,
-                    fg=PopupColors.ACCENT,
-                    font=('Segoe UI', 12),
-                    width=2,
-                    anchor='center',
-                )
-                icon_lbl.pack(side='left', padx=(4, 4))
-
-            # Текст
-            text_lbl = tk.Label(
-                frame,
+            frame = self._build_item_row(
                 text=text,
-                bg=PopupColors.BG,
-                fg=PopupColors.TEXT,
-                font=('Segoe UI', 10),
-                anchor='w',
+                icon=icon,
+                command=command,
+                tooltip=tooltip,
             )
-            text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=4)
 
-            # Чекбокс
+            # Чекбокс (справа от текста)
             mark = '\u2713' if checked else ''
             check_lbl = tk.Label(
                 frame,
@@ -925,57 +935,6 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                 anchor='center',
             )
             check_lbl.pack(side='right', padx=(0, 8))
-
-            # Hover + клик
-            def on_enter(
-                _event: tk.Event[tk.Tk],
-                fr: tk.Frame = frame,
-            ) -> None:
-                """Подсвечивает пункт с чекбоксом при наведении курсора."""
-                for child in fr.winfo_children():
-                    child.configure(
-                        # configure() принимает любые runtime-атрибуты
-                        bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
-                    )
-                fr.configure(
-                    # configure() принимает любые runtime-атрибуты
-                    bg=PopupColors.SURFACE_HOVER,  # type: ignore[reportCallIssue]
-                )
-
-            def on_leave(
-                _event: tk.Event[tk.Tk],
-                fr: tk.Frame = frame,
-            ) -> None:
-                """Возвращает фон пункта с чекбоксом при уходе курсора."""
-                for child in fr.winfo_children():
-                    child.configure(
-                        # configure() принимает любые runtime-атрибуты
-                        bg=PopupColors.BG,  # type: ignore[reportCallIssue]
-                    )
-                fr.configure(bg=PopupColors.BG)
-
-            def on_click(
-                _event: tk.Event[tk.Tk],
-                cmd: Optional[Callable[[], None]] = command,
-            ) -> None:
-                """Обрабатывает клик по пункту с чекбоксом.
-
-                Закрывает popup ДО выполнения команды и запускает
-                команду через общий метод _execute_menu_command.
-                """
-                logger.debug('Popup: клик по пункту с чекбоксом')
-                self._execute_menu_command(cmd)
-
-            for widget in [frame] + frame.winfo_children():
-                # bind() в runtime принимает любой callable
-                widget.bind('<Enter>', on_enter)  # type: ignore[reportArgumentType]
-                # bind() в runtime принимает любой callable
-                widget.bind('<Leave>', on_leave)  # type: ignore[reportArgumentType]
-                # bind() в runtime принимает любой callable
-                widget.bind('<Button-1>', on_click)  # type: ignore[reportArgumentType]
-                # Тултип: показываем мгновенно при наведении,
-                # прячем при уходе курсора (add='+' сохраняет hover-биндинги)
-                self._bind_tooltip(widget, tooltip)
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_check_item: %s', e,

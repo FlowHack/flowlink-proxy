@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import logging
 import os
 from hashlib import pbkdf2_hmac
@@ -218,6 +219,25 @@ def decrypt(ciphertext_b64: str) -> str:
         iv, ciphertext = raw[:12], raw[12:]
         plaintext = aesgcm.decrypt(iv, ciphertext, None).decode()
         return plaintext
-    except Exception as e:
-        logger.error('Ошибка расшифровки данных: %s', e)
+    except UnicodeDecodeError as e:
+        # Расшифровано, но не является валидной UTF-8 строкой
+        logger.error(
+            'Ошибка расшифровки данных: неверная кодировка: %s',
+            e, exc_info=True,
+        )
+        raise
+    except (binascii.Error, ValueError) as e:
+        # Битый base64 или неверный формат — данные повреждены, ключ цел
+        logger.error(
+            'Ошибка расшифровки данных: неверный формат шифротекста: %s',
+            e, exc_info=True,
+        )
+        raise
+    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: InvalidTag и др.
+        # InvalidTag (повреждённый шифротекст/ключ) и прочие крипто-ошибки.
+        # Детали ключа/шифротекста в лог не попадают — только текст исключения.
+        logger.error(
+            'Ошибка расшифровки данных (возможно, повреждён ключ или '
+            'шифротекст): %s', e, exc_info=True,
+        )
         raise

@@ -101,19 +101,26 @@ class TestSocks5Integration(unittest.TestCase):
         self.loop.run_until_complete(run())
 
     def test_ping_alive(self):
-        """Ping живого прокси → True"""
+        """Ping живого прокси → (True, None)"""
         async def run():
             proto = self._make_proto()
-            result = await proto.ping(timeout=3)
-            self.assertTrue(result)
+            alive, error_kind = await proto.ping(timeout=3)
+            self.assertTrue(alive)
+            self.assertIsNone(error_kind)
         self.loop.run_until_complete(run())
 
     def test_ping_dead_proxy(self):
-        """Ping мёртвого прокси → False"""
+        """Ping мёртвого прокси → (False, 'refused' или 'timeout').
+
+        В разных окружениях закрытый порт даёт либо ConnectionRefusedError
+        ('refused'), либо таймаут ('timeout') — например, при фильтрации
+        брандмауэром. Оба варианта означают «прокси недоступен».
+        """
         async def run():
             proto = self._make_proto(port=1)
-            result = await proto.ping(timeout=0.5)
-            self.assertFalse(result)
+            alive, error_kind = await proto.ping(timeout=0.5)
+            self.assertFalse(alive)
+            self.assertIn(error_kind, ('refused', 'timeout'))
         self.loop.run_until_complete(run())
 
 

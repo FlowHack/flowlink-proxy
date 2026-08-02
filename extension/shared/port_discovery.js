@@ -176,7 +176,7 @@ export async function discoverPort() {
  * @param {string} baseUrl — например 'http://127.0.0.1:8091/api'.
  * @returns {number} — порт (например 8091) или 8081 по умолчанию.
  */
-function extractPortFromBase(baseUrl) {
+export function extractPortFromBase(baseUrl) {
   try {
     const url = new URL(baseUrl);
     const port = parseInt(url.port, 10);
