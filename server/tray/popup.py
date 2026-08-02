@@ -253,7 +253,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         finally:
             self._popup = None
 
-    def _create_popup(
+    def _create_popup(  # pylint: disable=too-many-statements  # создание окна + привязка обработчиков закрытия с повторными попытками
         self,
         x: Optional[int],
         y: Optional[int],
@@ -402,7 +402,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         # чтобы кнопка "Выход" была гарантированно видна
         return sh - height - 4
 
-    def _configure_popup(
+    def _configure_popup(  # pylint: disable=too-many-statements  # настройка геометрии, тултипов и обработчиков закрытия
         self,
         x: Optional[int],
         y: Optional[int],
@@ -498,6 +498,13 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
 
         # Автозакрытие при потере фокуса
         try:
+            # Счётчик попыток привязки обработчиков: если команда меню
+            # ещё выполняется (_command_running), обработчики не привязываются
+            # сразу, а повторная попытка планируется через after(). Ограничение
+            # защищает от бесконечного цикла, если команда зависнет.
+            _focus_bind_attempts = 0
+            _focus_bind_max_attempts = 50  # ~5 секунд при интервале 100мс
+
             def _bind_focus_out() -> None:
                 """Привязывает обработчики закрытия меню.
 
@@ -507,7 +514,26 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                 - глобальный перехват кликов (bind_all на popup-окно)
                   закрывает меню при клике вне его геометрии.
                 """
+                nonlocal _focus_bind_attempts
                 if self._command_running:
+                    # Команда меню ещё выполняется (например, запуск браузера
+                    # через wait_variable). Повторяем попытку позже, чтобы
+                    # обработчики закрытия всё же привязались после завершения
+                    # команды — иначе меню не закроется по клику вне.
+                    if (
+                        _focus_bind_attempts < _focus_bind_max_attempts
+                        and self._popup is not None
+                    ):
+                        _focus_bind_attempts += 1
+                        try:
+                            self._focus_out_after_id = self._popup.after(
+                                100, _bind_focus_out,
+                            )
+                        except tk.TclError:
+                            logger.debug(
+                                'Popup: не удалось перепланировать '
+                                'привязку обработчиков закрытия',
+                            )
                     return
                 if (
                     self._popup

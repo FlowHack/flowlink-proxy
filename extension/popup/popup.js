@@ -276,6 +276,10 @@ async function handleGlobalToggle(checkbox) {
     await apiPost('/enabled', { enabled });
     state.enabled = enabled;
     render(state);
+    // Обновляем строку состояния сразу после переключения ползунка,
+    // не дожидаясь повторного открытия popup.
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0]?.url) renderTabStatus(tabs[0].url, state);
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения:', e);
     showNotification('error', 'Не удалось переключить состояние. Проверьте соединение с бэкендом.');

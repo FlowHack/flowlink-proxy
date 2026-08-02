@@ -1040,7 +1040,10 @@ body {
   font-size: 12px;
   font-weight: 500;
   z-index: 200;
-  white-space: nowrap;
+  max-width: calc(100% - 32px);
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  text-align: center;
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;
