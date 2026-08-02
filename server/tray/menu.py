@@ -481,6 +481,58 @@ def _launch_browser_now(
         log.warning('Функция запуска браузера не зарегистрирована')
 
 
+def _toggle_close_browser_with_app(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+    current_value: bool,
+) -> None:
+    """Переключает настройку «Закрывать браузер вместе с FlowLink Proxy»."""
+    new_val = not current_value
+    log.debug(
+        'Tray: _toggle_close_browser_with_app вызван, new_val=%s',
+        new_val,
+    )
+    log.info(
+        'Tray: закрывать браузер вместе с приложением → %s',
+        'включено' if new_val else 'выключено',
+    )
+    if callbacks.get('close_browser_with_app_setter'):
+        try:
+            callbacks['close_browser_with_app_setter'](new_val)
+        except OSError as exc:
+            log.error(
+                'Tray: ошибка записи close_browser_with_app: %s',
+                exc,
+            )
+    else:
+        log.warning(
+            'Tray: callback close_browser_with_app_setter '
+            'не зарегистрирован',
+        )
+
+
+def _close_browser_now(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """
+    Закрывает браузер, запущенный через FlowLink Proxy.
+
+    Args:
+        callbacks: Словарь коллбэков.
+        log: Логгер.
+    """
+    closer = callbacks.get('browser_closer')
+    if closer:
+        success = closer()
+        if success:
+            log.info('Браузер закрыт')
+        else:
+            log.error('Не удалось закрыть браузер')
+    else:
+        log.warning('Функция закрытия браузера не зарегистрирована')
+
+
 def _exit(
     stop_fn: Callable[[], None],
     callbacks: Dict[str, Any],
@@ -488,6 +540,11 @@ def _exit(
 ) -> None:
     """Выполняет выход из приложения."""
     log.info('Tray: выбран Выход')
+
+    # Закрываем браузер, запущенный через FlowLink Proxy, если это
+    # требуется. Выход происходит всегда — диалог лишь уточняет,
+    # закрывать ли браузер.
+    _handle_browser_on_exit(callbacks, log)
 
     # Сначала останавливаем сервер, потом трей
     if callbacks.get('stop'):
@@ -509,6 +566,129 @@ def _exit(
 
     # Гарантированный выход, если предыдущие шаги не завершили процесс
     os._exit(0)
+
+
+def _handle_browser_on_exit(
+    callbacks: Dict[str, Any],
+    log: logging.Logger,
+) -> None:
+    """
+    Закрывает браузер при выходе, если он запущен через FlowLink Proxy.
+
+    Если настройка «Закрывать браузер вместе с FlowLink Proxy» включена —
+    браузер закрывается молча. Иначе показывается диалог с предупреждением
+    и кнопками «Закрыть браузер вместе с FlowLink Proxy» / «Не закрывать
+    браузер». Выход из приложения происходит в любом случае.
+
+    Args:
+        callbacks: Словарь коллбэков трея.
+        log: Логгер.
+    """
+    browser_path = callbacks.get('browser_path_getter', lambda: '')()
+    proxy_port = callbacks.get('proxy_port')
+    if not browser_path or proxy_port is None:
+        log.debug(
+            'Tray: браузер не выбран или порт прокси недоступен — '
+            'закрытие браузера при выходе не выполняется',
+        )
+        return
+
+    # Ленивый импорт: модуль browser_process подключается только при
+    # необходимости проверки запущенности браузера.
+    from server.config import \
+        browser_process as _browser_process  # pylint: disable=import-outside-toplevel
+
+    if not _browser_process.is_browser_running_with_proxy(
+        browser_path, proxy_port,
+    ):
+        log.debug(
+            'Tray: браузер не запущен через FlowLink Proxy — '
+            'закрытие при выходе не требуется',
+        )
+        return
+
+    # Настройка «Закрывать браузер вместе с FlowLink Proxy» — закрываем молча
+    if callbacks.get('close_browser_with_app_getter', lambda: False)():
+        log.info(
+            'Tray: закрываю браузер вместе с FlowLink Proxy '
+            '(настройка включена)',
+        )
+        _browser_process.kill_browser_processes(browser_path)
+        return
+
+    # Показываем диалог с предупреждением
+    _show_close_browser_on_exit_dialog(callbacks, browser_path, log)
+
+
+def _show_close_browser_on_exit_dialog(
+    callbacks: Dict[str, Any],
+    browser_path: str,
+    log: logging.Logger,
+) -> None:
+    """
+    Показывает диалог «Закрыть браузер?» при выходе из приложения.
+
+    В отличие от диалога «Браузер уже запущен», здесь нет инструкции по
+    ручному завершению процесса — только предупреждение о возможных
+    незавершённых действиях и выбор: закрыть браузер или оставить его.
+
+    Args:
+        callbacks: Словарь коллбэков трея.
+        browser_path: Путь к исполняемому файлу браузера.
+        log: Логгер.
+    """
+    tk_root = callbacks.get('tk_root')
+    if tk_root is None:
+        log.warning(
+            'Tray: tk_root недоступен — диалог закрытия браузера не показан',
+        )
+        return
+
+    try:
+        # Ленивый импорт: tkinter-диалог нужен только при работе с треем
+        from server.ui.dialogs import \
+            show_info  # pylint: disable=import-outside-toplevel
+    except ImportError:
+        log.info('tkinter недоступен — диалог закрытия браузера не показан')
+        return
+
+    from server.config import \
+        browser_process as _browser_process  # pylint: disable=import-outside-toplevel
+
+    def _on_close_browser() -> None:
+        """Закрывает браузер, запущенный через FlowLink Proxy."""
+        if not _browser_process.kill_browser_processes(browser_path):
+            log.error(
+                'Tray: не удалось закрыть браузер при выходе: %s',
+                browser_path,
+            )
+
+    message = (
+        'Браузер был запущен через FlowLink Proxy. Закрытие браузера '
+        'может прервать незавершённые действия (скачивание файлов, '
+        'обновления и т.п.). Если идёт важный процесс — дождитесь его '
+        'завершения.\n\n'
+        'Внимание: будут закрыты все процессы выбранного браузера. '
+        'Если запущено несколько профилей или окон — все они будут закрыты.'
+    )
+
+    show_info(
+        title='Закрыть браузер?',
+        message=message,
+        buttons=[
+            {
+                'text': 'Не закрывать браузер',
+                'action': lambda: None,
+                'primary': False,
+            },
+            {
+                'text': 'Закрыть браузер вместе с FlowLink Proxy',
+                'action': _on_close_browser,
+                'primary': True,
+            },
+        ],
+        parent_root=tk_root,
+    )
 
 
 # ─── Фабрики замыканий ───
@@ -561,6 +741,12 @@ def build_menu_items(
             browser_path_saver: Callable(str) — сохранение пути к браузеру.
             browser_detector: Callable → list[dict] — обнаружение браузеров.
             browser_launcher: Callable → bool — запуск браузера.
+            browser_closer: Callable → bool — закрытие браузера.
+            proxy_port: int — порт HTTP-прокси.
+            close_browser_with_app_getter: Callable → bool — чтение
+                настройки «Закрывать браузер вместе с FlowLink Proxy».
+            close_browser_with_app_setter: Callable(bool) — запись
+                настройки «Закрывать браузер вместе с FlowLink Proxy».
             log_dir_getter: Callable → str — путь к папке логов.
             data_dir_getter: Callable → str — путь к папке данных.
             clear_logs: Callable — очистка логов.
@@ -592,7 +778,23 @@ def build_menu_items(
         callbacks.get('extension_connected_getter', lambda: False)(),
     )
 
-    return [
+    # Настройка «Закрывать браузер вместе с FlowLink Proxy».
+    close_browser_with_app = bool(
+        callbacks.get('close_browser_with_app_getter', lambda: False)(),
+    )
+
+    # Запущен ли браузер через FlowLink Proxy (для пункта «Закрыть браузер»).
+    # Проверка выполняется по наличию процесса с флагом --proxy-server.
+    proxy_port = callbacks.get('proxy_port')
+    browser_running_with_proxy = False
+    if browser_path and proxy_port:
+        from server.config import \
+            browser_process as _bp  # pylint: disable=import-outside-toplevel
+        browser_running_with_proxy = _bp.is_browser_running_with_proxy(
+            browser_path, proxy_port,
+        )
+
+    items = [
         {
             'type': 'header',
             'text': (
@@ -668,6 +870,21 @@ def build_menu_items(
                 current_value=sys_autostart,
             ),
         },
+        {
+            'type': 'check',
+            'text': 'Закрывать браузер вместе с FlowLink Proxy',
+            'icon': '\U0001f6aa',
+            'checked': close_browser_with_app,
+            'tooltip': (
+                'При выходе из FlowLink Proxy автоматически закрывать '
+                'браузер, запущенный через прокси, без предупреждения'
+            ),
+            'command': _make_action(
+                _toggle_close_browser_with_app,
+                callbacks, log,
+                current_value=close_browser_with_app,
+            ),
+        },
         {'type': 'separator'},
         {
             'type': 'item',
@@ -703,3 +920,20 @@ def build_menu_items(
             ),
         },
     ]
+
+    # Пункт «Закрыть браузер» появляется только если браузер запущен
+    # через FlowLink Proxy (с флагом --proxy-server). Вставляется перед
+    # разделителем и пунктом «Выход».
+    if browser_running_with_proxy:
+        items.insert(-2, {
+            'type': 'item',
+            'text': 'Закрыть браузер',
+            'icon': '\U0001f6d1',
+            'color': '#e74c3c',
+            'tooltip': 'Закрыть браузер, запущенный через FlowLink Proxy',
+            'command': _make_action(
+                _close_browser_now, callbacks, log,
+            ),
+        })
+
+    return items

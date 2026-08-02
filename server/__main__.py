@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pylint: disable=too-many-lines  # модуль оркестрирует запуск серверов, трея и автозапуск браузера; разбиение нецелесообразно
 """
 Точка входа FlowLink Proxy.
 
@@ -416,6 +417,56 @@ def _launch_browser_callback(
     return bool(result['value'])
 
 
+def _close_browser_callback(
+    _callbacks: dict,
+    proxy_port: int,
+) -> bool:
+    """
+    Закрывает браузер, запущенный через FlowLink Proxy.
+
+    Проверяет, что браузер действительно запущен с флагом --proxy-server
+    (а не просто запущен пользователем), и завершает его процессы.
+
+    Args:
+        _callbacks: Словарь коллбэков трея (сохранён для единообразия
+            сигнатуры с другими колбэками меню).
+        proxy_port: Порт HTTP-прокси.
+
+    Returns:
+        True если браузер закрыт (или не был запущен через прокси),
+        False при ошибке завершения процессов.
+    """
+    browser_path = _browser_config.get_browser_path()
+    if not _browser_config.validate_browser_path(browser_path):
+        logger.warning(
+            'Закрытие браузера: путь не выбран или невалиден: %s',
+            browser_path,
+        )
+        return False
+
+    from server.config import \
+        browser_process as _browser_process  # pylint: disable=import-outside-toplevel
+
+    if not _browser_process.is_browser_running_with_proxy(
+        browser_path, proxy_port,
+    ):
+        logger.info(
+            'Закрытие браузера: браузер не запущен через FlowLink Proxy: %s',
+            browser_path,
+        )
+        return True
+
+    if not _browser_process.kill_browser_processes(browser_path):
+        logger.error(
+            'Не удалось закрыть браузер: %s',
+            browser_path,
+        )
+        return False
+
+    logger.info('Браузер закрыт: %s', browser_path)
+    return True
+
+
 # Подавление: функция собирает колбэки для всех пунктов меню трея;
 # локальные переменные — это сами колбэки и меню. Вынос в хелперы
 # разорвал бы целостность настройки трея.
@@ -520,11 +571,18 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
         'browser_path_saver': _browser_path_saver,
         'browser_detector': _browser_config.auto_detect_browsers,
         'extension_connected_getter': is_extension_connected,
+        'proxy_port': args.proxy_port,
+        'close_browser_with_app_getter': _browser_config.get_close_browser_with_app,
+        'close_browser_with_app_setter': _browser_config.set_close_browser_with_app,
     }
     # browser_launcher вынесен за литерал словаря: lambda замыкается на
     # callbacks (late binding) — при вызове из трея словарь уже создан.
     # Коллбэк обрабатывает случай уже запущенного браузера (диалог).
     callbacks['browser_launcher'] = lambda: _launch_browser_callback(
+        callbacks, args.proxy_port,
+    )
+    # browser_closer закрывает браузер, запущенный через FlowLink Proxy.
+    callbacks['browser_closer'] = lambda: _close_browser_callback(
         callbacks, args.proxy_port,
     )
     if not _HAS_TRAY:

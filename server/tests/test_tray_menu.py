@@ -8,8 +8,10 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from server.tray.menu import (_select_browser, build_menu_items,
-                              get_autostart_state)
+from server.tray.menu import (_close_browser_now, _handle_browser_on_exit,
+                              _select_browser,
+                              _toggle_close_browser_with_app,
+                              build_menu_items, get_autostart_state)
 
 
 class TestGetAutostartState(unittest.TestCase):
@@ -101,19 +103,22 @@ class TestBuildMenuItems(unittest.TestCase):
         self.assertEqual(items[-2]['type'], 'separator')
 
     def test_has_autostart_checks(self):
-        """Меню содержит два чекбокса: автозапуск браузера и запуск с системой."""
+        """Три чекбокса: автозапуск, запуск с системой и закрытие браузера с приложением."""
         items = build_menu_items(
             self._base_callbacks(), MagicMock(),
         )
         check_items = [
             item for item in items if item.get('type') == 'check'
         ]
-        self.assertEqual(len(check_items), 2)
+        self.assertEqual(len(check_items), 3)
         self.assertEqual(
             check_items[0]['text'], 'Автозапуск браузера',
         )
         self.assertEqual(
             check_items[1]['text'], 'Запуск с системой',
+        )
+        self.assertEqual(
+            check_items[2]['text'], 'Закрывать браузер вместе с FlowLink Proxy',
         )
 
     def test_autostart_checked(self):
@@ -532,6 +537,299 @@ class TestSelectBrowserItems(unittest.TestCase):
         by_path = {item['path']: item['selected'] for item in items}
         self.assertTrue(by_path['/usr/bin/firefox'])
         self.assertFalse(by_path['/usr/bin/google-chrome'])
+
+
+class TestToggleCloseBrowserWithApp(unittest.TestCase):
+    """Тесты переключения настройки «Закрывать браузер вместе с FlowLink Proxy»."""
+
+    def test_toggle_calls_setter(self):
+        """Переключение вызывает close_browser_with_app_setter с инвертированным значением."""
+        setter = MagicMock()
+        callbacks = {'close_browser_with_app_setter': setter}
+        _toggle_close_browser_with_app(callbacks, MagicMock(), current_value=False)
+        setter.assert_called_once_with(True)
+
+    def test_toggle_false_calls_setter(self):
+        """Выключение настройки передаёт False в setter."""
+        setter = MagicMock()
+        callbacks = {'close_browser_with_app_setter': setter}
+        _toggle_close_browser_with_app(callbacks, MagicMock(), current_value=True)
+        setter.assert_called_once_with(False)
+
+    def test_setter_os_error_handled(self):
+        """Ошибка записи настройки не приводит к исключению."""
+        def broken_setter(value):
+            raise OSError('нет доступа')
+
+        callbacks = {'close_browser_with_app_setter': broken_setter}
+        # Не должен бросить исключение
+        _toggle_close_browser_with_app(callbacks, MagicMock(), current_value=False)
+
+    def test_no_setter_logs_warning(self):
+        """Отсутствие setter не приводит к падению."""
+        _toggle_close_browser_with_app({}, MagicMock(), current_value=False)
+
+
+class TestCloseBrowserNow(unittest.TestCase):
+    """Тесты пункта меню «Закрыть браузер»."""
+
+    def test_calls_browser_closer(self):
+        """Вызывает browser_closer из callbacks."""
+        closer = MagicMock(return_value=True)
+        callbacks = {'browser_closer': closer}
+        _close_browser_now(callbacks, MagicMock())
+        closer.assert_called_once()
+
+    def test_no_closer_no_crash(self):
+        """Отсутствие browser_closer не приводит к падению."""
+        _close_browser_now({}, MagicMock())
+
+
+class TestHandleBrowserOnExit(unittest.TestCase):
+    """Тесты _handle_browser_on_exit — закрытие браузера при выходе."""
+
+    def _callbacks(self, browser_path='', proxy_port=None, **extra):
+        """Базовый набор колбэков для _handle_browser_on_exit."""
+        callbacks = {
+            'browser_path_getter': lambda: browser_path,
+            'proxy_port': proxy_port,
+        }
+        callbacks.update(extra)
+        return callbacks
+
+    def test_no_browser_path_does_nothing(self):
+        """Без пути браузера ничего не происходит (kill и диалог не вызываются)."""
+        callbacks = self._callbacks(browser_path='', proxy_port=8080)
+        with (
+            patch(
+                'server.config.browser_process.is_browser_running_with_proxy',
+            ) as mock_running,
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+            ) as mock_kill,
+            patch('server.ui.dialogs.show_info') as mock_dialog,
+        ):
+            _handle_browser_on_exit(callbacks, MagicMock())
+
+        mock_running.assert_not_called()
+        mock_kill.assert_not_called()
+        mock_dialog.assert_not_called()
+
+    def test_no_proxy_port_does_nothing(self):
+        """Без порта прокси ничего не происходит."""
+        callbacks = self._callbacks(browser_path='/usr/bin/google-chrome', proxy_port=None)
+        with (
+            patch(
+                'server.config.browser_process.is_browser_running_with_proxy',
+            ) as mock_running,
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+            ) as mock_kill,
+            patch('server.ui.dialogs.show_info') as mock_dialog,
+        ):
+            _handle_browser_on_exit(callbacks, MagicMock())
+
+        mock_running.assert_not_called()
+        mock_kill.assert_not_called()
+        mock_dialog.assert_not_called()
+
+    def test_browser_not_running_with_proxy_does_nothing(self):
+        """Браузер не запущен через прокси — ничего не делаем."""
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+            close_browser_with_app_getter=lambda: True,
+        )
+        with (
+            patch(
+                'server.config.browser_process.is_browser_running_with_proxy',
+                return_value=False,
+            ),
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+            ) as mock_kill,
+            patch('server.ui.dialogs.show_info') as mock_dialog,
+        ):
+            _handle_browser_on_exit(callbacks, MagicMock())
+
+        mock_kill.assert_not_called()
+        mock_dialog.assert_not_called()
+
+    def test_setting_enabled_kills_silently(self):
+        """Настройка включена — браузер закрывается молча, без диалога."""
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+            close_browser_with_app_getter=lambda: True,
+        )
+        with (
+            patch(
+                'server.config.browser_process.is_browser_running_with_proxy',
+                return_value=True,
+            ),
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+            ) as mock_kill,
+            patch('server.ui.dialogs.show_info') as mock_dialog,
+        ):
+            _handle_browser_on_exit(callbacks, MagicMock())
+
+        mock_kill.assert_called_once_with('/usr/bin/google-chrome')
+        mock_dialog.assert_not_called()
+
+    def test_setting_disabled_shows_dialog(self):
+        """Настройка выключена — показывается диалог, kill не вызывается."""
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+            close_browser_with_app_getter=lambda: False,
+            tk_root=MagicMock(),
+        )
+        with (
+            patch(
+                'server.config.browser_process.is_browser_running_with_proxy',
+                return_value=True,
+            ),
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+            ) as mock_kill,
+            patch('server.ui.dialogs.show_info') as mock_dialog,
+        ):
+            _handle_browser_on_exit(callbacks, MagicMock())
+
+        mock_kill.assert_not_called()
+        mock_dialog.assert_called_once()
+        kwargs = mock_dialog.call_args.kwargs
+        self.assertEqual(kwargs['title'], 'Закрыть браузер?')
+        self.assertIs(kwargs['parent_root'], callbacks['tk_root'])
+
+    def test_setting_disabled_without_tk_root_no_dialog(self):
+        """Настройка выключена и нет tk_root — диалог не показывается."""
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+            close_browser_with_app_getter=lambda: False,
+        )
+        with (
+            patch(
+                'server.config.browser_process.is_browser_running_with_proxy',
+                return_value=True,
+            ),
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+            ) as mock_kill,
+            patch('server.ui.dialogs.show_info') as mock_dialog,
+        ):
+            _handle_browser_on_exit(callbacks, MagicMock())
+
+        mock_kill.assert_not_called()
+        mock_dialog.assert_not_called()
+
+
+class TestBuildMenuItemsBrowserClose(unittest.TestCase):
+    """Тесты пунктов меню «Закрывать браузер» и «Закрыть браузер»."""
+
+    def _callbacks(self, browser_path='', proxy_port=None):
+        """Минимальный набор колбэков для тестов меню."""
+        return {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+            'browser_path_getter': lambda: browser_path,
+            'proxy_port': proxy_port,
+        }
+
+    def test_close_browser_checkbox_present(self):
+        """Чекбокс «Закрывать браузер вместе с FlowLink Proxy» присутствует."""
+        items = build_menu_items(
+            self._callbacks(), MagicMock(),
+        )
+        texts = [item.get('text') for item in items]
+        self.assertIn('Закрывать браузер вместе с FlowLink Proxy', texts)
+
+    def test_close_browser_checkbox_checked(self):
+        """Чекбокс отмечен, когда close_browser_with_app_getter возвращает True."""
+        callbacks = {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+            'close_browser_with_app_getter': lambda: True,
+        }
+        items = build_menu_items(callbacks, MagicMock())
+        check = next(
+            item for item in items
+            if item.get('text') == 'Закрывать браузер вместе с FlowLink Proxy'
+        )
+        self.assertTrue(check['checked'])
+
+    def test_close_browser_checkbox_toggles_setter(self):
+        """Переключение чекбокса вызывает close_browser_with_app_setter."""
+        setter = MagicMock()
+        callbacks = {
+            'stop': MagicMock(),
+            'autostart_getter': lambda: False,
+            'close_browser_with_app_getter': lambda: False,
+            'close_browser_with_app_setter': setter,
+        }
+        items = build_menu_items(callbacks, MagicMock())
+        check = next(
+            item for item in items
+            if item.get('text') == 'Закрывать браузер вместе с FlowLink Proxy'
+        )
+        check['command']()
+        setter.assert_called_once_with(True)
+
+    @patch(
+        'server.config.browser_process.is_browser_running_with_proxy',
+        return_value=True,
+    )
+    def test_close_browser_item_present_when_running(self, _mock_running):
+        """Пункт «Закрыть браузер» появляется, если браузер запущен с прокси."""
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+        )
+        items = build_menu_items(callbacks, MagicMock())
+        texts = [item.get('text') for item in items]
+        self.assertIn('Закрыть браузер', texts)
+
+    @patch(
+        'server.config.browser_process.is_browser_running_with_proxy',
+        return_value=False,
+    )
+    def test_close_browser_item_absent_when_not_running(self, _mock_running):
+        """Пункт «Закрыть браузер» отсутствует, если браузер не запущен с прокси."""
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+        )
+        items = build_menu_items(callbacks, MagicMock())
+        texts = [item.get('text') for item in items]
+        self.assertNotIn('Закрыть браузер', texts)
+
+    @patch(
+        'server.config.browser_process.is_browser_running_with_proxy',
+        return_value=True,
+    )
+    def test_close_browser_item_position_before_exit(self, _mock_running):
+        """Пункт «Закрыть браузер» стоит перед разделителем и «Выход»."""
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+        )
+        items = build_menu_items(callbacks, MagicMock())
+        self.assertEqual(items[-1]['text'], 'Выход')
+        self.assertEqual(items[-2]['type'], 'separator')
+        self.assertEqual(items[-3]['text'], 'Закрыть браузер')
+
+    @patch(
+        'server.config.browser_process.is_browser_running_with_proxy',
+        return_value=True,
+    )
+    def test_close_browser_item_calls_closer(self, _mock_running):
+        """Клик по «Закрыть браузер» вызывает browser_closer."""
+        closer = MagicMock(return_value=True)
+        callbacks = self._callbacks(
+            browser_path='/usr/bin/google-chrome', proxy_port=8080,
+        )
+        callbacks['browser_closer'] = closer
+        items = build_menu_items(callbacks, MagicMock())
+        item = next(
+            i for i in items if i.get('text') == 'Закрыть браузер'
+        )
+        item['command']()
+        closer.assert_called_once()
 
 
 if __name__ == '__main__':

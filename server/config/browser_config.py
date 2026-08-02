@@ -17,6 +17,7 @@ logger = logging.getLogger('flowlink.browser')
 
 _KEY_BROWSER_PATH = 'browser_path'
 _KEY_PARALLEL_LAUNCH = 'parallel_launch'
+_KEY_CLOSE_BROWSER_WITH_APP = 'close_browser_with_app'
 
 # Расширения файлов, которые НЕ являются исполняемыми браузерами
 _NON_EXECUTABLE_EXTENSIONS = frozenset({
@@ -355,6 +356,9 @@ def get_browser_config() -> dict:
         'autostartBrowser': _autostart_mod.get_autostart_browser(),
         'parallelLaunch': settings.get(_KEY_PARALLEL_LAUNCH, 'false').lower()
             in ('true', '1', 'yes', 'on'),
+        'closeBrowserWithApp': settings.get(
+            _KEY_CLOSE_BROWSER_WITH_APP, 'false',
+        ).lower() in ('true', '1', 'yes', 'on'),
     }
 
 
@@ -405,4 +409,60 @@ def save_browser_path(browser_path: str) -> None:
         logger.info('Путь браузера сохранён: %s', browser_path)
     except OSError as e:
         logger.error('Не удалось записать browser_path: %s', e)
+        raise
+
+
+def get_close_browser_with_app() -> bool:
+    """
+    Возвращает настройку «Закрывать браузер вместе с FlowLink Proxy».
+
+    Если флаг установлен — при выходе из FlowLink Proxy браузер,
+    запущенный через прокси, закрывается без предупреждения.
+
+    Returns:
+        True если браузер следует закрывать вместе с приложением.
+    """
+    path = _autostart_mod.SETTINGS_FILE
+    if not os.path.isfile(path):
+        return False
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            settings = _autostart_mod.parse_settings(f.read())
+        value = settings.get(_KEY_CLOSE_BROWSER_WITH_APP, 'false').lower()
+        return value in ('true', '1', 'yes', 'on')
+    except OSError as e:
+        logger.warning('Не удалось прочитать close_browser_with_app: %s', e)
+        return False
+
+
+def set_close_browser_with_app(value: bool) -> None:
+    """
+    Сохраняет настройку «Закрывать браузер вместе с FlowLink Proxy».
+
+    Args:
+        value: True — закрывать браузер при выходе без предупреждения.
+
+    Raises:
+        OSError: Не удалось записать файл настроек.
+    """
+    path = _autostart_mod.SETTINGS_FILE
+    existing = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                existing = _autostart_mod.parse_settings(f.read())
+        except OSError as e:
+            logger.warning(
+                'Не удалось прочитать %s перед записью: %s', path, e,
+            )
+
+    existing[_KEY_CLOSE_BROWSER_WITH_APP] = 'true' if value else 'false'
+    content = _autostart_mod.format_settings(existing)
+
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        logger.info('Настройка close_browser_with_app сохранена: %s', value)
+    except OSError as e:
+        logger.error('Не удалось записать close_browser_with_app: %s', e)
         raise

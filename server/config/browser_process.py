@@ -225,6 +225,177 @@ def is_browser_running(browser_path: str) -> bool:
     return False
 
 
+def _proxy_arg_pattern(proxy_port: int) -> str:
+    """
+    Формирует паттерн командной строки для поиска процесса с прокси.
+
+    Chrome/Chromium передаёт флаг --proxy-server=127.0.0.1:<port>.
+    Паттерн используется в pgrep -f (POSIX) и в фильтре CommandLine
+    (Windows) для отличия браузера, запущенного через FlowLink Proxy,
+    от обычного запуска пользователем.
+
+    Args:
+        proxy_port: Порт HTTP-прокси.
+
+    Returns:
+        Строка паттерна для поиска в командной строке процесса.
+    """
+    return f'--proxy-server=127.0.0.1:{proxy_port}'
+
+
+def find_browser_pids_with_proxy(
+    browser_path: str,
+    proxy_port: int,
+) -> list[int]:
+    """
+    Находит PID процессов браузера, запущенных через FlowLink Proxy.
+
+    В отличие от find_browser_pids, сопоставление ведётся не только по
+    пути к исполняемому файлу, но и по наличию флага --proxy-server в
+    командной строке процесса. Это позволяет отличить браузер, поднятый
+    бэкендом с прокси, от обычного запуска пользователем (например,
+    если пользователь закрыл браузер и открыл его вручную без прокси).
+
+    Windows: PowerShell Get-CimInstance Win32_Process с фильтром по
+        CommandLine LIKE '%--proxy-server=127.0.0.1:<port>%'.
+    Linux/macOS: pgrep -f '<path>.*--proxy-server=127.0.0.1:<port>'.
+
+    Args:
+        browser_path: Путь к исполняемому файлу браузера.
+        proxy_port: Порт HTTP-прокси.
+
+    Returns:
+        Список целых PID процессов, запущенных с прокси.
+        Пустой список при ошибке или отсутствии таких процессов.
+    """
+    if not browser_path or not browser_path.strip():
+        logger.warning(
+            'Пустой путь к браузеру — поиск процессов с прокси не выполнен',
+        )
+        return []
+
+    pattern = _proxy_arg_pattern(proxy_port)
+
+    if sys.platform == 'win32':
+        return _find_browser_pids_with_proxy_windows(browser_path, pattern)
+    return _find_browser_pids_with_proxy_posix(browser_path, pattern)
+
+
+def _find_browser_pids_with_proxy_windows(
+    browser_path: str,
+    pattern: str,
+) -> list[int]:
+    """
+    Ищет PID процессов браузера с прокси на Windows.
+
+    Используется PowerShell Get-CimInstance Win32_Process: фильтр по
+    ExecutablePath (точный путь) и CommandLine (наличие --proxy-server).
+    wmic не используется, так как его фильтр по CommandLine менее
+    надёжен и wmic устарел.
+
+    Args:
+        browser_path: Путь к исполняемому файлу браузера.
+        pattern: Паттерн --proxy-server для поиска в командной строке.
+
+    Returns:
+        Список целых PID или пустой список.
+    """
+    escaped = browser_path.replace("'", "''")
+    ps_command = (
+        "Get-CimInstance Win32_Process | "
+        f"Where-Object {{$_.ExecutablePath -eq '{escaped}' -and "
+        f"$_.CommandLine -like '*{pattern}*'}} | "
+        "Select-Object -ExpandProperty ProcessId"
+    )
+    try:
+        result = subprocess.run(
+            ['powershell', '-NoProfile', '-Command', ps_command],
+            capture_output=True, text=True,
+            timeout=15, check=False,
+            # CREATE_NO_WINDOW скрывает окно консоли powershell
+            # (см. _CREATE_NO_WINDOW).
+            creationflags=_CREATE_NO_WINDOW,
+        )
+        if result.returncode == 0:
+            pids = _parse_pids(result.stdout)
+            logger.debug(
+                'PowerShell: найдено процессов браузера с прокси %s: %s',
+                browser_path, pids,
+            )
+            return pids
+        logger.warning(
+            'PowerShell не нашёл процессы браузера с прокси %s (код %d): %s',
+            browser_path, result.returncode,
+            result.stderr.strip() or result.stdout.strip(),
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        logger.error('Не удалось найти процессы браузера с прокси %s: %s',
+                     browser_path, e)
+    return []
+
+
+def _find_browser_pids_with_proxy_posix(
+    browser_path: str,
+    pattern: str,
+) -> list[int]:
+    """
+    Ищет PID процессов браузера с прокси на Linux/macOS.
+
+    pgrep -f сопоставляет полную командную строку. Паттерн объединяет
+    путь к браузеру и флаг --proxy-server, чтобы отсечь процессы,
+    запущенные пользователем без прокси.
+
+    Args:
+        browser_path: Путь к исполняемому файлу браузера.
+        pattern: Паттерн --proxy-server для поиска в командной строке.
+
+    Returns:
+        Список целых PID или пустой список.
+    """
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', f'{browser_path}.*{pattern}'],
+            capture_output=True, text=True,
+            timeout=10, check=False,
+        )
+        if result.returncode == 0:
+            pids = _parse_pids(result.stdout)
+            logger.debug(
+                'pgrep: найдено процессов браузера с прокси %s: %s',
+                browser_path, pids,
+            )
+            return pids
+        # returncode 1 — процессы не найдены (штатная ситуация)
+        return []
+    except OSError as e:
+        logger.error('pgrep недоступен для поиска %s: %s', browser_path, e)
+    except subprocess.TimeoutExpired as e:
+        logger.error('pgrep превысил таймаут при поиске %s: %s',
+                     browser_path, e)
+    return []
+
+
+def is_browser_running_with_proxy(browser_path: str, proxy_port: int) -> bool:
+    """
+    Проверяет, запущен ли браузер через FlowLink Proxy (с флагом --proxy-server).
+
+    Args:
+        browser_path: Путь к исполняемому файлу браузера.
+        proxy_port: Порт HTTP-прокси.
+
+    Returns:
+        True если найден хотя бы один процесс браузера с прокси.
+    """
+    pids = find_browser_pids_with_proxy(browser_path, proxy_port)
+    if pids:
+        logger.info(
+            'Браузер запущен через FlowLink Proxy: %s (PID: %s)',
+            browser_path, ', '.join(str(p) for p in pids),
+        )
+        return True
+    return False
+
+
 def kill_browser_processes(browser_path: str) -> bool:
     """
     Завершает все найденные процессы указанного браузера.

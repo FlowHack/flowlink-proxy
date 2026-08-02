@@ -11,7 +11,9 @@ from unittest.mock import patch
 
 from server.config.browser_config import (auto_detect_browsers,
                                           get_browser_config, get_browser_path,
+                                          get_close_browser_with_app,
                                           launch_browser, save_browser_path,
+                                          set_close_browser_with_app,
                                           validate_browser_path,
                                           validate_browser_path_detailed)
 
@@ -191,6 +193,81 @@ class TestGetBrowserConfig(_TempSettingsMixin):
         self.assertIn('browserPath', config)
         self.assertIn('autostartBrowser', config)
         self.assertIn('parallelLaunch', config)
+        self.assertIn('closeBrowserWithApp', config)
+
+    def test_close_browser_with_app_true(self):
+        """closeBrowserWithApp=True при включённой настройке."""
+        self._mock_settings('close_browser_with_app=true\n')
+        config = get_browser_config()
+        self.assertTrue(config['closeBrowserWithApp'])
+
+    def test_close_browser_with_app_false(self):
+        """closeBrowserWithApp=False по умолчанию."""
+        self._mock_settings()
+        config = get_browser_config()
+        self.assertFalse(config['closeBrowserWithApp'])
+
+
+class TestGetCloseBrowserWithApp(_TempSettingsMixin):
+    """Тесты чтения настройки «Закрывать браузер вместе с FlowLink Proxy»."""
+
+    def test_default_false(self):
+        """По умолчанию (нет файла) — False."""
+        self._mock_settings()
+        self.assertFalse(get_close_browser_with_app())
+
+    def test_true(self):
+        """Значение 'true' — True."""
+        self._mock_settings('close_browser_with_app=true\n')
+        self.assertTrue(get_close_browser_with_app())
+
+    def test_false(self):
+        """Значение 'false' — False."""
+        self._mock_settings('close_browser_with_app=false\n')
+        self.assertFalse(get_close_browser_with_app())
+
+    def test_yes_is_true(self):
+        """Значение 'yes' интерпретируется как True."""
+        self._mock_settings('close_browser_with_app=yes\n')
+        self.assertTrue(get_close_browser_with_app())
+
+    def test_one_is_true(self):
+        """Значение '1' интерпретируется как True."""
+        self._mock_settings('close_browser_with_app=1\n')
+        self.assertTrue(get_close_browser_with_app())
+
+    def test_unknown_value_is_false(self):
+        """Неизвестное значение интерпретируется как False."""
+        self._mock_settings('close_browser_with_app=maybe\n')
+        self.assertFalse(get_close_browser_with_app())
+
+
+class TestSetCloseBrowserWithApp(_TempSettingsMixin):
+    """Тесты записи настройки «Закрывать браузер вместе с FlowLink Proxy»."""
+
+    def test_set_true(self):
+        """Запись True сохраняет 'true' в файл."""
+        path = self._mock_settings()
+        set_close_browser_with_app(True)
+        self.assertTrue(get_close_browser_with_app())
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        self.assertIn('close_browser_with_app=true', content)
+
+    def test_set_false(self):
+        """Запись False сохраняет 'false' в файл."""
+        self._mock_settings('close_browser_with_app=true\n')
+        set_close_browser_with_app(False)
+        self.assertFalse(get_close_browser_with_app())
+
+    def test_preserves_other_keys(self):
+        """Другие ключи настроек не затираются."""
+        path = self._mock_settings('browser_path=/usr/bin/google-chrome\n')
+        set_close_browser_with_app(True)
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        self.assertIn('browser_path=/usr/bin/google-chrome', content)
+        self.assertIn('close_browser_with_app=true', content)
 
 
 class TestLaunchBrowser(unittest.TestCase):

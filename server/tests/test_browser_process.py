@@ -12,10 +12,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from server.config.browser_process import (find_browser_pids,
+                                           find_browser_pids_with_proxy,
                                            get_browser_process_name,
                                            get_manual_kill_instructions,
                                            is_browser_running,
-                                           kill_browser_processes)
+                                           is_browser_running_with_proxy,
+                                           kill_browser_processes,
+                                           _proxy_arg_pattern)
 
 # Путь к браузеру, используемый в большинстве тестов
 _BROWSER = '/usr/bin/google-chrome'
@@ -156,6 +159,127 @@ class TestIsBrowserRunning(unittest.TestCase):
     def test_running_false(self, _mock_find):
         """PID не найдены — браузер не запущен."""
         self.assertFalse(is_browser_running(_BROWSER))
+
+
+class TestProxyArgPattern(unittest.TestCase):
+    """Тесты формирования паттерна --proxy-server."""
+
+    def test_default_port(self):
+        """Паттерн для порта 8080."""
+        self.assertEqual(
+            _proxy_arg_pattern(8080),
+            '--proxy-server=127.0.0.1:8080',
+        )
+
+    def test_custom_port(self):
+        """Паттерн для кастомного порта."""
+        self.assertEqual(
+            _proxy_arg_pattern(9090),
+            '--proxy-server=127.0.0.1:9090',
+        )
+
+
+class TestFindBrowserPidsWithProxy(unittest.TestCase):
+    """Тесты поиска PID браузера, запущенного с флагом --proxy-server."""
+
+    def test_empty_path(self):
+        """Пустой путь — пустой список, subprocess не вызывается."""
+        with patch('server.config.browser_process.subprocess.run') as mock_run:
+            result = find_browser_pids_with_proxy('', 8080)
+        self.assertEqual(result, [])
+        mock_run.assert_not_called()
+
+    @patch('server.config.browser_process.sys.platform', 'linux')
+    @patch('server.config.browser_process.subprocess.run')
+    def test_posix_returns_pids(self, mock_run):
+        """pgrep -f с объединённым паттерном возвращает список целых PID."""
+        mock_run.return_value = SimpleNamespace(
+            returncode=0, stdout='111\n222\n', stderr='',
+        )
+        result = find_browser_pids_with_proxy(_BROWSER, 8080)
+        self.assertEqual(result, [111, 222])
+        args = mock_run.call_args.args[0]
+        self.assertEqual(args[0], 'pgrep')
+        self.assertEqual(args[1], '-f')
+        self.assertIn(_BROWSER, args[2])
+        self.assertIn('--proxy-server=127.0.0.1:8080', args[2])
+
+    @patch('server.config.browser_process.sys.platform', 'darwin')
+    @patch('server.config.browser_process.subprocess.run')
+    def test_posix_macos_uses_pgrep(self, mock_run):
+        """macOS (не win32) использует ту же pgrep-ветку."""
+        mock_run.return_value = SimpleNamespace(
+            returncode=0, stdout='333\n', stderr='',
+        )
+        result = find_browser_pids_with_proxy(_BROWSER, 9090)
+        self.assertEqual(result, [333])
+        args = mock_run.call_args.args[0]
+        self.assertIn('--proxy-server=127.0.0.1:9090', args[2])
+
+    @patch('server.config.browser_process.sys.platform', 'linux')
+    @patch('server.config.browser_process.subprocess.run')
+    def test_posix_no_processes(self, mock_run):
+        """pgrep с кодом 1 (процессы не найдены) — пустой список."""
+        mock_run.return_value = SimpleNamespace(
+            returncode=1, stdout='', stderr='',
+        )
+        self.assertEqual(find_browser_pids_with_proxy(_BROWSER, 8080), [])
+
+    @patch('server.config.browser_process.sys.platform', 'linux')
+    @patch('server.config.browser_process.subprocess.run',
+           side_effect=OSError('pgrep отсутствует'))
+    def test_posix_error_returns_empty(self, _mock_run):
+        """Ошибка pgrep — пустой список (без падения)."""
+        self.assertEqual(find_browser_pids_with_proxy(_BROWSER, 8080), [])
+
+    @patch('server.config.browser_process.sys.platform', 'win32')
+    @patch('server.config.browser_process.subprocess.run')
+    def test_windows_powershell_returns_pids(self, mock_run):
+        """PowerShell Get-CimInstance возвращает список целых PID."""
+        mock_run.return_value = SimpleNamespace(
+            returncode=0, stdout='ProcessId\n444\n555\n', stderr='',
+        )
+        path = r'C:\Program Files\Yandex\YandexBrowser\Application\browser.exe'
+        result = find_browser_pids_with_proxy(path, 8080)
+        self.assertEqual(result, [444, 555])
+        args = mock_run.call_args.args[0]
+        self.assertEqual(args[0], 'powershell')
+        self.assertIn('Get-CimInstance', args[3])
+        self.assertIn('--proxy-server=127.0.0.1:8080', args[3])
+        # Точный путь экранирован и участвует в фильтре ExecutablePath
+        self.assertIn("ExecutablePath -eq 'C:\\Program Files\\", args[3])
+
+    @patch('server.config.browser_process.sys.platform', 'win32')
+    @patch('server.config.browser_process.subprocess.run')
+    def test_windows_no_processes(self, mock_run):
+        """PowerShell с кодом 1 — пустой список."""
+        mock_run.return_value = SimpleNamespace(
+            returncode=1, stdout='', stderr='процессы не найдены',
+        )
+        self.assertEqual(find_browser_pids_with_proxy(r'C:\browser.exe', 8080), [])
+
+    @patch('server.config.browser_process.sys.platform', 'win32')
+    @patch('server.config.browser_process.subprocess.run',
+           side_effect=OSError('powershell отсутствует'))
+    def test_windows_error_returns_empty(self, _mock_run):
+        """Ошибка PowerShell — пустой список (без падения)."""
+        self.assertEqual(find_browser_pids_with_proxy(r'C:\browser.exe', 8080), [])
+
+
+class TestIsBrowserRunningWithProxy(unittest.TestCase):
+    """Тесты проверки запущенности браузера с прокси."""
+
+    @patch('server.config.browser_process.find_browser_pids_with_proxy',
+           return_value=[123])
+    def test_running_true(self, _mock_find):
+        """Найденные PID — браузер запущен через прокси."""
+        self.assertTrue(is_browser_running_with_proxy(_BROWSER, 8080))
+
+    @patch('server.config.browser_process.find_browser_pids_with_proxy',
+           return_value=[])
+    def test_running_false(self, _mock_find):
+        """PID не найдены — браузер не запущен через прокси."""
+        self.assertFalse(is_browser_running_with_proxy(_BROWSER, 8080))
 
 
 class TestKillBrowserProcesses(unittest.TestCase):
