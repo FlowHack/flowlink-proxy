@@ -8,12 +8,13 @@
 - Windows: ctypes-бэкенд (Win32 API) + tkinter popup
 - Linux: pystray-бэкенд + tkinter popup
 - macOS: pystray-бэкенд + tkinter popup
-- Fallback: pystray + нативное меню (когда tkinter недоступен или --no-tkinter)
 
 Цепочка fallback для Windows:
 1. Win32 ctypes + tkinter popup (полный функционал)
 2. pystray + tkinter popup (если Win32 не удался)
-3. pystray + нативное меню (если tkinter недоступен)
+
+tkinter обязателен: все диалоги бэкенда (выбор браузера, предупреждения,
+уведомления) рендерятся через него и привязываются к tk_root трея.
 
 Threading:
 - tkinter mainloop запускается в фоновом daemon-потоке
@@ -33,7 +34,7 @@ from server.tray.platform import has_tkinter, is_linux, is_macos, is_windows
 logger = logging.getLogger('flowlink.tray')
 
 
-def start_tray(callbacks: Dict[str, Any], no_tkinter: bool = False) -> Optional[Any]:
+def start_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
     """
     Запускает системный трей с кастомным popup-меню.
 
@@ -42,9 +43,8 @@ def start_tray(callbacks: Dict[str, Any], no_tkinter: bool = False) -> Optional[
     - Linux/macOS: pystray-бэкенд (стандартная иконка)
 
     Popup-меню рендерится через tkinter на всех платформах
-    для единообразного вида. Если tkinter недоступен или
-    передан флаг no_tkinter, используется pystray с нативным
-    меню (пункты с ✓/✗ символами).
+    для единообразного вида. tkinter обязателен: без него трей
+    не запускается, а диалоги бэкенда недоступны.
 
     Args:
         callbacks: Словарь с коллбэками:
@@ -55,18 +55,16 @@ def start_tray(callbacks: Dict[str, Any], no_tkinter: bool = False) -> Optional[
             data_dir_getter: Callable → str.
             clear_logs: Callable. Очищает только логи.
             clear_data: Callable. Очищает все данные.
-        no_tkinter: Если True, принудительно использует pystray
-            fallback (нужно для отладки без tkinter).
 
     Returns:
         Объект трей-иконки (platform-dependent) или None при ошибке.
     """
-    if no_tkinter or not has_tkinter():
-        reason = '--no-tkinter' if no_tkinter else 'tkinter недоступен'
-        logger.info(
-            'Fallback на pystray (%s) — нативное меню', reason,
+    if not has_tkinter():
+        logger.warning(
+            'tkinter недоступен — системный трей не будет запущен. '
+            'Установите tkinter (Linux: sudo apt install python3-tk).',
         )
-        return _start_pystray_fallback(callbacks)
+        return None
 
     if is_windows():
         return _start_win32_tray_with_fallback(callbacks)
@@ -85,7 +83,6 @@ def _start_win32_tray_with_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
     Порядок:
     1. Win32 ctypes + tkinter popup
     2. pystray + tkinter popup
-    3. pystray + нативное меню
 
     Импорт модуля ловит ImportError (модуль не собран).
     Запуск ловит OSError/RuntimeError (Win32 API).
@@ -102,36 +99,33 @@ def _start_win32_tray_with_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
     if tray:
         return tray
 
-    logger.info(
-        'pystray + tkinter недоступен, fallback на '
-        'pystray + нативное меню...',
-    )
-    tray = _start_pystray_fallback(callbacks)
-    if tray:
-        return tray
-
     logger.critical(
-        'Все трей-бэкенды недоступны (Win32, pystray+tkinter, '
-        'pystray+native). Системный трей не будет отображён.',
+        'Все трей-бэкенды недоступны (Win32, pystray+tkinter). '
+        'Системный трей не будет отображён.',
     )
     return None
 
 
 def _start_pystray_with_tkinter(callbacks: Dict[str, Any]) -> Optional[Any]:
-    """Запуск pystray с нативным меню (если tkinter есть)."""
+    """Запуск pystray с tkinter popup (fallback для Windows).
+
+    Использует общий PystrayTray (как на Linux/macOS): иконка через
+    pystray, popup-меню через tkinter.
+    """
     try:
-        # Ленивый импорт: модуль fallback подключается только при
-        # необходимости (pystray может быть не установлен)
-        from server.tray.fallback import \
-            start_pystray_fallback  # pylint: disable=import-outside-toplevel
+        # Ленивый импорт: платформо-зависимый бэкенд
+        from server.tray.pystray_base import \
+            PystrayTray  # pylint: disable=import-outside-toplevel
     except ImportError as e:
         logger.error(
-            'pystray+tkinter: модуль fallback.py не найден: %s', e,
+            'pystray+tkinter: модуль pystray_base.py не найден: %s', e,
         )
         return None
 
     try:
-        return start_pystray_fallback(callbacks)
+        tray = PystrayTray(callbacks, platform_name='Windows')
+        tray.start()
+        return tray
     except (ImportError, OSError) as e:
         logger.error(
             'pystray+tkinter: ошибка запуска: %s', e,
@@ -301,39 +295,6 @@ def _start_macos_tray(callbacks: Dict[str, Any]) -> Optional[Any]:
     except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: логируем и не роняем трей
         logger.error(
             'macOS: непредвиденная ошибка трея: %s', e,
-            exc_info=True,
-        )
-        return None
-
-
-def _start_pystray_fallback(callbacks: Dict[str, Any]) -> Optional[Any]:
-    """Запуск pystray с нативным меню (без tkinter)."""
-    try:
-        # Ленивый импорт: pystray может быть не установлен
-        from server.tray.fallback import \
-            start_pystray_fallback  # pylint: disable=import-outside-toplevel
-    except ImportError as e:
-        logger.error('Fallback: модуль fallback.py не найден: %s', e)
-        return None
-
-    try:
-        return start_pystray_fallback(callbacks)
-    except ImportError as e:
-        logger.error(
-            'Fallback: pystray/Pillow не установлены: %s', e,
-        )
-        return None
-    except OSError as e:
-        logger.error('Ошибка запуска fallback трея: %s', e)
-        return None
-    except RuntimeError as e:
-        logger.error(
-            'Fallback: runtime ошибка запуска трея: %s', e,
-        )
-        return None
-    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: логируем и не роняем трей
-        logger.error(
-            'Fallback: непредвиденная ошибка трея: %s', e,
             exc_info=True,
         )
         return None

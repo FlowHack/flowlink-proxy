@@ -27,5 +27,5 @@ test('HELP_TEXTS.faq рендерит разделы FAQ', () => {
   const html = typeof HELP_TEXTS.faq === 'function' ? HELP_TEXTS.faq() : HELP_TEXTS.faq;
   assert.match(html, /Отказоустойчивость меню бэкенда/);
   assert.match(html, /Принудительное завершение бэкенда/);
-  assert.match(html, /--no-tkinter/);
+  assert.match(html, /tkinter/);
 });

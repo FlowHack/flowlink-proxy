@@ -805,55 +805,20 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
         logger.warning('Модуль трея недоступен')
         return None, callbacks
 
-    return _try_start_tray(callbacks, args.no_tkinter), callbacks
+    return _try_start_tray(callbacks), callbacks
 
 
-def _start_alt_tray(callbacks: dict):
+def _try_start_tray(callbacks: dict):
     """
-    Запускает альтернативный трей-бэкенд: pystray с нативным меню.
-
-    Второй шаг цепочки отказоустойчивости: вызывается, когда основной
-    платформенный бэкенд (start_tray) вернул None или бросил исключение.
-    Нативное меню pystray не зависит от tkinter и работает на всех ОС.
-
-    Args:
-        callbacks: Словарь с коллбэками трея.
-
-    Returns:
-        Объект трей-иконки или None при ошибке.
-    """
-    try:
-        # Ленивый импорт: функция обёрнута в server/tray/__init__.py
-        # protected-access: вызов приватной функции-обёртки пакета tray —
-        # публичного аналога для запуска fallback-трея нет.
-        from server.tray import \
-            _start_pystray_fallback  # pylint: disable=import-outside-toplevel,protected-access
-        return _start_pystray_fallback(callbacks)
-    except ImportError as e:
-        logger.error(
-            'Альтернативный трей: модуль fallback недоступен: %s', e,
-        )
-    except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
-        logger.error(
-            'Альтернативный трей: непредвиденная ошибка: %s',
-            e, exc_info=True,
-        )
-    return None
-
-
-def _try_start_tray(
-    callbacks: dict, no_tkinter: bool,
-):
-    """
-    Запуск start_tray с обработкой ошибок и цепочкой fallback.
+    Запуск start_tray с обработкой ошибок.
 
     Цепочка отказоустойчивости:
     1. Основной трей (платформенный бэкенд, start_tray).
-    2. Если основной вернул None или бросил исключение — pystray
-       с нативным меню (_start_alt_tray). Шаг пропускается при
-       --no-tkinter: start_tray уже использовал нативный fallback.
-    3. Если все бэкенды недоступны — _handle_tray_error
+    2. Если основной вернул None или бросил исключение — _handle_tray_error
        (critical + sys.exit(1) в standalone, warning в исходниках).
+
+    tkinter обязателен для трея и диалогов бэкенда, поэтому отдельный
+    fallback-бэкенд без tkinter не предусмотрен.
     """
     _labels: dict[type, str] = {
         ImportError: 'импорт',
@@ -871,10 +836,9 @@ def _try_start_tray(
         # инвариант _HAS_TRAY=True → start_tray определён
         assert start_tray is not None  # type: ignore[reportPossiblyUnbound]
         icon = start_tray(  # type: ignore[reportPossiblyUnbound]
-            callbacks, no_tkinter=no_tkinter,
+            callbacks,
         )
-    # Последний рубеж: любой сбой бэкенда не должен уронить процесс,
-    # а должен привести к цепочке fallback на другой трей.
+    # Последний рубеж: любой сбой бэкенда не должен уронить процесс.
     except Exception as exc:  # pylint: disable=broad-exception-caught
         icon = None
         label = _labels.get(type(exc), 'непредвиденная ошибка')
@@ -887,22 +851,9 @@ def _try_start_tray(
         logger.info('Иконка в трее запущена')
         return icon
 
-    # Шаг 2: альтернативный бэкенд — pystray с нативным меню
-    if not no_tkinter:
-        logger.info(
-            'Основной трей недоступен, попытка pystray '
-            'с нативным меню...',
-        )
-        alt_icon = _start_alt_tray(callbacks)
-        if alt_icon:
-            logger.info(
-                'Альтернативный трей (pystray, нативное меню) запущен',
-            )
-            return alt_icon
-
-    # Шаг 3: все трей-бэкенды недоступны
+    # Шаг 2: трей недоступен
     _handle_tray_error(
-        RuntimeError('Все трей-бэкенды недоступны'),
+        RuntimeError('Системный трей недоступен'),
         'запуск',
     )
     return None
@@ -1213,10 +1164,6 @@ async def main() -> None:
         help='Количество фиктивных прокси для тестирования (требует --debug)',
     )
     parser.add_argument(
-        '--no-tkinter', action='store_true',
-        help='Принудительно отключить tkinter popup (fallback на pystray)',
-    )
-    parser.add_argument(
         '--test-fallback-icon', action='store_true',
         help='Тестирование дефолтной иконки (красный круг + FLP) '
              'вместо icons/icon.ico',
@@ -1250,8 +1197,6 @@ async def main() -> None:
         logger.info('Симуляция обновления: включена')
     if args.count_proxy > 0:
         logger.info('Фиктивные прокси: %d', args.count_proxy)
-    if args.no_tkinter:
-        logger.info('Tkinter отключён (--no-tkinter), fallback на pystray')
 
     if args.count_proxy > 0:
         fake_data = generate_fake_proxies(args.count_proxy)

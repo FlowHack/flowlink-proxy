@@ -4,8 +4,6 @@
 Тестирует:
 - PystrayTray._show_popup: guard от дублей, передача tk_root
   в callbacks, обработка исключений рендера.
-- __main__._try_start_tray: цепочка fallback на pystray
-  с нативным меню.
 """
 
 import unittest
@@ -78,87 +76,5 @@ class TestPystrayShowPopup(unittest.TestCase):
         self.assertFalse(tray._popup_open)  # pylint: disable=protected-access  # internal: проверка сброса флага
 
 
-class TestTryStartTrayFallback(unittest.TestCase):
-    """Тесты цепочки fallback в __main__._try_start_tray."""
-
-    def _base_callbacks(self):
-        """Минимальный набор коллбэков для тестов."""
-        return {'stop': MagicMock()}
-
-    @patch('server.__main__._start_alt_tray')
-    @patch('server.__main__.start_tray')
-    def test_primary_success(self, mock_start, mock_alt):
-        """Основной бэкенд запущен — альтернативный не пробуем."""
-        mock_start.return_value = MagicMock()
-        from server.__main__ import _try_start_tray  # pylint: disable=import-outside-toplevel  # ленивый импорт: избегаем цикла
-        result = _try_start_tray(
-            self._base_callbacks(), no_tkinter=False,
-        )
-        self.assertIsNotNone(result)
-        mock_alt.assert_not_called()
-
-    @patch('server.__main__._handle_tray_error')
-    @patch('server.__main__._start_alt_tray')
-    @patch('server.__main__.start_tray')
-    def test_primary_none_uses_alt(
-        self, mock_start, mock_alt, mock_handle,
-    ):
-        """Основной вернул None — пробуем альтернативный."""
-        mock_start.return_value = None
-        mock_alt.return_value = MagicMock()
-        from server.__main__ import _try_start_tray  # pylint: disable=import-outside-toplevel  # ленивый импорт: избегаем цикла
-        result = _try_start_tray(
-            self._base_callbacks(), no_tkinter=False,
-        )
-        self.assertIsNotNone(result)
-        mock_alt.assert_called_once()
-        mock_handle.assert_not_called()
-
-    @patch('server.__main__._handle_tray_error')
-    @patch('server.__main__._start_alt_tray')
-    @patch('server.__main__.start_tray')
-    def test_primary_exception_uses_alt(
-        self, mock_start, mock_alt, mock_handle,
-    ):
-        """Основной бросил исключение — пробуем альтернативный."""
-        mock_start.side_effect = OSError('нет дисплея')
-        mock_alt.return_value = MagicMock()
-        from server.__main__ import _try_start_tray  # pylint: disable=import-outside-toplevel  # ленивый импорт: избегаем цикла
-        result = _try_start_tray(
-            self._base_callbacks(), no_tkinter=False,
-        )
-        self.assertIsNotNone(result)
-        mock_alt.assert_called_once()
-        mock_handle.assert_not_called()
-
-    @patch('server.__main__._handle_tray_error')
-    @patch('server.__main__._start_alt_tray')
-    @patch('server.__main__.start_tray')
-    def test_all_failed_calls_handle_error(
-        self, mock_start, mock_alt, mock_handle,
-    ):
-        """Все бэкенды недоступны — вызывается _handle_tray_error."""
-        mock_start.return_value = None
-        mock_alt.return_value = None
-        from server.__main__ import _try_start_tray  # pylint: disable=import-outside-toplevel  # ленивый импорт: избегаем цикла
-        result = _try_start_tray(
-            self._base_callbacks(), no_tkinter=False,
-        )
-        self.assertIsNone(result)
-        mock_handle.assert_called_once()
-
-    @patch('server.__main__._handle_tray_error')
-    @patch('server.__main__._start_alt_tray')
-    @patch('server.__main__.start_tray')
-    def test_no_tkinter_skips_alt(
-        self, mock_start, mock_alt, mock_handle,
-    ):
-        """При --no-tkinter альтернативный бэкенд не пробуем повторно."""
-        mock_start.return_value = None
-        from server.__main__ import _try_start_tray  # pylint: disable=import-outside-toplevel  # ленивый импорт: избегаем цикла
-        result = _try_start_tray(
-            self._base_callbacks(), no_tkinter=True,
-        )
-        self.assertIsNone(result)
-        mock_alt.assert_not_called()
-        mock_handle.assert_called_once()
+if __name__ == '__main__':
+    unittest.main()

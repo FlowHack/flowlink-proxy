@@ -37,7 +37,6 @@ def _make_args() -> argparse.Namespace:
     args.debug = False
     args.dev = False
     args.need_update = False
-    args.no_tkinter = False
     args.test_fallback_icon = False
     args.count_proxy = 0
     args.browser_path = None
