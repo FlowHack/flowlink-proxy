@@ -11,7 +11,10 @@ import subprocess
 import sys
 
 from server.config import autostart as _autostart_mod
-from server.config.browser_process import is_browser_running
+from server.config.browser_process import (
+    is_browser_running,
+    is_browser_running_with_proxy,
+)
 
 logger = logging.getLogger('flowlink.browser')
 
@@ -271,16 +274,18 @@ def launch_browser(
 
     Chrome/Chromium игнорирует флаг --proxy-server, если процесс браузера
     уже запущен, поэтому перед запуском выполняется проверка запущенных
-    процессов. При обнаружении процесса запуск не выполняется, а вызывающему
-    коду возвращается специальное значение 'already_running'.
+    процессов. Если браузер уже запущен с нужным флагом --proxy-server —
+    повторный запуск не требуется, возвращается True. Если браузер запущен
+    без прокси — возвращается 'already_running', чтобы вызывающий код
+    предложил перезапустить его через FlowLink Proxy.
 
     Args:
         browser_path: Путь к исполняемому файлу браузера.
         proxy_port: Порт HTTP-прокси (по умолчанию 8080).
 
     Returns:
-        True если браузер успешно запущен,
-        'already_running' если процесс браузера уже запущен,
+        True если браузер успешно запущен (или уже работает через прокси),
+        'already_running' если процесс браузера уже запущен без прокси,
         False при ошибке.
     """
     if not validate_browser_path(browser_path):
@@ -290,12 +295,22 @@ def launch_browser(
         )
         return False
 
+    # Если браузер уже запущен через FlowLink Proxy (с нужным флагом
+    # --proxy-server) — повторный запуск не требуется, считаем успехом.
+    if is_browser_running_with_proxy(browser_path, proxy_port):
+        logger.info(
+            'Браузер уже запущен через FlowLink Proxy: %s. '
+            'Повторный запуск не требуется.',
+            browser_path,
+        )
+        return True
+
     # Проверка запущенных процессов: Chrome/Chromium игнорирует
-    # --proxy-server, если браузер уже запущен
+    # --proxy-server, если браузер уже запущен без прокси
     if is_browser_running(browser_path):
         logger.warning(
-            'Браузер уже запущен: %s. Запуск через FlowLink Proxy '
-            'не выполнен, флаг --proxy-server был бы проигнорирован.',
+            'Браузер уже запущен без прокси: %s. Запуск через FlowLink '
+            'Proxy не выполнен, флаг --proxy-server был бы проигнорирован.',
             browser_path,
         )
         return 'already_running'

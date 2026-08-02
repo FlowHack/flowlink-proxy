@@ -112,7 +112,7 @@ def _handle_tray_error(
 def _show_browser_already_running_dialog(
     callbacks: dict,
     browser_path: str,
-    proxy_port: int,
+    _proxy_port: int,
 ) -> bool:
     """
     Показывает диалог предупреждения о запущенном процессе браузера.
@@ -128,14 +128,21 @@ def _show_browser_already_running_dialog(
     show_info с parent_root использует wait_window — вложенный цикл
     событий, безопасный в этом потоке.
 
+    Важно: функция возвращает только ВЫБОР пользователя, а не результат
+    перезапуска. Само завершение процессов и запуск браузера выполняются
+    вызывающим кодом в фоновом потоке — иначе блокирующие вызовы
+    (taskkill, time.sleep) заморозили бы mainloop tkinter, и окно
+    перешло бы в состояние «Не отвечает».
+
     Args:
         callbacks: Словарь коллбэков трея (используется tk_root).
         browser_path: Путь к исполняемому файлу браузера.
-        proxy_port: Порт HTTP-прокси.
+        _proxy_port: Порт HTTP-прокси (не используется внутри диалога,
+            сохранён для единообразия сигнатуры с вызывающим кодом).
 
     Returns:
-        True если браузер был перезапущен после завершения процессов,
-        False при отмене, ошибке или недоступности tkinter.
+        True если пользователь выбрал «Закрыть браузер и запустить через
+        FlowLink Proxy», False при отмене, ошибке или недоступности tkinter.
     """
     tk_root = callbacks.get('tk_root')
     if tk_root is None:
@@ -160,31 +167,11 @@ def _show_browser_already_running_dialog(
         browser_process as _browser_process  # pylint: disable=import-outside-toplevel
 
     instructions = _browser_process.get_manual_kill_instructions(browser_path)
-    relaunched = {'value': False}
+    choice = {'value': False}
 
-    def _on_kill_and_launch() -> None:
-        """
-        Завершает процессы браузера и запускает его через FlowLink Proxy.
-        """
-        if not _browser_process.kill_browser_processes(browser_path):
-            logger.error(
-                'Не удалось завершить процессы браузера: %s',
-                browser_path,
-            )
-            return
-        # Небольшая пауза, чтобы ОС освободила ресурсы завершённых
-        # процессов (особенно актуально для Windows taskkill)
-        time.sleep(0.5)
-        second_result = _browser_config.launch_browser(
-            browser_path, proxy_port=proxy_port,
-        )
-        if second_result == 'already_running':
-            logger.warning(
-                'После завершения процессов браузер всё ещё запущен: %s',
-                browser_path,
-            )
-            return
-        relaunched['value'] = bool(second_result)
+    def _on_choose_restart() -> None:
+        """Фиксирует выбор пользователя: перезапустить браузер."""
+        choice['value'] = True
 
     message = (
         'Для работы через прокси браузер необходимо закрыть и запустить '
@@ -209,13 +196,13 @@ def _show_browser_already_running_dialog(
             },
             {
                 'text': 'Закрыть браузер и запустить через FlowLink Proxy',
-                'action': _on_kill_and_launch,
+                'action': _on_choose_restart,
                 'primary': True,
             },
         ],
         parent_root=tk_root,
     )
-    return relaunched['value']
+    return choice['value']
 
 
 def _show_browser_not_selected_dialog(callbacks: dict) -> None:
@@ -296,7 +283,7 @@ def _launch_browser_sync(
     return bool(result)
 
 
-def _launch_browser_callback(
+def _launch_browser_callback(  # pylint: disable=too-many-statements  # запуск браузера + диалог + фоновый перезапуск
     callbacks: dict,
     proxy_port: int,
 ) -> bool:
@@ -346,6 +333,7 @@ def _launch_browser_callback(
         Вызывается через tk_root.after(0, ...) — все операции с tk
         выполняются только здесь (не в фоновом потоке).
         """
+        started_restart = False
         try:
             if result['error'] is not None:
                 logger.error(
@@ -355,22 +343,96 @@ def _launch_browser_callback(
             elif result['value'] == 'already_running':
                 # Диалог выполняется в mainloop-потоке: wait_window внутри
                 # show_info запускает вложенный цикл событий, что безопасно.
-                result['value'] = _show_browser_already_running_dialog(
+                # Функция возвращает только выбор пользователя; сам
+                # перезапуск (kill + launch) выполняется в фоновом потоке
+                # _restart_worker, чтобы не блокировать mainloop.
+                if _show_browser_already_running_dialog(
                     callbacks, browser_path, proxy_port,
-                )
+                ):
+                    started_restart = True
+                    _start_restart_worker()
+                    return
+                result['value'] = False
         finally:
+            # Если запущен фоновый перезапуск — не закрываем wait_variable
+            # и не прячем статусбар: done_var будет выставлен вторым
+            # _on_done после завершения _restart_worker.
+            if not started_restart:
+                try:
+                    popup.hide_loading()
+                except (tk.TclError, RuntimeError) as e:
+                    logger.debug(
+                        'Не удалось скрыть статусбар загрузки: %s', e,
+                    )
+                try:
+                    done_var.set(True)
+                except tk.TclError:
+                    logger.debug(
+                        'Не удалось разблокировать wait_variable',
+                    )
+
+    def _start_restart_worker() -> None:
+        """
+        Запускает перезапуск браузера в фоновом потоке.
+
+        Завершает процессы браузера и запускает его заново через
+        FlowLink Proxy. Выполняется в отдельном потоке, чтобы
+        блокирующие вызовы (taskkill, time.sleep) не замораживали
+        mainloop tkinter. По завершении планирует _on_done через
+        tk_root.after(0, ...).
+        """
+        try:
+            popup.show_loading('Перезапуск браузера...')
+        except (tk.TclError, RuntimeError) as e:
+            logger.debug('Не удалось показать статусбар загрузки: %s', e)
+
+        def _restart_worker() -> None:
+            """
+            Фоновый поток: завершает процессы браузера и запускает заново.
+            """
+            # Ленивый импорт: модуль browser_process подключается только
+            # при необходимости перезапуска браузера.
+            from server.config import \
+                browser_process as _bp  # pylint: disable=import-outside-toplevel
             try:
-                popup.hide_loading()
-            except (tk.TclError, RuntimeError) as e:
-                logger.debug(
-                    'Не удалось скрыть статусбар загрузки: %s', e,
+                if not _bp.kill_browser_processes(browser_path):
+                    logger.error(
+                        'Не удалось завершить процессы браузера: %s',
+                        browser_path,
+                    )
+                    result['value'] = False
+                    return
+                # Небольшая пауза, чтобы ОС освободила ресурсы завершённых
+                # процессов (особенно актуально для Windows taskkill)
+                time.sleep(0.5)
+                second_result = _browser_config.launch_browser(
+                    browser_path, proxy_port=proxy_port,
                 )
-            try:
-                done_var.set(True)
-            except tk.TclError:
-                logger.debug(
-                    'Не удалось разблокировать wait_variable',
-                )
+                if second_result == 'already_running':
+                    logger.warning(
+                        'После завершения процессов браузер всё ещё '
+                        'запущен: %s', browser_path,
+                    )
+                    result['value'] = False
+                    return
+                result['value'] = bool(second_result)
+            except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
+                result['error'] = e
+            finally:
+                try:
+                    tk_root.after(0, _on_done)
+                except (tk.TclError, RuntimeError) as e:
+                    logger.error(
+                        'Не удалось запланировать обработку результата: %s',
+                        e,
+                    )
+                    try:
+                        done_var.set(True)
+                    except tk.TclError:
+                        pass
+
+        thread = threading.Thread(target=_restart_worker, daemon=True)
+        thread.start()
 
     def _worker() -> None:
         """

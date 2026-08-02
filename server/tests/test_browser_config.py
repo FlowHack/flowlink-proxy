@@ -275,9 +275,13 @@ class TestLaunchBrowser(unittest.TestCase):
 
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.is_browser_running', return_value=False)
+    @patch(
+        'server.config.browser_config.is_browser_running_with_proxy',
+        return_value=False,
+    )
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_basic_proxy_flag(self, _mock_validate, _mock_running,
-                                     mock_popen):
+    def test_launch_basic_proxy_flag(self, _mock_validate, _mock_proxy_running,
+                                     _mock_running, mock_popen):
         """Базовый запуск: браузер получает --proxy-server=127.0.0.1:8080."""
         result = launch_browser('/usr/bin/chrome')
         self.assertTrue(result)
@@ -292,9 +296,13 @@ class TestLaunchBrowser(unittest.TestCase):
 
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.is_browser_running', return_value=False)
+    @patch(
+        'server.config.browser_config.is_browser_running_with_proxy',
+        return_value=False,
+    )
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_custom_proxy_port(self, _mock_validate, _mock_running,
-                                      mock_popen):
+    def test_launch_custom_proxy_port(self, _mock_validate, _mock_proxy_running,
+                                      _mock_running, mock_popen):
         """Кастомный порт прокси попадает в --proxy-server."""
         result = launch_browser('/usr/bin/chrome', proxy_port=9090)
         self.assertTrue(result)
@@ -314,16 +322,26 @@ class TestLaunchBrowser(unittest.TestCase):
         side_effect=OSError('permission denied'),
     )
     @patch('server.config.browser_config.is_browser_running', return_value=False)
+    @patch(
+        'server.config.browser_config.is_browser_running_with_proxy',
+        return_value=False,
+    )
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_os_error(self, _mock_validate, _mock_running, _mock_popen):
+    def test_launch_os_error(self, _mock_validate, _mock_proxy_running,
+                             _mock_running, _mock_popen):
         """Ошибка запуска subprocess возвращает False."""
         result = launch_browser('/usr/bin/chrome')
         self.assertFalse(result)
 
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.is_browser_running', return_value=False)
+    @patch(
+        'server.config.browser_config.is_browser_running_with_proxy',
+        return_value=False,
+    )
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
     def test_launch_has_no_extension_and_cdp_flags(self, _mock_validate,
+                                                   _mock_proxy_running,
                                                    _mock_running, mock_popen):
         """В аргументах нет --user-data-dir, --load-extension и CDP-флагов."""
         result = launch_browser('/usr/bin/chrome', proxy_port=8080)
@@ -339,10 +357,35 @@ class TestLaunchBrowser(unittest.TestCase):
 
     @patch('server.config.browser_config.subprocess.Popen')
     @patch('server.config.browser_config.is_browser_running', return_value=True)
+    @patch(
+        'server.config.browser_config.is_browser_running_with_proxy',
+        return_value=False,
+    )
     @patch('server.config.browser_config.validate_browser_path', return_value=True)
-    def test_launch_already_running(self, _mock_validate, _mock_running,
-                                    mock_popen):
-        """Запущенный браузер: возврат 'already_running', Popen не вызывается."""
+    def test_launch_already_running_without_proxy(
+        self, _mock_validate, _mock_proxy_running, _mock_running, mock_popen,
+    ):
+        """Браузер запущен без прокси: возврат 'already_running', Popen не вызывается."""
         result = launch_browser('/usr/bin/chrome')
         self.assertEqual(result, 'already_running')
         mock_popen.assert_not_called()
+
+    @patch('server.config.browser_config.subprocess.Popen')
+    @patch('server.config.browser_config.is_browser_running')
+    @patch(
+        'server.config.browser_config.is_browser_running_with_proxy',
+        return_value=True,
+    )
+    @patch('server.config.browser_config.validate_browser_path', return_value=True)
+    def test_launch_already_running_with_proxy(self, _mock_validate,
+                                               _mock_proxy_running,
+                                               _mock_running, mock_popen):
+        """Браузер уже запущен через прокси: возврат True, запуск не выполняется.
+
+        Повторный Popen не создаётся, а проверка is_browser_running
+        (запущен ли браузер вообще) не выполняется — короткое замыкание.
+        """
+        result = launch_browser('/usr/bin/chrome')
+        self.assertTrue(result)
+        mock_popen.assert_not_called()
+        _mock_running.assert_not_called()
