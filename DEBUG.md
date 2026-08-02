@@ -264,6 +264,7 @@ python -m server --debug --no-tkinter
 | `POST` | `/api/enabled` | Установить глобальный флаг. Тело: `{"enabled": true/false}` |
 | `GET` | `/api/status` | Статус backend (proxiesCount, masksCount, debug, needUpdate) |
 | `GET` | `/api/version` | Версия сервера: `{"version": "X.X.X"}` |
+| `GET` | `/api/bootstrap` | Токен и порт API для расширения (открытый, без токена): `{"token": "...", "apiPort": 8081}` |
 | `POST` | `/api/ping` | Пинг прокси. Тело: `{"proxyId": "..."}` |
 | `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`, `autostart_browser_changed`, `system_autostart_changed`, `browser_config_changed`) |
 | `GET` | `/api/autostart-browser` | Автозапуск браузера: `{"autostartBrowser": true/false}` |
