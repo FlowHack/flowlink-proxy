@@ -44,8 +44,10 @@ def has_pystray() -> bool:
         # Xlib.error.DisplayNameError при отсутствии X-дисплея.
         # Ловим display-ошибки Xlib, остальное — пробрасываем.
         try:
-            from Xlib.error import \
-                DisplayError  # type: ignore[reportMissingModuleSource]  # Xlib — optional, headless CI  # pylint: disable=import-outside-toplevel
+            # Xlib — опциональная зависимость (headless CI); подавление
+            # reportMissingModuleSource стоит на строке импорта, т.к.
+            # pyright привязывает диагностику именно к ней.
+            from Xlib.error import DisplayError  # type: ignore[reportMissingModuleSource]  # pylint: disable=import-outside-toplevel
             if isinstance(exc, DisplayError):
                 logger.debug('pystray: Xlib display-ошибка (headless?): %s', exc)
                 return False
