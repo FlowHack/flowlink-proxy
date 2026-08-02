@@ -209,7 +209,7 @@ class TestGetBrowserConfig(_TempSettingsMixin):
 
 
 class TestGetCloseBrowserWithApp(_TempSettingsMixin):
-    """Тесты чтения настройки «Закрывать браузер вместе с FlowLink Proxy»."""
+    """Тесты чтения настройки «Автозакрытие браузера»."""
 
     def test_default_false(self):
         """По умолчанию (нет файла) — False."""
@@ -243,7 +243,7 @@ class TestGetCloseBrowserWithApp(_TempSettingsMixin):
 
 
 class TestSetCloseBrowserWithApp(_TempSettingsMixin):
-    """Тесты записи настройки «Закрывать браузер вместе с FlowLink Proxy»."""
+    """Тесты записи настройки «Автозакрытие браузера»."""
 
     def test_set_true(self):
         """Запись True сохраняет 'true' в файл."""

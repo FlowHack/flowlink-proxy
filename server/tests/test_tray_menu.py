@@ -103,7 +103,7 @@ class TestBuildMenuItems(unittest.TestCase):
         self.assertEqual(items[-2]['type'], 'separator')
 
     def test_has_autostart_checks(self):
-        """Три чекбокса: автозапуск, запуск с системой и закрытие браузера с приложением."""
+        """Три чекбокса: автозапуск, автозакрытие браузера и запуск с системой."""
         items = build_menu_items(
             self._base_callbacks(), MagicMock(),
         )
@@ -115,10 +115,10 @@ class TestBuildMenuItems(unittest.TestCase):
             check_items[0]['text'], 'Автозапуск браузера',
         )
         self.assertEqual(
-            check_items[1]['text'], 'Запуск с системой',
+            check_items[1]['text'], 'Автозакрытие браузера',
         )
         self.assertEqual(
-            check_items[2]['text'], 'Закрывать браузер вместе с FlowLink Proxy',
+            check_items[2]['text'], 'Запуск с системой',
         )
 
     def test_autostart_checked(self):
@@ -540,7 +540,7 @@ class TestSelectBrowserItems(unittest.TestCase):
 
 
 class TestToggleCloseBrowserWithApp(unittest.TestCase):
-    """Тесты переключения настройки «Закрывать браузер вместе с FlowLink Proxy»."""
+    """Тесты переключения настройки «Автозакрытие браузера»."""
 
     def test_toggle_calls_setter(self):
         """Переключение вызывает close_browser_with_app_setter с инвертированным значением."""
@@ -723,7 +723,7 @@ class TestHandleBrowserOnExit(unittest.TestCase):
 
 
 class TestBuildMenuItemsBrowserClose(unittest.TestCase):
-    """Тесты пунктов меню «Закрывать браузер» и «Закрыть браузер»."""
+    """Тесты пунктов меню «Автозакрытие браузера» и «Закрыть браузер»."""
 
     def _callbacks(self, browser_path='', proxy_port=None):
         """Минимальный набор колбэков для тестов меню."""
@@ -735,12 +735,12 @@ class TestBuildMenuItemsBrowserClose(unittest.TestCase):
         }
 
     def test_close_browser_checkbox_present(self):
-        """Чекбокс «Закрывать браузер вместе с FlowLink Proxy» присутствует."""
+        """Чекбокс «Автозакрытие браузера» присутствует."""
         items = build_menu_items(
             self._callbacks(), MagicMock(),
         )
         texts = [item.get('text') for item in items]
-        self.assertIn('Закрывать браузер вместе с FlowLink Proxy', texts)
+        self.assertIn('Автозакрытие браузера', texts)
 
     def test_close_browser_checkbox_checked(self):
         """Чекбокс отмечен, когда close_browser_with_app_getter возвращает True."""
@@ -752,7 +752,7 @@ class TestBuildMenuItemsBrowserClose(unittest.TestCase):
         items = build_menu_items(callbacks, MagicMock())
         check = next(
             item for item in items
-            if item.get('text') == 'Закрывать браузер вместе с FlowLink Proxy'
+            if item.get('text') == 'Автозакрытие браузера'
         )
         self.assertTrue(check['checked'])
 
@@ -768,7 +768,7 @@ class TestBuildMenuItemsBrowserClose(unittest.TestCase):
         items = build_menu_items(callbacks, MagicMock())
         check = next(
             item for item in items
-            if item.get('text') == 'Закрывать браузер вместе с FlowLink Proxy'
+            if item.get('text') == 'Автозакрытие браузера'
         )
         check['command']()
         setter.assert_called_once_with(True)

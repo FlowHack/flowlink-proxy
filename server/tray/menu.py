@@ -664,7 +664,7 @@ def _show_close_browser_on_exit_dialog(
             )
 
     message = (
-        'Браузер был запущен через FlowLink Proxy. Закрытие браузера '
+        'Браузер был запущен из FlowLink Proxy. Закрытие браузера '
         'может прервать незавершённые действия (скачивание файлов, '
         'обновления и т.п.). Если идёт важный процесс — дождитесь его '
         'завершения.\n\n'
@@ -682,7 +682,7 @@ def _show_close_browser_on_exit_dialog(
                 'primary': False,
             },
             {
-                'text': 'Закрыть браузер вместе с FlowLink Proxy',
+                'text': 'Закрыть браузер',
                 'action': _on_close_browser,
                 'primary': True,
             },
@@ -778,7 +778,7 @@ def build_menu_items(
         callbacks.get('extension_connected_getter', lambda: False)(),
     )
 
-    # Настройка «Закрывать браузер вместе с FlowLink Proxy».
+    # Настройка «Автозакрытие браузера».
     close_browser_with_app = bool(
         callbacks.get('close_browser_with_app_getter', lambda: False)(),
     )
@@ -860,6 +860,18 @@ def build_menu_items(
         },
         {
             'type': 'check',
+            'text': 'Автозакрытие браузера',
+            'icon': '\U0001f6aa',
+            'checked': close_browser_with_app,
+            'tooltip': 'Закрывать браузер при выходе из FlowLink Proxy',
+            'command': _make_action(
+                _toggle_close_browser_with_app,
+                callbacks, log,
+                current_value=close_browser_with_app,
+            ),
+        },
+        {
+            'type': 'check',
             'text': 'Запуск с системой',
             'icon': '\U0001f50a',
             'checked': sys_autostart,
@@ -868,21 +880,6 @@ def build_menu_items(
                 _toggle_system_autostart,
                 callbacks, log,
                 current_value=sys_autostart,
-            ),
-        },
-        {
-            'type': 'check',
-            'text': 'Закрывать браузер вместе с FlowLink Proxy',
-            'icon': '\U0001f6aa',
-            'checked': close_browser_with_app,
-            'tooltip': (
-                'При выходе из FlowLink Proxy автоматически закрывать '
-                'браузер, запущенный через прокси, без предупреждения'
-            ),
-            'command': _make_action(
-                _toggle_close_browser_with_app,
-                callbacks, log,
-                current_value=close_browser_with_app,
             ),
         },
         {'type': 'separator'},
@@ -930,7 +927,7 @@ def build_menu_items(
             'text': 'Закрыть браузер',
             'icon': '\U0001f6d1',
             'color': '#e74c3c',
-            'tooltip': 'Закрыть браузер, запущенный через FlowLink Proxy',
+            'tooltip': 'Закрыть браузер, запущенный из FlowLink Proxy',
             'command': _make_action(
                 _close_browser_now, callbacks, log,
             ),
