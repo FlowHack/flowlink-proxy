@@ -757,19 +757,20 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         finally:
             self._command_running = False
 
-    def _build_item_row(
+    def _build_item_row(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals  # каркас строки меню с чекбоксом; разбиение ухудшит читаемость
         self,
         text: str,
         icon: str = '',
         command: Optional[Callable[[], None]] = None,
         color: Optional[str] = None,
         tooltip: Optional[str] = None,
+        checked: Optional[bool] = None,
     ) -> tk.Frame:
         """Строит базовую строку пункта меню: frame, иконка, текст, hover/клик.
 
         Общий каркас для обычных пунктов и пунктов с чекбоксом (DRY).
-        Возвращает frame, к которому вызывающий метод может добавить
-        дополнительные виджеты (например, чекбокс справа).
+        Если checked не None — справа от текста добавляется чекбокс,
+        который участвует в hover/клик-обработчиках (как в оригинале).
 
         Args:
             text: Текст пункта.
@@ -777,6 +778,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             command: Обработчик клика (опционально).
             color: Цвет текста (опционально).
             tooltip: Инлайн-подсказка в статусбаре (опционально).
+            checked: Состояние чекбокса (None — без чекбокса).
 
         Returns:
             tk.Frame — построенная строка пункта меню.
@@ -810,6 +812,20 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             anchor='w',
         )
         text_lbl.pack(side='left', fill='x', expand=True, padx=4, pady=4)
+
+        # Чекбокс (справа от текста), если запрошен
+        if checked is not None:
+            mark = '\u2713' if checked else ''
+            check_lbl = tk.Label(
+                frame,
+                text=mark,
+                bg=PopupColors.BG,
+                fg=PopupColors.GREEN if checked else PopupColors.BG,
+                font=('Segoe UI', 12, 'bold'),
+                width=2,
+                anchor='center',
+            )
+            check_lbl.pack(side='right', padx=(0, 8))
 
         # Hover + клик
         def on_enter(
@@ -916,25 +932,13 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             tooltip: Инлайн-подсказка в статусбаре (опционально).
         """
         try:
-            frame = self._build_item_row(
+            self._build_item_row(
                 text=text,
                 icon=icon,
                 command=command,
                 tooltip=tooltip,
+                checked=checked,
             )
-
-            # Чекбокс (справа от текста)
-            mark = '\u2713' if checked else ''
-            check_lbl = tk.Label(
-                frame,
-                text=mark,
-                bg=PopupColors.BG,
-                fg=PopupColors.GREEN if checked else PopupColors.BG,
-                font=('Segoe UI', 12, 'bold'),
-                width=2,
-                anchor='center',
-            )
-            check_lbl.pack(side='right', padx=(0, 8))
         except tk.TclError as e:
             logger.error(
                 'Popup: ошибка tkinter в _add_check_item: %s', e,
