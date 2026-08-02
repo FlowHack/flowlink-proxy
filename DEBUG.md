@@ -401,7 +401,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 scripts\build\build.bat
 ```
 
-Результат: `releases/flowlink-proxy` (Linux/macOS) или `releases\flowlink-proxy.exe` (Windows)
+Результат: `releases/FlowLink Proxy` (Linux/macOS) или `releases\FlowLink Proxy.exe` (Windows)
 
 ### Упаковка архива релиза (Linux / macOS)
 
@@ -414,7 +414,7 @@ scripts\build\build.bat
 - `FlowLink-Proxy-vX.X.X-linux-x64.tar.gz`
 - (на macOS: `...-macos-x64.tar.gz` или `...-macos-arm64.tar.gz`)
 
-Внутри архива: бинарник, лаунчер, EULA.rtf, LICENSE.txt, README.md, SETUP.md, DEBUG.md.
+Внутри архива: бинарник, лаунчер, EULA.rtf, LICENSE.txt, README.md. SETUP.md и DEBUG.md в архив не попадают.
 
 ### Сборка .deb-пакета (Linux)
 
@@ -423,7 +423,7 @@ scripts\build\build.bat
 ./scripts/build/build-deb.sh
 ```
 
-Результат: `releases/FlowLink-Proxy-vX.X.X-amd64.deb`
+Результат: `releases/flowlink-proxy_<версия>_<арх>.deb`
 
 ### Сборка .rpm-пакета (Linux)
 
@@ -432,7 +432,7 @@ scripts\build\build.bat
 ./scripts/build/build-rpm.sh
 ```
 
-Результат: `~/rpmbuild/RPMS/x86_64/FlowLink-Proxy-vX.X.X-x86_64.rpm`
+Результат: `~/rpmbuild/RPMS/x86_64/flowlink-proxy-<версия>-1.<dist>.x86_64.rpm`
 
 ### Сборка .pkg-пакета (macOS)
 
@@ -441,13 +441,13 @@ scripts\build\build.bat
 ./scripts/build/build-pkg.sh
 ```
 
-Результат: `releases/FlowLink-Proxy-vX.X.X-{x64|arm64}.pkg`
+Результат: `releases/flowlink-proxy-<версия>-macos-<арх>.pkg`
 
 ### Сборка установщика Windows
 
 1. Установите [Inno Setup](https://jrsoftware.org/isdl.php) (последнюю стабильную **6**, не бета 7)
 2. Соберите бинарник: `scripts\build\build.bat`
 3. Откройте `scripts/installer/flowlink-installer.iss` в Inno Setup → Build → Compile
-4. Результат: `scripts/installer/Output/FlowLink-Proxy-vX.X.X-Setup.exe`
+4. Результат: `releases/FlowLink-Proxy-vX.X.X-Setup.exe`
 
 > **Архитектура:** Inno Setup соберёт установщик под x64. В .iss уже указано `ArchitecturesInstallIn64BitMode=x64compatible` — автоматически выбирает правильную Program Files папку (32 или 64 бит).

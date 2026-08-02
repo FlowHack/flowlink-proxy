@@ -74,7 +74,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 | Платформа | Файл | Установка |
 |-----------|------|-----------|
 | **Windows x64** | `FlowLink-Proxy-v*-Setup.exe` | Запустите установщик → следуйте инструкциям |
-| **Linux x64** | `FlowLink-Proxy-v*-linux-x64.tar.gz` | Распакуйте → `chmod +x "FlowLink Proxy"` → запустите |
+| **Linux x64** | `FlowLink-Proxy-v*-linux-x64.tar.gz` | Распакуйте → запустите лаунчер `FlowLink Proxy-linux.sh` (или бинарник `FlowLink Proxy`) |
 | **Linux x64** | `flowlink-proxy_<версия>_amd64.deb` | `sudo dpkg -i flowlink-proxy_*.deb` |
 | **Linux x64** | `flowlink-proxy-<версия>-1.x86_64.rpm` | `sudo rpm -i flowlink-proxy-*.rpm` |
 | **macOS Intel** | `FlowLink-Proxy-v*-macos-x64.tar.gz` | Распакуйте → запустите |
@@ -257,6 +257,9 @@ flowlink-proxy/
 │   │   ├── proxy.py           # HTTP CONNECT прокси (порт 8080)
 │   │   ├── api.py             # HTTP API (порт 8081)
 │   │   └── handlers.py        # Обработчики API-эндпоинтов
+│   ├── ui/
+│   │   ├── dialogs.py         # Кастомные tkinter-диалоги (show_info, show_item_picker)
+│   │   └── theme.py           # Тёмная тема для диалогов
 │   ├── utils.py               # Утилиты (get_data_dir, clear_all_data, write_port_file)
 │   ├── icons/                 # Иконки бэкенда (icon.ico, icon.png)
 │   ├── requirements.txt       # Зависимости Python
@@ -282,6 +285,7 @@ flowlink-proxy/
 │       ├── test_tray_fallback.py
 │       ├── test_main_launch_browser.py
 │       ├── test_main_autostart.py
+│       ├── test_main_close_browser.py
 │       ├── test_extension_timeout.py
 │       ├── test_extension_connection.py
 │       ├── test_dialogs.py
@@ -312,6 +316,8 @@ flowlink-proxy/
 │   │   ├── dom.js             # escapeHtml, утилиты DOM
 │   │   ├── utils.js           # Валидация IP/port, wildcard→regex, copyEmailToClipboard
 │   │   └── port_discovery.js  # Автообнаружение порта API
+│   ├── tests/                 # Тесты расширения
+│   │   └── help.test.js       # Тесты логики вкладок справки
 │   └── icons/                 # Иконки расширения
 │
 ├── scripts/
@@ -372,7 +378,7 @@ flowlink-proxy/
 
 ## Требования
 
-- **Windows:** 10+ (standalone-бинарник или установщик)
+- **Windows:** 10+ (установщик `FlowLink-Proxy-*-Setup.exe`; отдельный standalone-архив не публикуется)
 - **Linux:** x64 (standalone-бинарник, `.deb` или `.rpm`)
 - **macOS:** Intel или Apple Silicon (standalone-бинарник или `.pkg`)
 - **Исходный код:** Python 3.10+ и tkinter (см. [SETUP.md](SETUP.md#исходный-код-python))
@@ -385,11 +391,10 @@ flowlink-proxy/
 | Способ установки | Команда / действие |
 |------------------|--------------------|
 | **Windows (установщик)** | «Установка и удаление программ» → FlowLink Proxy → «Удалить» |
-| **Windows (standalone)** | Удалите папку с `FlowLink Proxy.exe` вручную |
 | **Linux (.deb)** | `sudo dpkg -r flowlink-proxy` |
 | **Linux (.rpm)** | `sudo rpm -e flowlink-proxy` |
 | **Linux (.tar.gz)** | Удалите папку с бинарником и лаунчером |
-| **macOS (.pkg)** | `sudo rm /usr/local/bin/FlowLink Proxy && sudo rm -rf "/usr/local/share/FlowLink Proxy" && rm ~/Library/LaunchAgents/com.flowlink.proxy.plist` |
+| **macOS (.pkg)** | `sudo rm /usr/local/bin/flowlink-proxy && sudo rm -rf /usr/local/share/flowlink-proxy` (LaunchAgent пакет не ставит) |
 | **macOS (.tar.gz)** | Удалите папку с бинарником и лаунчером |
 | **Исходники** | Удалите `venv/` и папку данных (см. [SETUP.md](SETUP.md)) |
 
@@ -408,13 +413,13 @@ flowlink-proxy/
 По умолчанию прокси-сервер слушает порт **8080**, а HTTP API — порт **8081**. При необходимости их можно изменить флагами `--proxy-port` и `--api-port`. Расширение автоматически обнаруживает порт API в диапазоне 8080–8090.
 
 ### Как настроить автозапуск браузера?
-Автозапуск браузера настраивается в расширении (вкладка «Настройки») или через трей-меню («Автозапуск браузера»). Настройки сохраняются в файле `.flowlink-settings` в директории данных.
+Автозапуск браузера настраивается только через трей-меню («Автозапуск браузера») — в расширении такой настройки нет. Значение сохраняется в файле `.flowlink-settings` в директории данных.
 
 ### Как выбрать браузер для запуска?
-Выбор браузера доступен в трей-меню («Выбрать браузер...») или в расширении. FlowLink Proxy автоматически обнаруживает установленные браузеры (Chrome, Edge, Yandex, Firefox, Opera, Brave и др.) и предлагает выбрать нужный.
+Выбор браузера доступен только в трей-меню («Выбрать браузер...»). В расширении показывается только баннер-предупреждение, если браузер не выбран. FlowLink Proxy автоматически обнаруживает установленные браузеры (Chrome, Edge, Yandex, Firefox, Opera, Brave и др.) и предлагает выбрать нужный.
 
 ### Можно ли запустить несколько экземпляров параллельно?
-Да. Запустите несколько экземпляров с разными портами, например `--proxy-port 8080 --api-port 8081` и `--proxy-port 8090 --api-port 8091`. Расширение автоматически подключится к найденному бэкенду в диапазоне портов 8080–8090.
+Да. Запустите несколько экземпляров с разными портами, например `--proxy-port 8080 --api-port 8081` и `--proxy-port 8084 --api-port 8085`. Расширение автоматически подключится к найденному бэкенду в диапазоне портов 8080–8090.
 
 ### Где хранятся данные и логи?
 Данные (config.json, зашифрованные пароли, ключи) и логи хранятся в директории данных: `~/.FlowHack/FlowLink Proxy/` (Linux/macOS) или `%APPDATA%\FlowHack\FlowLink Proxy\` (Windows). Логи — в подпапке `logs/FlowLink Proxy.log`.

@@ -49,9 +49,9 @@
 Без установщика, без Python. Подходит если не хотите устанавливать программу.
 
 1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
-2. Нажмите «Assets» → скачайте архив для Windows (`.zip`)
-3. Распакуйте архив в **любую удобную папку** (например `C:\FlowLink Proxy\`)
-4. В папке будет бинарник `FlowLink Proxy.exe` — это и есть бэкенд
+2. Скачайте установщик `FlowLink-Proxy-v<версия>-Setup.exe` — отдельный `.zip`-архив в релизах не публикуется
+3. Запустите установщик и следуйте инструкциям
+4. После установки бэкенд `FlowLink Proxy.exe` будет доступен в `C:\Program Files\FlowLink Proxy\`
 5. Запустите `FlowLink Proxy.exe` двойным кликом
 
 > Бэкенд запускается напрямую. Браузер выбирается через трей-меню («Выбрать браузер...») или через расширение. При повторном запуске процессы не дублируются.
@@ -72,7 +72,7 @@ chmod +x "FlowLink Proxy-linux.sh"
 ./FlowLink Proxy-linux.sh
 ```
 
-> **Автоопределение бинарника:** скрипт сначала ищет `FlowLink Proxy` рядом с собой (standalone), затем в `server/FlowLink Proxy/` (dev-сборка). Браузер выбирается через трей-меню или расширение.
+> **Автоопределение бинарника:** скрипт сначала ищет `FlowLink Proxy` и `flowlink-proxy` рядом с собой (standalone), затем ищет в PATH. Браузер выбирается через трей-меню или расширение.
 
 ### Linux (.deb)
 
@@ -93,15 +93,15 @@ sudo apt-get install -f
 ```
 
 **Что создаёт пакет:**
-- Бинарник: `/usr/local/bin/FlowLink Proxy`
-- Документация: `/usr/local/share/FlowLink Proxy/` (EULA.rtf, LICENSE.txt)
-- Лаунчер: `/usr/local/bin/flowlink-launcher`
-- Шаблоны автозапуска: `/usr/local/share/FlowLink Proxy/autostart/`
+- Бинарник: `/usr/local/bin/flowlink-proxy`
+- Документация: `/usr/local/share/flowlink-proxy/` (EULA.rtf, LICENSE.txt)
+- Ярлык меню: `flowlink.desktop` в `/usr/share/applications/` (НЕ автозапуск)
+
+Лаунчер и шаблоны автозапуска пакет НЕ устанавливает.
 
 **Запуск:**
 ```bash
-FlowLink Proxy              # Запуск бэкенда
-flowlink-launcher           # Запуск бэкенда + браузера
+flowlink-proxy              # Запуск бэкенда
 ```
 
 **Удаление:**
@@ -138,11 +138,10 @@ sudo rpm -e flowlink-proxy
 
 Универсальный скрипт для всех Linux-дистрибутивов.
 
-1. Скачайте архив `.tar.gz` из [релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
-2. Распакуйте архив
-3. Запустите установщик:
+> **Важно:** `install.sh` НЕ входит в релизный `.tar.gz`. В архиве — только бинарник `FlowLink Proxy`, лаунчер `FlowLink Proxy-linux.sh` и документация (`EULA.rtf`, `LICENSE.txt`, `README.md`). Установщик скачивается отдельно:
 
 ```bash
+curl -sL https://github.com/FlowHack/flowlink-proxy/releases/latest/download/install.sh -o install.sh
 chmod +x install.sh
 sudo ./install.sh
 ```
@@ -150,7 +149,7 @@ sudo ./install.sh
 Скрипт автоматически:
 - Определяет платформу (Linux) и архитектуру (x64/arm64)
 - Устанавливает бинарник в `/usr/local/bin/`
-- Копирует документацию в `/usr/local/share/flowlink-proxy/`
+- Копирует документацию в `/usr/local/share/FlowLink Proxy/`
 - Устанавливает лаунчер и шаблоны автозапуска
 
 ### macOS (.pkg)
@@ -166,15 +165,17 @@ sudo ./install.sh
 
 **Что создаёт пакет:**
 - Бинарник: `/usr/local/bin/flowlink-proxy`
-- Документация: `/usr/local/share/flowlink-proxy/`
-- LaunchAgent: `~/Library/LaunchAgents/com.flowlink.proxy.plist`
+- Документация: `/usr/local/share/flowlink-proxy/` (EULA.rtf, LICENSE.txt)
+
+> Пакет НЕ устанавливает лаунчер и НЕ создаёт LaunchAgent `~/Library/LaunchAgents/com.flowlink.proxy.plist` — это делает `install.sh`.
 
 **Удаление:**
 ```bash
 sudo rm /usr/local/bin/flowlink-proxy
 sudo rm -rf /usr/local/share/flowlink-proxy
-rm ~/Library/LaunchAgents/com.flowlink.proxy.plist
 ```
+
+> Строка `rm ~/Library/LaunchAgents/com.flowlink.proxy.plist` не нужна — `.pkg` не создаёт LaunchAgent. Она актуальна только для `install.sh`, где LaunchAgent создаётся при установке (см. раздел «macOS (standalone)» → «Автозапуск»).
 
 ### macOS (standalone)
 
@@ -273,7 +274,7 @@ rm -rf venv/                      # Linux / macOS
 ./scripts/build/build.sh
 ```
 
-Результат: `releases/flowlink-proxy`
+Результат: `releases/FlowLink Proxy`
 
 ### Windows
 
@@ -281,7 +282,7 @@ rm -rf venv/                      # Linux / macOS
 scripts\build\build.bat
 ```
 
-Результат: `releases\flowlink-proxy.exe`
+Результат: `releases\FlowLink Proxy.exe`
 
 ### Упаковка архивов релиза
 
@@ -316,7 +317,7 @@ scripts\build\build.bat
 ./scripts/build/build-pkg.sh
 ```
 
-Результат: `releases/FlowLink-Proxy-vX.X.X-{x64|arm64}.pkg`
+Результат: `releases/flowlink-proxy-<версия>-macos-<арх>.pkg`
 
 ### Сборка установщика Windows
 
@@ -453,13 +454,13 @@ FlowLink Proxy поддерживает запуск нескольких экз
 # Первый экземпляр (порты по умолчанию)
 "FlowLink Proxy" --proxy-port 8080 --api-port 8081
 
-# Второй экземпляр (другие порты)
-"FlowLink Proxy" --proxy-port 8090 --api-port 8091
+# Второй экземпляр (другие порты, в диапазоне автопоиска 8080–8090)
+"FlowLink Proxy" --proxy-port 8084 --api-port 8085
 ```
 
 Расширение автоматически обнаруживает доступный бэкенд, сканируя порты API в диапазоне **8080–8090** (см. `extension/shared/port_discovery.js`). Если нужно, чтобы расширение подключалось к конкретному экземпляру — укажите его API-порт вручную в настройках расширения.
 
-> **Примечание:** настройка `parallel_launch` в `.flowlink-settings` управляет поведением запуска браузера при параллельных экземплярах.
+> **Примечание:** ключ `parallel_launch` существует в `.flowlink-settings` и влияет на поведение запуска браузера при параллельных экземплярах, однако UI для его записи нет — значение можно задать только вручную в файле.
 
 ---
 
