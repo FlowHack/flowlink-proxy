@@ -284,7 +284,9 @@ def launch_browser(
         proxy_port: Порт HTTP-прокси (по умолчанию 8080).
 
     Returns:
-        True если браузер успешно запущен (или уже работает через прокси),
+        True если браузер успешно запущен,
+        'already_running_with_proxy' если браузер уже запущен через
+            FlowLink Proxy (повторный запуск не требуется),
         'already_running' если процесс браузера уже запущен без прокси,
         False при ошибке.
     """
@@ -296,14 +298,16 @@ def launch_browser(
         return False
 
     # Если браузер уже запущен через FlowLink Proxy (с нужным флагом
-    # --proxy-server) — повторный запуск не требуется, считаем успехом.
+    # --proxy-server) — повторный запуск не требуется. Возвращаем
+    # специальное значение, чтобы вызывающий код мог оповестить
+    # пользователя и предложить перезапуск.
     if is_browser_running_with_proxy(browser_path, proxy_port):
         logger.info(
             'Браузер уже запущен через FlowLink Proxy: %s. '
             'Повторный запуск не требуется.',
             browser_path,
         )
-        return True
+        return 'already_running_with_proxy'
 
     # Проверка запущенных процессов: Chrome/Chromium игнорирует
     # --proxy-server, если браузер уже запущен без прокси

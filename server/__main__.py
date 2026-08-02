@@ -205,6 +205,83 @@ def _show_browser_already_running_dialog(
     return choice['value']
 
 
+def _show_browser_already_running_with_proxy_dialog(
+    callbacks: dict,
+    browser_path: str,
+) -> bool:
+    """
+    Показывает диалог о том, что браузер уже запущен через FlowLink Proxy.
+
+    Вызывается при нажатии «Запустить браузер», когда браузер уже работает
+    через прокси (с флагом --proxy-server). Повторный запуск не требуется,
+    но пользователю предлагается перезапустить браузер, если это нужно.
+
+    Диалог возвращает только выбор пользователя; сам перезапуск (kill +
+    launch) выполняется вызывающим кодом в фоновом потоке, чтобы не
+    блокировать mainloop tkinter.
+
+    Args:
+        callbacks: Словарь коллбэков трея (используется tk_root).
+        browser_path: Путь к исполняемому файлу браузера.
+
+    Returns:
+        True если пользователь выбрал «Перезапустить браузер»,
+        False при отмене, ошибке или недоступности tkinter.
+    """
+    tk_root = callbacks.get('tk_root')
+    if tk_root is None:
+        logger.warning(
+            'Браузер уже запущен через прокси (%s), но tk_root '
+            'недоступен — диалог уведомления не показан',
+            browser_path,
+        )
+        return False
+
+    try:
+        # Ленивый импорт: tkinter-диалог нужен только при работе с треем
+        from server.ui.dialogs import \
+            show_info  # pylint: disable=import-outside-toplevel
+    except ImportError:
+        logger.info('tkinter недоступен — диалог уведомления не показан')
+        return False
+
+    choice = {'value': False}
+
+    def _on_choose_restart() -> None:
+        """Фиксирует выбор пользователя: перезапустить браузер."""
+        choice['value'] = True
+
+    message = (
+        'Браузер уже запущен через FlowLink Proxy и работает через прокси. '
+        'Повторный запуск не требуется.\n\n'
+        'Если вы хотите перезапустить браузер (например, после изменения '
+        'настроек), нажмите «Перезапустить браузер». Закрытие браузера '
+        'может прервать незавершённые действия (скачивание файлов, '
+        'обновления и т.п.) — дождитесь их завершения.\n\n'
+        'Внимание: будут закрыты все процессы выбранного браузера. '
+        'Если запущено несколько профилей или окон — все они будут закрыты.'
+    )
+
+    show_info(
+        title='Браузер уже запущен',
+        message=message,
+        buttons=[
+            {
+                'text': 'Не перезапускать',
+                'action': lambda: None,
+                'primary': False,
+            },
+            {
+                'text': 'Перезапустить браузер',
+                'action': _on_choose_restart,
+                'primary': True,
+            },
+        ],
+        parent_root=tk_root,
+    )
+    return choice['value']
+
+
 def _show_browser_not_selected_dialog(callbacks: dict) -> None:
     """
     Показывает диалог о том, что браузер не выбран.
@@ -280,7 +357,54 @@ def _launch_browser_sync(
         return _show_browser_already_running_dialog(
             callbacks, browser_path, proxy_port,
         )
+    if result == 'already_running_with_proxy':
+        # Браузер уже работает через FlowLink Proxy. Оповещаем и при
+        # необходимости перезапускаем синхронно (fallback без трея).
+        if _show_browser_already_running_with_proxy_dialog(
+            callbacks, browser_path,
+        ):
+            return _restart_browser_sync(browser_path, proxy_port)
+        return True
     return bool(result)
+
+
+def _restart_browser_sync(browser_path: str, proxy_port: int) -> bool:
+    """
+    Синхронно перезапускает браузер через FlowLink Proxy.
+
+    Завершает процессы браузера и запускает его заново с флагом
+    --proxy-server. Используется в fallback-ветке без трея, где нет
+    фонового потока. Блокирует вызывающий поток на время перезапуска.
+
+    Args:
+        browser_path: Путь к исполняемому файлу браузера.
+        proxy_port: Порт HTTP-прокси.
+
+    Returns:
+        True если браузер успешно перезапущен, False при ошибке.
+    """
+    from server.config import \
+        browser_process as _browser_process  # pylint: disable=import-outside-toplevel
+
+    if not _browser_process.kill_browser_processes(browser_path):
+        logger.error(
+            'Не удалось завершить процессы браузера: %s',
+            browser_path,
+        )
+        return False
+    # Небольшая пауза, чтобы ОС освободила ресурсы завершённых
+    # процессов (особенно актуально для Windows taskkill)
+    time.sleep(0.5)
+    second_result = _browser_config.launch_browser(
+        browser_path, proxy_port=proxy_port,
+    )
+    if second_result == 'already_running':
+        logger.warning(
+            'После завершения процессов браузер всё ещё запущен: %s',
+            browser_path,
+        )
+        return False
+    return bool(second_result)
 
 
 def _launch_browser_callback(  # pylint: disable=too-many-statements  # запуск браузера + диалог + фоновый перезапуск
@@ -353,6 +477,16 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
                     _start_restart_worker()
                     return
                 result['value'] = False
+            elif result['value'] == 'already_running_with_proxy':
+                # Браузер уже работает через FlowLink Proxy. Оповещаем
+                # пользователя и предлагаем перезапустить его, если нужно.
+                if _show_browser_already_running_with_proxy_dialog(
+                    callbacks, browser_path,
+                ):
+                    started_restart = True
+                    _start_restart_worker()
+                    return
+                result['value'] = True
         finally:
             # Если запущен фоновый перезапуск — не закрываем wait_variable
             # и не прячем статусбар: done_var будет выставлен вторым

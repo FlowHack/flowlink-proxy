@@ -380,12 +380,14 @@ class TestLaunchBrowser(unittest.TestCase):
     def test_launch_already_running_with_proxy(self, _mock_validate,
                                                _mock_proxy_running,
                                                _mock_running, mock_popen):
-        """Браузер уже запущен через прокси: возврат True, запуск не выполняется.
+        """Браузер уже запущен через прокси: возврат 'already_running_with_proxy'.
 
         Повторный Popen не создаётся, а проверка is_browser_running
         (запущен ли браузер вообще) не выполняется — короткое замыкание.
+        Специальное значение позволяет вызывающему коду оповестить
+        пользователя и предложить перезапуск.
         """
         result = launch_browser('/usr/bin/chrome')
-        self.assertTrue(result)
+        self.assertEqual(result, 'already_running_with_proxy')
         mock_popen.assert_not_called()
         _mock_running.assert_not_called()

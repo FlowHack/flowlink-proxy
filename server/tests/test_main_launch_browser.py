@@ -7,7 +7,14 @@
 - поведение _show_browser_not_selected_dialog при наличии tk_root и без него;
 - _show_browser_already_running_dialog возвращает только выбор пользователя
   (True/False) и не выполняет kill/launch внутри себя;
+- _show_browser_already_running_with_proxy_dialog — диалог о браузере, уже
+  запущенном через FlowLink Proxy: возвращает только выбор пользователя
+  и не выполняет kill/launch внутри себя;
 - _launch_browser_sync при 'already_running' возвращает выбор диалога;
+- _launch_browser_sync при 'already_running_with_proxy': выбор перезапуска
+  делегируется _restart_browser_sync, отмена → True без перезапуска;
+- _restart_browser_sync: успешный перезапуск → True, неудача kill или
+  «всё ещё запущен после kill» → False;
 - _launch_browser_callback: при выборе перезапуска kill + launch выполняются
   в фоновом потоке _restart_worker, а результат возвращается только после
   его завершения.
@@ -18,7 +25,9 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from server.__main__ import (_launch_browser_callback, _launch_browser_sync,
+                             _restart_browser_sync,
                              _show_browser_already_running_dialog,
+                             _show_browser_already_running_with_proxy_dialog,
                              _show_browser_not_selected_dialog)
 
 
@@ -224,6 +233,228 @@ class TestBrowserAlreadyRunningDialog(unittest.TestCase):
         self.assertTrue(result)
         mock_kill.assert_not_called()
         mock_launch.assert_not_called()
+
+
+class TestBrowserAlreadyRunningWithProxyDialog(unittest.TestCase):
+    """_show_browser_already_running_with_proxy_dialog возвращает выбор пользователя."""
+
+    def _click_primary(self, mock_show_info):
+        """Делает show_info «блокирующим»: перед возвратом нажимает главную кнопку."""
+
+        def _side_effect(**kwargs):
+            buttons = kwargs.get('buttons', [])
+            primary = next((b for b in buttons if b['primary']), None)
+            if primary and primary.get('action'):
+                primary['action']()
+
+        mock_show_info.side_effect = _side_effect
+
+    def _show_dialog(self, click_primary=False):
+        """Вызывает диалог с мокнутым show_info и возвращает его результат."""
+        tk_root = MagicMock()
+        with patch('server.ui.dialogs.show_info') as mock_show_info:
+            if click_primary:
+                self._click_primary(mock_show_info)
+            result = _show_browser_already_running_with_proxy_dialog(
+                {'tk_root': tk_root}, '/usr/bin/chrome',
+            )
+        return result, mock_show_info
+
+    def test_returns_true_when_user_chooses_restart(self):
+        """Выбор «Перезапустить браузер» → True."""
+        result, mock_show_info = self._show_dialog(click_primary=True)
+        self.assertTrue(result)
+        kwargs = mock_show_info.call_args.kwargs
+        self.assertEqual(kwargs['title'], 'Браузер уже запущен')
+        self.assertIn('уже запущен через FlowLink Proxy', kwargs['message'])
+
+    def test_returns_false_when_cancelled(self):
+        """Отмена (или закрытие диалога) → False."""
+        result, mock_show_info = self._show_dialog(click_primary=False)
+        self.assertFalse(result)
+        buttons = mock_show_info.call_args.kwargs['buttons']
+        restart_btn = next(b for b in buttons if b['primary'])
+        self.assertEqual(restart_btn['text'], 'Перезапустить браузер')
+        cancel_btn = next(b for b in buttons if not b['primary'])
+        self.assertEqual(cancel_btn['text'], 'Не перезапускать')
+
+    def test_returns_false_without_tk_root(self):
+        """Без tk_root — предупреждение и False, диалог не показывается."""
+        with patch('server.ui.dialogs.show_info') as mock_show_info:
+            result = _show_browser_already_running_with_proxy_dialog(
+                {}, '/usr/bin/chrome',
+            )
+        self.assertFalse(result)
+        mock_show_info.assert_not_called()
+
+    def test_dialog_does_not_kill_or_launch_browser(self):
+        """Внутри диалога kill/launch не вызываются (это делает вызывающий код)."""
+        tk_root = MagicMock()
+        with (
+            patch('server.ui.dialogs.show_info') as mock_show_info,
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+                return_value=True,
+            ) as mock_kill,
+            patch(
+                'server.__main__._browser_config.launch_browser',
+                return_value=True,
+            ) as mock_launch,
+        ):
+            self._click_primary(mock_show_info)
+            result = _show_browser_already_running_with_proxy_dialog(
+                {'tk_root': tk_root}, '/usr/bin/chrome',
+            )
+
+        self.assertTrue(result)
+        mock_kill.assert_not_called()
+        mock_launch.assert_not_called()
+
+
+class TestLaunchBrowserSyncAlreadyRunningWithProxy(unittest.TestCase):
+    """_launch_browser_sync при браузере, уже запущенном через FlowLink Proxy."""
+
+    def test_restart_choice_calls_restart_browser_sync(self):
+        """Выбор перезапуска → делегируется _restart_browser_sync, результат возвращается."""
+        with (
+            patch(
+                'server.__main__._browser_config.validate_browser_path',
+                return_value=True,
+            ),
+            patch(
+                'server.__main__._browser_config.launch_browser',
+                return_value='already_running_with_proxy',
+            ),
+            patch(
+                'server.__main__._show_browser_already_running_with_proxy_dialog',
+                return_value=True,
+            ) as mock_dialog,
+            patch(
+                'server.__main__._restart_browser_sync',
+                return_value=True,
+            ) as mock_restart,
+        ):
+            result = _launch_browser_sync(
+                callbacks={}, browser_path='/usr/bin/chrome', proxy_port=8080,
+            )
+
+        self.assertTrue(result)
+        mock_dialog.assert_called_once()
+        mock_restart.assert_called_once_with('/usr/bin/chrome', 8080)
+
+    def test_cancel_returns_true_without_restart(self):
+        """Отмена диалога → True (браузер уже работает через прокси), без перезапуска."""
+        with (
+            patch(
+                'server.__main__._browser_config.validate_browser_path',
+                return_value=True,
+            ),
+            patch(
+                'server.__main__._browser_config.launch_browser',
+                return_value='already_running_with_proxy',
+            ),
+            patch(
+                'server.__main__._show_browser_already_running_with_proxy_dialog',
+                return_value=False,
+            ) as mock_dialog,
+            patch(
+                'server.__main__._restart_browser_sync',
+                return_value=True,
+            ) as mock_restart,
+        ):
+            result = _launch_browser_sync(
+                callbacks={}, browser_path='/usr/bin/chrome', proxy_port=8080,
+            )
+
+        self.assertTrue(result)
+        mock_dialog.assert_called_once()
+        mock_restart.assert_not_called()
+
+
+class TestRestartBrowserSync(unittest.TestCase):
+    """_restart_browser_sync — синхронный перезапуск браузера через прокси."""
+
+    def test_successful_restart_returns_true(self):
+        """Kill успешен и повторный запуск успешен → True."""
+        with (
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+                return_value=True,
+            ) as mock_kill,
+            patch(
+                'server.__main__._browser_config.launch_browser',
+                return_value=True,
+            ) as mock_launch,
+            patch('server.__main__.time.sleep') as mock_sleep,
+        ):
+            result = _restart_browser_sync('/usr/bin/chrome', 8080)
+
+        self.assertTrue(result)
+        mock_kill.assert_called_once_with('/usr/bin/chrome')
+        mock_launch.assert_called_once_with(
+            '/usr/bin/chrome', proxy_port=8080,
+        )
+        mock_sleep.assert_called_once_with(0.5)
+
+    def test_second_launch_failure_returns_false(self):
+        """Kill успешен, но повторный запуск вернул False → False."""
+        with (
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+                return_value=True,
+            ),
+            patch(
+                'server.__main__._browser_config.launch_browser',
+                return_value=False,
+            ) as mock_launch,
+            patch('server.__main__.time.sleep'),
+        ):
+            result = _restart_browser_sync('/usr/bin/chrome', 8080)
+
+        self.assertFalse(result)
+        mock_launch.assert_called_once_with(
+            '/usr/bin/chrome', proxy_port=8080,
+        )
+
+    def test_kill_failure_returns_false(self):
+        """Не удалось завершить процессы → False, повторный запуск не выполняется."""
+        with (
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+                return_value=False,
+            ) as mock_kill,
+            patch(
+                'server.__main__._browser_config.launch_browser',
+                return_value=True,
+            ) as mock_launch,
+            patch('server.__main__.time.sleep') as mock_sleep,
+        ):
+            result = _restart_browser_sync('/usr/bin/chrome', 8080)
+
+        self.assertFalse(result)
+        mock_kill.assert_called_once_with('/usr/bin/chrome')
+        mock_launch.assert_not_called()
+        mock_sleep.assert_not_called()
+
+    def test_still_running_after_kill_returns_false(self):
+        """После kill браузер всё ещё запущен ('already_running') → False."""
+        with (
+            patch(
+                'server.config.browser_process.kill_browser_processes',
+                return_value=True,
+            ),
+            patch(
+                'server.__main__._browser_config.launch_browser',
+                return_value='already_running',
+            ) as mock_launch,
+            patch('server.__main__.time.sleep'),
+        ):
+            result = _restart_browser_sync('/usr/bin/chrome', 8080)
+
+        self.assertFalse(result)
+        mock_launch.assert_called_once_with(
+            '/usr/bin/chrome', proxy_port=8080,
+        )
 
 
 class TestLaunchBrowserSyncAlreadyRunning(unittest.TestCase):
