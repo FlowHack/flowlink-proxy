@@ -76,7 +76,10 @@ class MockSocks5Server:
             port=self._port,
         )
         self._actual_port = self._server.sockets[0].getsockname()[1]
-        logger.info('Mock-SOCKS5 сервер запущен на %s:%d', self._host, self._actual_port)
+        logger.info(
+            'Mock-SOCKS5 сервер запущен на %s:%d',
+            self._host, self._actual_port
+        )
 
     async def stop(self):
         """Останавливает сервер."""
@@ -85,7 +88,8 @@ class MockSocks5Server:
             await self._server.wait_closed()
             logger.info('Mock-SOCKS5 сервер остановлен')
 
-    async def _handle_client(  # pylint: disable=too-many-branches  # ветвления по шагам SOCKS5-протокола и конфигурируемым отказам
+    async def _handle_client(  # pylint: disable=too-many-branches
+        # ветвления по шагам SOCKS5-протокола и конфигурируемым отказам
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
@@ -129,14 +133,17 @@ class MockSocks5Server:
             if self._reject_connect:
                 # Код 0x01 — general failure
                 reply = (
-                    struct.pack('!BBBB', SOCKS5_VERSION, 0x01, SOCKS5_RSV, ATYP_IPV4) +
-                    socket.inet_aton('0.0.0.0') +
+                    struct.pack(
+                        '!BBBB', SOCKS5_VERSION, 0x01, SOCKS5_RSV, ATYP_IPV4
+                    ) + socket.inet_aton('0.0.0.0') +
                     struct.pack('!H', 0)
                 )
             else:
                 reply = (
-                    struct.pack('!BBBB', SOCKS5_VERSION, SOCKS5_SUCCESS, SOCKS5_RSV, ATYP_IPV4) +
-                    socket.inet_aton('0.0.0.0') +
+                    struct.pack(
+                        '!BBBB', SOCKS5_VERSION, SOCKS5_SUCCESS, SOCKS5_RSV,
+                        ATYP_IPV4
+                    ) + socket.inet_aton('0.0.0.0') +
                     struct.pack('!H', 0)
                 )
             writer.write(reply)
@@ -156,7 +163,9 @@ class MockSocks5Server:
                 logger.debug('Mock SOCKS5: ошибка в цикле эха: %s', e)
 
         except (asyncio.IncompleteReadError, ConnectionError, OSError) as e:
-            logger.debug('Mock SOCKS5: ошибка чтения или разрыва соединения: %s', e)
+            logger.debug(
+                'Mock SOCKS5: ошибка чтения или разрыва соединения: %s', e
+            )
         finally:
             try:
                 writer.close()

@@ -16,8 +16,10 @@ class BaseServer(ABC):
     """
     Базовый TCP-сервер на asyncio.
 
-    Предоставляет стандартный жизненный цикл: start() — запуск, stop() — остановка.
-    Конкретная логика обработки клиента реализуется в _handle_client() подкласса.
+    Предоставляет стандартный жизненный цикл:
+    start() — запуск, stop() — остановка.
+    Конкретная логика обработки клиента реализуется в _handle_client()
+    подкласса.
     """
 
     def __init__(self, host: str, port: int, name: str):
@@ -38,7 +40,8 @@ class BaseServer(ABC):
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
-        """Обрабатывает одно входящее подключение. Должен быть переопределён в подклассе."""
+        """Обрабатывает одно входящее подключение. Должен быть переопределён в
+        подклассе."""
         raise NotImplementedError
 
     async def start(self) -> None:
@@ -49,7 +52,10 @@ class BaseServer(ABC):
             port=self._port,
         )
         logger = logging.getLogger(f'flowlink.{self._name}')
-        logger.info('%s сервер запущен на %s:%s', self._name.capitalize(), self._host, self._port)
+        logger.info(
+            '%s сервер запущен на %s:%s', self._name.capitalize(),
+            self._host, self._port
+        )
 
     async def stop(self) -> None:
         """Корректно останавливает сервер: закрывает все подключения."""

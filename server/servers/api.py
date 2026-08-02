@@ -1,7 +1,8 @@
 """
 HTTP API сервер для управления FlowLink Proxy из расширения.
 
-Единственная ответственность: запуск/остановка HTTP-сервера и диспетчеризация запросов.
+Единственная ответственность: запуск/остановка HTTP-сервера и диспетчеризация
+запросов.
 Обработчики эндпоинтов вынесены в handlers.py.
 """
 
@@ -55,42 +56,48 @@ _Handler = Callable[
 
 
 async def _handle_config_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/config — получить конфигурацию."""
     return handlers.handle_get_config()
 
 
 async def _handle_config_post(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """POST /api/config — обновить конфигурацию."""
     return await handlers.handle_post_config(data, router)
 
 
 async def _handle_status_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/status — статус gateway."""
     return handlers.handle_get_status(debug, need_update)
 
 
 async def _handle_enabled_post(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """POST /api/enabled — глобальный тоггл."""
     return await handlers.handle_post_enabled(data, router)
 
 
 async def _handle_version_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/version — версия сервера."""
     return handlers.handle_get_version()
 
 
 async def _handle_ping_post(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> tuple[dict, int]:
     """POST /api/ping — пинг прокси по proxyId."""
     proxy_id = data.get('proxyId')
@@ -100,63 +107,72 @@ async def _handle_ping_post(
 
 
 async def _handle_autostart_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/autostart-browser — состояние автозапуска браузера."""
     return handlers.handle_get_autostart_browser()
 
 
 async def _handle_autostart_post(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """POST /api/autostart-browser — установить автозапуск браузера."""
     return await handlers.handle_post_autostart_browser(data)
 
 
 async def _handle_system_autostart_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/system-autostart — состояние системного автозапуска."""
     return handlers.handle_get_system_autostart()
 
 
 async def _handle_system_autostart_post(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """POST /api/system-autostart — установить системный автозапуск."""
     return await handlers.handle_post_system_autostart(data)
 
 
 async def _handle_browser_path_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/browser-path — путь к браузеру."""
     return handlers.handle_get_browser_path()
 
 
 async def _handle_browser_path_post(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> tuple[dict, int]:
     """POST /api/browser-path — сохранить путь к браузеру."""
     return await handlers.handle_post_browser_path(data)
 
 
 async def _handle_validate_browser_post(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> tuple[dict, int]:
     """POST /api/validate-browser — проверить путь к браузеру."""
     return handlers.handle_post_validate_browser(data)
 
 
 async def _handle_detected_browsers_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/detected-browsers — список обнаруженных браузеров."""
     return handlers.handle_get_detected_browsers()
 
 
 async def _handle_browser_config_get(
-    data: dict, router: MaskRouter, debug: bool, need_update: bool, peername: tuple,
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
 ) -> dict:
     """GET /api/browser-config — конфигурация браузера."""
     return handlers.handle_get_browser_config()
@@ -195,7 +211,9 @@ async def _parse_http_request(
     лимитов выбрасывается _RequestTimeout или _RequestHeaderLimit.
     """
     try:
-        request_line = await asyncio.wait_for(reader.readline(), timeout=HEADER_READ_TIMEOUT)
+        request_line = await asyncio.wait_for(
+            reader.readline(), timeout=HEADER_READ_TIMEOUT
+        )
     except asyncio.TimeoutError:
         # Клиент не прислал даже request-line — отвечаем 408
         logger.warning('API: таймаут ожидания request-line от %s', peername)
@@ -216,12 +234,18 @@ async def _parse_http_request(
     total_header_size = 0
     try:
         while True:
-            line = await asyncio.wait_for(reader.readline(), timeout=HEADER_READ_TIMEOUT)
+            line = await asyncio.wait_for(
+                reader.readline(), timeout=HEADER_READ_TIMEOUT
+            )
             if not line or line == b'\r\n':
                 break
             header_count += 1
             total_header_size += len(line)
-            if header_count > MAX_HEADERS or total_header_size > MAX_HEADER_SIZE:
+            if (
+                header_count >
+                MAX_HEADERS or total_header_size >
+                MAX_HEADER_SIZE
+            ):
                 logger.warning(
                     'API: превышен лимит заголовков (%d шт, %d байт) от %s',
                     header_count, total_header_size, peername,
@@ -232,9 +256,11 @@ async def _parse_http_request(
                 try:
                     content_length = int(header_line.split(':')[1].strip())
                 except (ValueError, IndexError) as e:
-                    # Некорректный Content-Length — логируем и игнорируем (тело не читаем)
-                    logger.debug('API: некорректный Content-Length от %s: %r (%s)',
-                                 peername, header_line, e)
+                    # Некорректный Content-Length — логируем и игнорируем
+                    logger.debug(
+                        'API: некорректный Content-Length от %s: %r (%s)',
+                        peername, header_line, e
+                    )
     except asyncio.TimeoutError:
         # Клиент держит соединение, не отправляя пустую строку —
         # защита от медленного DoS: отвечаем 408 Request Timeout.
@@ -265,7 +291,10 @@ async def _build_response(
         response_json = json.dumps(response_body, ensure_ascii=False)
     except TypeError:
         logger.error('API: не удалось сериализовать ответ')
-        response_json = json.dumps({'error': 'Внутренняя ошибка сервера'}, ensure_ascii=False)
+        response_json = json.dumps(
+            {'error': 'Внутренняя ошибка сервера'},
+            ensure_ascii=False
+        )
     reason = {
         200: 'OK', 400: 'Bad Request', 404: 'Not Found',
         408: 'Request Timeout', 413: 'Request Entity Too Large',
@@ -309,7 +338,7 @@ class ApiServer(BaseServer):
                  need_update: bool = False):
         """
         Args:
-            router: Экземпляр MaskRouter (для refresh после сохранения конфига).
+            router: Экземпляр MaskRouter (refresh после сохранения конфига).
             host: Интерфейс (по умолч. localhost).
             port: Порт API (по умолч. 8081).
             debug: Включает отладку в статусе.
@@ -339,7 +368,8 @@ class ApiServer(BaseServer):
                                method, path, peername)
                 return status_code, response_body
 
-            # Единая точка вызова обработчика: парсинг JSON и передача контекста
+            # Единая точка вызова обработчика: парсинг JSON и
+            # передача контекста
             data = json.loads(body) if body else {}
             result = await handler(
                 data, self._router, self._debug, self._need_update, peername,
@@ -354,7 +384,9 @@ class ApiServer(BaseServer):
             logger.warning('API: неверный запрос от %s: %s', peername, e)
             return 400, {'error': 'Неверный запрос'}
         except (OSError, RuntimeError) as e:
-            logger.error('API: ошибка сервера от %s: %s', peername, e, exc_info=True)
+            logger.error(
+                'API: ошибка сервера от %s: %s', peername, e, exc_info=True
+            )
             msg = (
                 'Внутренняя ошибка сервера. '
                 'Если проблема повторяется, '
@@ -396,7 +428,7 @@ class ApiServer(BaseServer):
             await _build_response(writer, status_code, response_body)
 
             if self._debug and logger.isEnabledFor(logging.DEBUG):
-                # Маскируем чувствительные поля (пароли, логины) перед логированием
+                # Маскируем чувствительные поля перед логированием
                 resp_str = mask_sensitive(
                     truncate(json.dumps(response_body, ensure_ascii=False))
                 )
@@ -412,8 +444,9 @@ class ApiServer(BaseServer):
         except _RequestHeaderLimit:
             await _build_response(
                 writer, 400,
-                {'error': f'Слишком много заголовков или превышен их суммарный '
-                          f'размер (максимум {MAX_HEADERS} шт / {MAX_HEADER_SIZE} байт)'},
+                {'error': 'Слишком много заголовков или превышен их суммарный'
+                          f' размер (максимум {MAX_HEADERS} шт / '
+                          f'{MAX_HEADER_SIZE} байт)'},
             )
         except _RequestTimeout:
             await _build_response(
