@@ -147,7 +147,7 @@ def _set_windows(enabled: bool) -> bool:
                     winreg.DeleteValue(key, _APP_NAME)  # type: ignore[reportAttributeAccessIssue]
                     logger.info('Автозапуск Windows выключен')
                 except FileNotFoundError:
-                    pass
+                    logger.debug('Значение автозапуска отсутствует — пропуск удаления')
         return True
     except (ImportError, OSError) as e:
         logger.error('Ошибка настройки автозапуска Windows: %s', e)
