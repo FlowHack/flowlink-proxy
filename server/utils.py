@@ -280,6 +280,15 @@ def write_port_file(api_port: int, proxy_port: int) -> None:
     try:
         with open(port_file, 'w', encoding='utf-8') as f:
             json.dump(payload, f, indent=2)
+        # Ограничиваем доступ к файлу портов: только владелец (0600),
+        # чтобы другие локальные пользователи не могли прочитать порты.
+        try:
+            os.chmod(port_file, 0o600)
+        except NotImplementedError:
+            # На Windows os.chmod для прав доступа не поддерживается — пропускаем
+            logger.debug(
+                'write_port_file: os.chmod не поддерживается, пропускаю'
+            )
         logger.debug(
             'Порты записаны в %s: API=%d, прокси=%d',
             port_file, api_port, proxy_port,
@@ -287,6 +296,31 @@ def write_port_file(api_port: int, proxy_port: int) -> None:
     except OSError as e:
         # Не критично — файл для отладки, его отсутствие не влияет на работу
         logger.warning('Не удалось записать файл портов %s: %s', port_file, e)
+
+
+def cors_allow_origin(origin: str | None) -> str:
+    """
+    Формирует CORS-заголовки ответа по allowlist.
+
+    Разрешаем только запросы из расширений Chrome
+    (Origin вида chrome-extension://<id>). Для остальных источников и для
+    запросов без Origin CORS-заголовок не добавляется — чужие веб-страницы
+    не смогут прочитать ответ API (защита от чтения секретов).
+
+    Args:
+        origin: Значение HTTP-заголовка Origin запроса (может быть None).
+
+    Returns:
+        Строка заголовков 'Access-Control-Allow-Origin: <origin>' и
+        'Vary: Origin' с завершающим '\\r\\n', либо пустая строка,
+        если Origin не в allowlist.
+    """
+    if origin and origin.startswith('chrome-extension://'):
+        return (
+            f'Access-Control-Allow-Origin: {origin}\r\n'
+            'Vary: Origin\r\n'
+        )
+    return ''
 
 
 def safe_close_writer(writer: asyncio.StreamWriter | None) -> None:

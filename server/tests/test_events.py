@@ -123,3 +123,88 @@ class TestSSEKeepalive(unittest.TestCase):
                 except asyncio.CancelledError:
                     pass
         asyncio.run(run())
+
+
+class TestSSEAuthAndCors(unittest.TestCase):
+    """Тесты проверки токена и CORS-allowlist в handle_sse."""
+
+    def _make_writer(self):
+        """Создаёт mock-писатель для SSE-соединения."""
+        writer = MagicMock()
+        writer.get_extra_info.return_value = ('127.0.0.1', 12345)
+        writer.write = MagicMock()
+        writer.drain = AsyncMock()
+        return writer
+
+    def test_rejects_invalid_token_without_data(self):
+        """Неверный токен → соединение закрывается без отправки данных."""
+        async def run():
+            writer = self._make_writer()
+            await handle_sse(writer, auth_token='secret', token='wrong')
+            self.assertEqual(writer.write.call_count, 0)
+        asyncio.run(run())
+
+    def test_accepts_valid_token_and_sends_headers(self):
+        """Верный токен → отправляются SSE-заголовки."""
+        async def run():
+            writer = self._make_writer()
+            queue = asyncio.Queue()
+            with patch('server.services.sse._SSE_KEEPALIVE_TIMEOUT', 0.05), \
+                 patch('server.services.sse.get_queue', return_value=queue):
+                task = asyncio.create_task(
+                    handle_sse(writer, auth_token='secret', token='secret')
+                )
+                await asyncio.sleep(0.15)
+                calls = writer.write.call_args_list
+                self.assertGreaterEqual(len(calls), 1)
+                self.assertIn(b'HTTP/1.1 200', calls[0][0][0])
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        asyncio.run(run())
+
+    def test_cors_header_for_extension_origin(self):
+        """Origin chrome-extension:// → Access-Control-Allow-Origin в SSE."""
+        async def run():
+            writer = self._make_writer()
+            queue = asyncio.Queue()
+            with patch('server.services.sse._SSE_KEEPALIVE_TIMEOUT', 0.05), \
+                 patch('server.services.sse.get_queue', return_value=queue):
+                task = asyncio.create_task(
+                    handle_sse(writer, origin='chrome-extension://abc123')
+                )
+                await asyncio.sleep(0.15)
+                first = writer.write.call_args_list[0][0][0]
+                self.assertIn(
+                    b'Access-Control-Allow-Origin: chrome-extension://abc123',
+                    first,
+                )
+                self.assertIn(b'Vary: Origin', first)
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        asyncio.run(run())
+
+    def test_no_cors_for_foreign_origin(self):
+        """Чужой Origin → без Access-Control-Allow-Origin в SSE."""
+        async def run():
+            writer = self._make_writer()
+            queue = asyncio.Queue()
+            with patch('server.services.sse._SSE_KEEPALIVE_TIMEOUT', 0.05), \
+                 patch('server.services.sse.get_queue', return_value=queue):
+                task = asyncio.create_task(
+                    handle_sse(writer, origin='http://evil.example.com')
+                )
+                await asyncio.sleep(0.15)
+                first = writer.write.call_args_list[0][0][0]
+                self.assertNotIn(b'Access-Control-Allow-Origin:', first)
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        asyncio.run(run())

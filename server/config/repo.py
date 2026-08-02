@@ -66,6 +66,13 @@ def save_raw(data: dict, config_path: str | None = None) -> None:
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, path)
+        # Ограничиваем доступ к config.json: только владелец (0600),
+        # т.к. файл содержит расшифрованные пароли прокси
+        try:
+            os.chmod(path, 0o600)
+        except NotImplementedError:
+            # На Windows os.chmod для прав доступа не поддерживается — пропускаем
+            logger.debug('save_raw: os.chmod не поддерживается, пропускаю')
         logger.debug('Конфигурация сохранена в %s', path)
     except OSError as e:
         logger.error('Ошибка записи %s: %s', path, e)
@@ -73,6 +80,8 @@ def save_raw(data: dict, config_path: str | None = None) -> None:
         try:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.debug(
+                'Не удалось удалить временный файл %s: %s', tmp_path, exc,
+            )
         raise

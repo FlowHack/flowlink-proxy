@@ -30,6 +30,8 @@ class ProxyServer(BaseServer):
     def __init__(self, router: MaskRouter, host: str = '127.0.0.1',
                  port: int = 8080):
         """
+        Инициализирует HTTP CONNECT прокси-сервер.
+
         Args:
             router: Экземпляр MaskRouter для маршрутизации URL.
             host: Интерфейс (по умолч. localhost).

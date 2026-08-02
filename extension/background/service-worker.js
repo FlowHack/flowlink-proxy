@@ -7,6 +7,8 @@
  * чтобы popup знал, что данные изменились.
  */
 
+import { getAuthToken, authHeaders } from '../shared/auth.js';
+
 console.log('[FlowLink Proxy] Service Worker стартует');
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -74,9 +76,10 @@ async function pushEnabledState() {
     const result = await chrome.storage.local.get('extEnabled');
     // По умолчанию расширение включено (true)
     const enabled = result.extEnabled !== undefined ? result.extEnabled : true;
+    const token = await getAuthToken(`http://127.0.0.1:${apiPort}/api`);
     await fetch(`http://127.0.0.1:${apiPort}/api/enabled`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ enabled }),
       signal: AbortSignal.timeout(5000),
     });
@@ -100,8 +103,25 @@ function connectSSE() {
     eventSource.close();
   }
 
-  const url = `http://127.0.0.1:${apiPort}/api/events`;
-  console.log('[FlowLink Proxy] SSE: подключаюсь к', url);
+  // EventSource не поддерживает кастомные заголовки, поэтому токен
+  // передаётся в query-параметре. Бэкенд маскирует его в логах.
+  const baseUrl = `http://127.0.0.1:${apiPort}/api`;
+  getAuthToken(baseUrl).then((token) => {
+    const url = token
+      ? `${baseUrl}/events?token=${encodeURIComponent(token)}`
+      : `${baseUrl}/events`;
+    console.log('[FlowLink Proxy] SSE: подключаюсь к', url);
+    _openEventSource(url);
+  }).catch((e) => {
+    console.warn('[FlowLink Proxy] SSE: не удалось получить токен:', e);
+    _openEventSource(`${baseUrl}/events`);
+  });
+}
+
+function _openEventSource(url) {
+  if (eventSource) {
+    eventSource.close();
+  }
 
   try {
     eventSource = new EventSource(url);

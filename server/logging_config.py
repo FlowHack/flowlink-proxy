@@ -80,6 +80,14 @@ def reopen_logging(recreate: bool = True) -> None:
         new_handler = logging.handlers.RotatingFileHandler(
             log_file, maxBytes=5_242_880, backupCount=3, encoding='utf-8',
         )
+        # Ограничиваем доступ к файлу лога: только владелец (0600)
+        try:
+            os.chmod(log_file, 0o600)
+        except NotImplementedError:
+            # На Windows os.chmod для прав доступа не поддерживается — пропускаем
+            logging.getLogger('flowlink').debug(
+                'reopen_logging: os.chmod не поддерживается, пропускаю'
+            )
         new_handler.setLevel(logging.DEBUG)
         new_handler.setFormatter(fmt)
         root.addHandler(new_handler)
@@ -128,6 +136,15 @@ def setup_logging(debug: bool = False) -> None:
         file_handler = logging.handlers.RotatingFileHandler(
             log_file, maxBytes=5_242_880, backupCount=3, encoding='utf-8',
         )
+        # Ограничиваем доступ к файлу лога: только владелец (0600),
+        # т.к. лог может содержать чувствительные данные запросов
+        try:
+            os.chmod(log_file, 0o600)
+        except NotImplementedError:
+            # На Windows os.chmod для прав доступа не поддерживается — пропускаем
+            logging.getLogger('flowlink').debug(
+                'setup_logging: os.chmod не поддерживается, пропускаю'
+            )
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(fmt)
         root.addHandler(file_handler)

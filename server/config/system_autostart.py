@@ -117,7 +117,7 @@ def _check_windows() -> bool:
             )
             return True
     except (ImportError, OSError) as e:
-        logger.debug('Не удалось проверить автозапуск Windows: %s', e)
+        logger.warning('Ошибка проверки автозапуска Windows: %s', e)
         return False
 
 

@@ -105,7 +105,16 @@ async def _send_error(
     url: str,
     message: str,
 ) -> None:
-    """Логирует предупреждение и отправляет 502 Bad Gateway клиенту."""
+    """Логирует предупреждение и отправляет 502 Bad Gateway клиенту.
+
+    Args:
+        client_writer: Поток записи клиенту для отправки ответа.
+        url: URL запроса, для которого формируется ошибка (используется в логе).
+        message: Текст сообщения об ошибке.
+
+    Returns:
+        None.
+    """
     logger.warning('%s для %s', message, url)
     try:
         client_writer.write(b'HTTP/1.1 502 Bad Gateway\r\n\r\n')
@@ -125,13 +134,15 @@ async def validate_target(host: str, port: int) -> None:
       - 192.168.0.0/16 (private)
       - 169.254.0.0/16 (link-local)
       - ::1 (IPv6 loopback)
+      - 0.0.0.0 и :: (unspecified — ведут на localhost)
+      - 255.255.255.255 (ограниченный broadcast)
 
     Args:
         host: Целевой хост (IP или домен).
         port: Целевой порт.
 
     Raises:
-        ValueError: если хост резолвится в приватный IP.
+        ValueError: если хост резолвится в приватный/локальный/недопустимый IP.
     """
     loop = asyncio.get_running_loop()
     try:
@@ -141,12 +152,19 @@ async def validate_target(host: str, port: int) -> None:
     except (UnicodeError, OverflowError) as e:
         raise ValueError(f'Некорректный хост или порт: {host}:{port} — {e}') from e
 
+    # 255.255.255.255 — ограниченный broadcast: у него все флаги
+    # ipaddress равны False, но адрес указывает на локальный стек.
+    broadcast_addr = ip_address('255.255.255.255')
+
     for _, _, _, _, sockaddr in addrs:
         ip = sockaddr[0]
         try:
             addr = ip_address(ip)
-            if addr.is_private or addr.is_loopback or addr.is_link_local:
-                raise ValueError(f'SSRF заблокирован: {host} резолвится в приватный IP {ip}')
+            if (addr.is_private or addr.is_loopback or addr.is_link_local
+                    or addr.is_unspecified or addr == broadcast_addr):
+                raise ValueError(
+                    f'SSRF заблокирован: {host} резолвится в недопустимый адрес {ip}'
+                )
         except ValueError as e:
             if 'SSRF' in str(e):
                 raise
@@ -159,7 +177,21 @@ async def _establish_remote(
     proxy: dict | None = None,
     timeout: float = 10,
 ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
-    """Создаёт соединение до цели через прокси (если proxy) или напрямую."""
+    """Создаёт соединение до цели через прокси (если proxy) или напрямую.
+
+    Args:
+        target_host: Целевой хост (IP или домен).
+        target_port: Целевой порт.
+        proxy: Конфигурация прокси. Если None — прямое соединение.
+        timeout: Таймаут установки соединения, секунд.
+
+    Returns:
+        Кортеж (reader, writer) для обмена данными с целью.
+
+    Raises:
+        ProxyError: при ошибке SOCKS5-соединения через прокси.
+        TimeoutError/OSError: при недоступности цели или истечении таймаута.
+    """
     if proxy:
         proto = get_protocol(proxy)
         return await proto.connect(target_host, target_port, timeout=timeout)
@@ -176,7 +208,18 @@ async def _handle_tunnel_error(
     error: Exception,
     prefix: str = '',
 ) -> None:
-    """Логирует и отправляет 502 при ошибке туннеля."""
+    """Логирует и отправляет 502 при ошибке туннеля.
+
+    Args:
+        client_writer: Поток записи клиенту для отправки 502.
+        url: URL запроса (для логов и сообщения об ошибке).
+        proxy_addr_str: Описание прокси (например, 'proxy 1.2.3.4:8080').
+        error: Перехваченное исключение.
+        prefix: Дополнительный префикс к сообщению (например, 'CONNECT ').
+
+    Returns:
+        None. Все ошибки логируются внутри и наружу не пробрасываются.
+    """
     if isinstance(error, ProxyError):
         msg = f'{prefix}Ошибка SOCKS5 для {url} через {proxy_addr_str}: {error}'
         await _send_error(client_writer, url, msg)

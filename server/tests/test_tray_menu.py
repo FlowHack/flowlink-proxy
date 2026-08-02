@@ -170,20 +170,6 @@ class TestBuildMenuItems(unittest.TestCase):
         exit_item['command']()
         stop_fn.assert_called_once()
 
-    @patch('server.tray.menu.os._exit')
-    # Параметр mock_exit — мок os._exit, нужен для @patch,
-    # но в тесте не используется (unused-argument)
-    def test_exit_calls_stop_callback(self, mock_exit):  # pylint: disable=unused-argument
-        """Клик по «Выход» вызывает callbacks['stop']."""
-        callbacks = self._base_callbacks()
-        items = build_menu_items(callbacks, MagicMock())
-
-        exit_item = next(
-            item for item in items if item.get('text') == 'Выход'
-        )
-        exit_item['command']()
-        callbacks['stop'].assert_called_once()
-
     def test_toggle_autostart_calls_setter(self):
         """Переключение автозапуска вызывает autostart_setter."""
         setter = MagicMock()

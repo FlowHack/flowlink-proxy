@@ -327,7 +327,7 @@ async function pollBackend() {
         await refreshBrowserConfig();
       }
     } else {
-      // Был не connected, всё ещё не connected — увеличиваем интервал
+      // Был не подключён, всё ещё не подключён — увеличиваем интервал
       _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);
     }
   } finally {
@@ -337,16 +337,31 @@ async function pollBackend() {
   }
 }
 
+/**
+ * Планирует следующий цикл опроса бэкенда.
+ * Сначала останавливает предыдущий таймер, затем запускает новый
+ * с текущим интервалом _pollInterval.
+ */
 function schedulePoll() {
   stopPolling();
   _pollTimer = setTimeout(pollBackend, _pollInterval);
 }
 
+/**
+ * Запускает цикл опроса бэкенда.
+ * Сбрасывает интервал опроса к начальному значению и планирует
+ * первый цикл через schedulePoll().
+ */
 function startPolling() {
   _pollInterval = POLL_INTERVAL;
   schedulePoll();
 }
 
+/**
+ * Останавливает цикл опроса бэкенда.
+ * Отменяет запланированный таймер, если он был активен,
+ * и сбрасывает ссылку на него.
+ */
 function stopPolling() {
   if (_pollTimer) {
     clearTimeout(_pollTimer);
@@ -509,7 +524,7 @@ function attachGlobalListeners() {
       const proxyId = proxyRow.querySelector('.proxy-toggle')?.dataset?.proxyId;
       if (proxyId) {
         state.selectedProxyId = proxyId;
-        render();
+        render(state);
         showModal('modal-masks');
       }
     }

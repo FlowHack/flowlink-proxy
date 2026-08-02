@@ -73,13 +73,70 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         """
         self._root = root
 
+    def _is_click_outside_popup(self, x_root: int, y_root: int) -> bool:
+        """Проверяет, находится ли точка вне геометрии popup-окна.
+
+        Если popup закрыт, уничтожен или геометрия неизвестна
+        (width/height <= 1) — возвращает False (считать клик вне
+        меню небезопасно, чтобы не закрывать ничего лишнего).
+
+        Args:
+            x_root: Экранная координата X клика.
+            y_root: Экранная координата Y клика.
+
+        Returns:
+            True, если точка вне прямоугольника popup-окна.
+        """
+        if not self._popup:
+            return False
+        try:
+            if not self._popup.winfo_exists():
+                return False
+            width = self._popup.winfo_width()
+            height = self._popup.winfo_height()
+            # Окно ещё не отрисовано (геометрия неизвестна) — не считаем клик внешним
+            if width <= 1 or height <= 1:
+                return False
+            x0 = self._popup.winfo_rootx()
+            y0 = self._popup.winfo_rooty()
+            x1 = x0 + width
+            y1 = y0 + height
+            return not (x0 <= x_root <= x1 and y0 <= y_root <= y1)
+        except tk.TclError as e:
+            logger.debug(
+                'Popup: ошибка при проверке клика вне меню: %s', e,
+            )
+            return False
+
+    def _on_global_click(self, event: tk.Event[tk.Tk]) -> None:
+        """Глобальный обработчик клика, привязанный к popup-окну.
+
+        Обработчик вешается через bind_all на popup-окно: благодаря
+        grab_set() клики вне меню направляются в popup-окно, и этот
+        обработчик получает их первым. Клики по пунктам меню
+        обрабатываются раньше (bind на виджетах), поэтому сюда
+        попадают только клики вне геометрии меню.
+
+        Закрывает popup, если клик произошёл вне его геометрии.
+        Во время выполнения команды меню клик игнорируется,
+        чтобы не закрыть popup раньше времени.
+
+        Args:
+            event: Событие tkinter с координатами x_root/y_root.
+        """
+        if self._command_running:
+            return
+        if self._is_click_outside_popup(event.x_root, event.y_root):
+            logger.debug('Popup: закрыто по клику вне меню')
+            self.dismiss()
+
     def _safe_destroy(self) -> None:
         """Безопасно уничтожает popup-окно (вызывается при ошибке)."""
         if self._popup:
             try:
                 self._popup.destroy()
-            except tk.TclError:
-                pass
+            except tk.TclError as e:
+                logger.debug('Popup: _safe_destroy — окно уже уничтожено: %s', e)
             self._popup = None
 
     def get_popup_hwnd(self) -> int:
@@ -117,7 +174,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                         e, exc_info=True,
                     )
         except Empty:
-            pass
+            logger.debug('Popup: очередь событий пуста — завершение цикла')
         if self._root and self._polling_active:
             try:
                 self._root.after(100, self._poll_queue)
@@ -227,8 +284,8 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         # (должно сработать на Windows, если tkinter поддерживает)
         try:
             self._popup.attributes('-toolwindow', True)
-        except tk.TclError:
-            pass
+        except tk.TclError as e:
+            logger.debug('Popup: не удалось применить toolwindow-стиль: %s', e)
 
         self._apply_toolwindow_style()
 
@@ -237,6 +294,8 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             self._popup.attributes('-topmost', True)
             self._popup.configure(bg=PopupColors.BG)
             self._popup.focus_force()
+            # grab_set() направляет все клики вне меню в popup-окно,
+            # где их перехватывает bind_all('<Button-1>', _on_global_click)
             self._popup.grab_set()
         except tk.TclError as e:
             logger.error(
@@ -246,6 +305,10 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             return
 
         self._configure_popup(x, y, items)
+        logger.debug(
+            'Popup: меню открыто (%s пунктов)',
+            len(items) if items else 0,
+        )
 
     def _apply_toolwindow_style(self) -> None:
         """Скрывает popup из панели задач Windows через Win32 API.
@@ -257,7 +320,6 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         """
         if not self._popup:
             return
-        logger.debug('Popup: _apply_toolwindow_style() вызван')
         try:
             # ленивый импорт ctypes — Win32-специфичный код
             import ctypes  # pylint: disable=import-outside-toplevel
@@ -437,11 +499,13 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         # Автозакрытие при потере фокуса
         try:
             def _bind_focus_out() -> None:
-                """Привязывает обработчик потери фокуса.
+                """Привязывает обработчики закрытия меню.
 
                 Если команда ещё выполняется или popup не существует,
-                обработчик не устанавливается. Иначе при потере фокуса
-                окно автоматически закрывается.
+                обработчики не устанавливаются. Иначе:
+                - при потере фокуса окно автоматически закрывается;
+                - глобальный перехват кликов (bind_all на popup-окно)
+                  закрывает меню при клике вне его геометрии.
                 """
                 if self._command_running:
                     return
@@ -453,6 +517,16 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                         '<FocusOut>',
                         lambda _e: self.dismiss(),
                     )
+                    # Перехватываем клики, направленные в popup-окно
+                    # через grab_set(). Клики по пунктам меню обрабатываются
+                    # раньше (bind на виджетах), поэтому сюда попадают
+                    # только клики вне геометрии меню.
+                    # add='+' сохраняет существующие глобальные биндинги.
+                    self._popup.bind_all(
+                        '<Button-1>',
+                        self._on_global_click,  # type: ignore[reportArgumentType]
+                        add='+',
+                    )
 
             self._focus_out_after_id = self._popup.after(
                 100, _bind_focus_out,
@@ -460,7 +534,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         except tk.TclError as e:
             logger.warning(
                 'Popup: не удалось установить '
-                'grab: %s', e,
+                'обработчики закрытия меню: %s', e,
             )
 
         # Плавное появление
@@ -632,6 +706,57 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                 'Popup: ошибка данных в _add_header: %s', e,
             )
 
+    def _execute_menu_command(self, cmd: Optional[Callable[[], None]]) -> None:
+        """Выполняет команду пункта меню с корректным закрытием popup.
+
+        Порядок действий важен:
+        1. Устанавливаем _command_running — глобальный клик игнорируется.
+        2. Отменяем отложенный биндинг FocusOut (after), чтобы он
+           не сработал во время выполнения команды.
+        3. Освобождаем grab и снимаем FocusOut с popup (если открыт).
+        4. Закрываем popup ДО выполнения команды: команда может
+           блокировать mainloop (например, wait_variable в диалоге),
+           и меню не должно оставаться открытым на время её работы.
+        5. Выполняем команду с перехватом ошибок.
+        6. В finally сбрасываем _command_running.
+
+        Args:
+            cmd: Обработчик команды пункта меню (может быть None).
+        """
+        self._command_running = True
+        # Отменяем отложенный биндинг FocusOut (after(100, ...)),
+        # чтобы он не перевесился заново во время работы команды
+        if self._focus_out_after_id is not None:
+            try:
+                if self._popup is not None:
+                    self._popup.after_cancel(
+                        self._focus_out_after_id,
+                    )
+            except (tk.TclError, ValueError) as e:
+                logger.debug('Popup: не удалось отменить after_cancel: %s', e)
+            self._focus_out_after_id = None
+        try:
+            if self._popup and self._popup.winfo_exists():
+                self._popup.grab_release()
+                self._popup.unbind('<FocusOut>')
+        except tk.TclError as e:
+            logger.debug('Popup: TclError при grab_release: %s', e)
+        # Закрываем меню ДО запуска команды, чтобы блокирующие команды
+        # (диалоги с wait_variable) не оставляли меню на экране
+        logger.debug('Popup: меню закрыто по выбору пункта')
+        self.dismiss()
+        try:
+            if cmd:
+                cmd()
+        except (OSError, ValueError, RuntimeError, tk.TclError) as e:
+            logger.error(
+                'Popup: ошибка при выполнении '
+                'команды: %s',
+                e, exc_info=True,
+            )
+        finally:
+            self._command_running = False
+
     def _add_menu_item(
         self,
         text: str,
@@ -714,46 +839,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             ) -> None:
                 """Обрабатывает клик по пункту меню.
 
-                Освобождает grab popup, запускает команду пункта
-                и закрывает popup после завершения.
+                Закрывает popup ДО выполнения команды и запускает
+                команду через общий метод _execute_menu_command.
                 """
                 logger.debug('Popup: клик по пункту меню')
-                # Освобождаем grab popup, чтобы диалог мог установить свой grab,
-                # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
-                # в рабочем состоянии для диалогов (например, выбора браузера).
-                self._command_running = True
-                # Отменяем отложенный биндинг FocusOut (after(100, ...)),
-                # чтобы он не перевесился заново во время работы диалога
-                if self._focus_out_after_id is not None:
-                    try:
-                        if self._popup is not None:
-                            self._popup.after_cancel(
-                                self._focus_out_after_id,
-                            )
-                    except (tk.TclError, ValueError):
-                        pass
-                    self._focus_out_after_id = None
-                try:
-                    if self._popup and self._popup.winfo_exists():
-                        self._popup.grab_release()
-                        try:
-                            self._popup.unbind('<FocusOut>')
-                        except tk.TclError:
-                            pass
-                except tk.TclError as e:
-                    logger.debug('Popup: TclError при grab_release: %s', e)
-                if cmd:
-                    try:
-                        cmd()
-                    except (OSError, ValueError, RuntimeError, tk.TclError) as e:
-                        logger.error(
-                            'Popup: ошибка при выполнении '
-                            'команды: %s',
-                            e, exc_info=True,
-                        )
-                self._command_running = False
-                # После завершения команды — полностью закрываем popup
-                self.dismiss()
+                self._execute_menu_command(cmd)
 
             for widget in [frame] + frame.winfo_children():
                 # bind() в runtime принимает любой callable
@@ -870,46 +960,11 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             ) -> None:
                 """Обрабатывает клик по пункту с чекбоксом.
 
-                Освобождает grab popup, запускает команду пункта
-                и закрывает popup после завершения.
+                Закрывает popup ДО выполнения команды и запускает
+                команду через общий метод _execute_menu_command.
                 """
                 logger.debug('Popup: клик по пункту с чекбоксом')
-                # Освобождаем grab popup, чтобы диалог мог установить свой grab,
-                # но НЕ закрываем и НЕ скрываем popup — это сохраняет tk_root
-                # в рабочем состоянии для диалогов (например, выбора браузера).
-                self._command_running = True
-                # Отменяем отложенный биндинг FocusOut (after(100, ...)),
-                # чтобы он не перевесился заново во время работы диалога
-                if self._focus_out_after_id is not None:
-                    try:
-                        if self._popup is not None:
-                            self._popup.after_cancel(
-                                self._focus_out_after_id,
-                            )
-                    except (tk.TclError, ValueError):
-                        pass
-                    self._focus_out_after_id = None
-                try:
-                    if self._popup and self._popup.winfo_exists():
-                        self._popup.grab_release()
-                        try:
-                            self._popup.unbind('<FocusOut>')
-                        except tk.TclError:
-                            pass
-                except tk.TclError as e:
-                    logger.debug('Popup: TclError при grab_release: %s', e)
-                if cmd:
-                    try:
-                        cmd()
-                    except (OSError, ValueError, RuntimeError, tk.TclError) as e:
-                        logger.error(
-                            'Popup: ошибка при выполнении '
-                            'команды: %s',
-                            e, exc_info=True,
-                        )
-                self._command_running = False
-                # После завершения команды — полностью закрываем popup
-                self.dismiss()
+                self._execute_menu_command(cmd)
 
             for widget in [frame] + frame.winfo_children():
                 # bind() в runtime принимает любой callable
@@ -979,10 +1034,8 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         if self._tooltip_label is not None:
             try:
                 self._tooltip_label.configure(text='')
-            except tk.TclError:
-                logger.debug(
-                    'Popup: статусбар тултипа уже уничтожен — пропуск',
-                )
+            except tk.TclError as e:
+                logger.debug('Popup: не удалось скрыть тултип: %s', e)
 
     def show_loading(self, text: str) -> None:
         """
@@ -1023,10 +1076,8 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         if self._tooltip_label is not None:
             try:
                 self._tooltip_label.configure(fg=PopupColors.TEXT_MUTED)
-            except tk.TclError:
-                logger.debug(
-                    'Popup: статусбар загрузки уже уничтожен — пропуск',
-                )
+            except tk.TclError as e:
+                logger.debug('Popup: не удалось скрыть индикатор загрузки: %s', e)
         self._hide_tooltip()
 
     def _bind_tooltip(

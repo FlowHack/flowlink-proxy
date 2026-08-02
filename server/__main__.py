@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import logging
 import os
+import secrets
 import signal
 import sys
 import threading
@@ -82,7 +83,8 @@ async def _file_watcher(root: str, poll_interval: float = 1.0) -> None:
         for f in files:
             try:
                 mtime = os.stat(f).st_mtime
-            except OSError:
+            except OSError as e:
+                logger.debug('Не удалось получить mtime для %s: %s', f, e)
                 continue
             if mtime != snapshots.get(f):
                 snapshots[f] = mtime
@@ -383,6 +385,7 @@ def _restart_browser_sync(browser_path: str, proxy_port: int) -> bool:
     Returns:
         True если браузер успешно перезапущен, False при ошибке.
     """
+    # Ленивый импорт: модуль browser_process подключается только при необходимости
     from server.config import \
         browser_process as _browser_process  # pylint: disable=import-outside-toplevel
 
@@ -445,6 +448,7 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
         # tkinter гарантированно доступен, раз tk_root создан треем
         import tkinter as tk  # pylint: disable=import-outside-toplevel
     except ImportError:
+        logger.debug('tkinter недоступен — переход на синхронный запуск браузера')
         return _launch_browser_sync(callbacks, browser_path, proxy_port)
 
     result: dict = {'value': None, 'error': None}
@@ -563,7 +567,10 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
                     try:
                         done_var.set(True)
                     except tk.TclError:
-                        pass
+                        logger.debug(
+                            'Не удалось разблокировать wait_variable '
+                            'после ошибки планирования',
+                        )
 
         thread = threading.Thread(target=_restart_worker, daemon=True)
         thread.start()
@@ -590,8 +597,10 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
                 )
                 try:
                     done_var.set(True)
-                except tk.TclError:
-                    pass
+                except tk.TclError as exc:
+                    logger.debug(
+                        'Не удалось разблокировать wait_variable: %s', exc,
+                    )
 
     try:
         popup.show_loading('Запуск браузера...')
@@ -640,6 +649,7 @@ def _close_browser_callback(
         )
         return False
 
+    # Ленивый импорт: модуль browser_process подключается только при необходимости
     from server.config import \
         browser_process as _browser_process  # pylint: disable=import-outside-toplevel
 
@@ -712,7 +722,7 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
             loop.call_soon_threadsafe(stop_event.set)
         except RuntimeError:
             # Loop уже закрыт — сервер и так завершается
-            pass
+            logger.debug('Loop уже закрыт при остановке сервера')
 
     def _autostart_getter() -> bool:
         return _autostart.get_autostart_browser()
@@ -894,7 +904,7 @@ def _setup_signal_handlers(loop: asyncio.AbstractEventLoop, stop_event: asyncio.
         try:
             loop.add_signal_handler(sig, lambda s=sig: _on_signal(s, stop_event))
         except NotImplementedError:
-            logger.warning(
+            logger.debug(
                 'Регистрация обработчика %s не поддерживается на этой платформе',
                 signal.Signals(sig).name,
             )
@@ -1064,10 +1074,16 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
     if args.debug:
         log_config_state(is_startup=True)
 
+    # Токен аутентификации API: генерируется при каждом старте сервера.
+    # Никогда не логируется — только расширение получает его через
+    # открытый маршрут GET /api/bootstrap.
+    auth_token = secrets.token_urlsafe(32)
+
     proxy_server = ProxyServer(router, port=args.proxy_port)
     api_server = ApiServer(
         router, port=args.api_port,
         debug=args.debug, need_update=args.need_update,
+        auth_token=auth_token,
     )
 
     try:

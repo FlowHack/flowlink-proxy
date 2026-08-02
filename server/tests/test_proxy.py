@@ -131,7 +131,7 @@ class TestParseHttp(unittest.TestCase):
         _, host, port, path, _ = result  # type: ignore[reportGeneralTypeIssues]
         # Парсер включает порт в host-group: example.com:8080
         self.assertEqual(host, 'example.com:8080')
-        # Портgroup не захватывается отдельно (consumed by host)
+        # Группа порта не захватывается отдельно (поглощается хостом)
         self.assertEqual(port, 80)
         self.assertEqual(path, '/api')
 

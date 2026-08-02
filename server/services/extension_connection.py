@@ -34,7 +34,6 @@ def mark_connected() -> None:
     # Изменяем mutable-счётчик под блокировкой (см. шапку файла):
     # глобальное состояние неизбежно, т.к. счётчик живёт на уровне модуля.
     global _active_connections  # pylint: disable=global-statement
-    global _active_connections  # pylint: disable=global-statement
     with _lock:
         _active_connections += 1
         logger.debug(
@@ -47,7 +46,6 @@ def mark_disconnected() -> None:
     """Регистрирует закрытие SSE-соединения от расширения."""
     # Изменяем mutable-счётчик под блокировкой (см. шапку файла):
     # глобальное состояние неизбежно, т.к. счётчик живёт на уровне модуля.
-    global _active_connections  # pylint: disable=global-statement
     global _active_connections  # pylint: disable=global-statement
     with _lock:
         if _active_connections > 0:

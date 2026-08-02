@@ -14,6 +14,7 @@ import logging
 from server.services.events import get_queue
 from server.services.extension_connection import (mark_connected,
                                                   mark_disconnected)
+from server.utils import cors_allow_origin
 
 logger = logging.getLogger('flowlink.sse')
 
@@ -21,17 +22,30 @@ logger = logging.getLogger('flowlink.sse')
 # отправляется комментарий для поддержания соединения
 _SSE_KEEPALIVE_TIMEOUT = 30
 
-SSE_HEADERS = (
-    'HTTP/1.1 200 OK\r\n'
-    'Content-Type: text/event-stream\r\n'
-    'Cache-Control: no-cache\r\n'
-    'Connection: keep-alive\r\n'
-    'Access-Control-Allow-Origin: *\r\n'
-    '\r\n'
-)
+
+def _sse_headers(origin: str | None) -> bytes:
+    """Собирает HTTP-заголовки SSE-ответа с учётом CORS-allowlist.
+
+    Заголовок доступа добавляется только для расширений Chrome
+    (chrome-extension://<id>), остальным источникам CORS не отдаётся.
+    """
+    headers = (
+        'HTTP/1.1 200 OK\r\n'
+        'Content-Type: text/event-stream\r\n'
+        'Cache-Control: no-cache\r\n'
+        'Connection: keep-alive\r\n'
+    )
+    headers += cors_allow_origin(origin)
+    headers += '\r\n'
+    return headers.encode()
 
 
-async def handle_sse(writer: asyncio.StreamWriter) -> None:
+async def handle_sse(
+    writer: asyncio.StreamWriter,
+    auth_token: str | None = None,
+    token: str | None = None,
+    origin: str | None = None,
+) -> None:
     """
     Держит SSE-соединение открытым, отправляя события из очереди.
 
@@ -44,9 +58,21 @@ async def handle_sse(writer: asyncio.StreamWriter) -> None:
 
     Args:
         writer: asyncio StreamWriter для отправки данных.
+        auth_token: Токен аутентификации API. Если задан — соединение
+            открывается только при совпадении с token.
+        token: Токен из query-параметра '?token=' запроса (EventSource
+            не позволяет задавать заголовки).
+        origin: Заголовок Origin запроса — для CORS-allowlist.
     """
-    queue = get_queue()
     peername = writer.get_extra_info('peername', ('?', 0))
+    # Проверка токена до отправки каких-либо данных: при несовпадении
+    # соединение закрывается без единого байта ответа
+    if auth_token is not None and token != auth_token:
+        logger.warning(
+            'SSE: отказ в доступе (неверный токен) от %s', peername
+        )
+        return
+    queue = get_queue()
     logger.debug('SSE: клиент %s подключился', peername)
     # Регистрируем подключение расширения (для индикации в системном трее)
     mark_connected()
@@ -63,7 +89,7 @@ async def handle_sse(writer: asyncio.StreamWriter) -> None:
         logger.debug('SSE: очищено %d устаревших событий', cleared)
 
     try:
-        writer.write(SSE_HEADERS.encode())
+        writer.write(_sse_headers(origin))
         await writer.drain()
 
         while True:

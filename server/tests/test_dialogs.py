@@ -113,6 +113,7 @@ class TestShowInfo(unittest.TestCase):
         root, dialog, _button, label = self._make_tk_mocks()
         label_texts = []
 
+        # Параметры *args/**kwargs нужны для подмены tk.Label (unused-argument)
         def _label_factory(*args, **kwargs):  # pylint: disable=unused-argument
             label_texts.append(kwargs.get('text', ''))
             return label
@@ -136,6 +137,7 @@ class TestShowInfo(unittest.TestCase):
         def _action():
             action_called.append(True)
 
+        # Параметры *args/**kwargs нужны для подмены tk.Label (unused-argument)
         def _label_factory(*args, **kwargs):  # pylint: disable=unused-argument
             return label
 
@@ -189,6 +191,7 @@ class TestShowItemPicker(unittest.TestCase):
         root, dialog, _button, label = self._make_tk_mocks()
         label_texts = []
 
+        # Параметры *args/**kwargs нужны для подмены tk.Label (unused-argument)
         def _label_factory(*args, **kwargs):  # pylint: disable=unused-argument
             label_texts.append(kwargs.get('text', ''))
             return label
@@ -214,6 +217,7 @@ class TestShowItemPicker(unittest.TestCase):
         root, dialog, _button, label = self._make_tk_mocks()
         label_texts = []
 
+        # Параметры *args/**kwargs нужны для подмены tk.Label (unused-argument)
         def _label_factory(*args, **kwargs):  # pylint: disable=unused-argument
             label_texts.append(kwargs.get('text', ''))
             return label
@@ -242,6 +246,7 @@ class TestShowItemPicker(unittest.TestCase):
         def _on_select(item):
             selected_items.append(item)
 
+        # Параметры *args/**kwargs нужны для подмены tk.Label (unused-argument)
         def _label_factory(*args, **kwargs):  # pylint: disable=unused-argument
             return label
 

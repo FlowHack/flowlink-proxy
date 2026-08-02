@@ -268,10 +268,21 @@ class TestAutostartBrowserAtStartup(unittest.TestCase):
         """Ошибка записи порт-файла не останавливает уже запущенные серверы."""
         args = _make_args()
         callbacks: dict = {}
+        proxy_server = _make_server_mock()
+        api_server = _make_server_mock()
 
         async def run() -> None:
             with ExitStack() as stack:
                 _enter_runtime_patches(stack, None, callbacks)
+                # Подменяем серверы на захваченные моки, чтобы проверить их запуск
+                stack.enter_context(patch(
+                    'server.__main__.ProxyServer',
+                    return_value=proxy_server,
+                ))
+                stack.enter_context(patch(
+                    'server.__main__.ApiServer',
+                    return_value=api_server,
+                ))
                 # write_port_file бросает OSError — сервер не должен падать
                 stack.enter_context(patch(
                     'server.__main__.write_port_file',
@@ -281,3 +292,7 @@ class TestAutostartBrowserAtStartup(unittest.TestCase):
 
         # Не должно бросать исключение — сервер продолжает работу
         asyncio.run(run())
+
+        # Несмотря на ошибку записи порт-файла, серверы запускаются
+        proxy_server.start.assert_awaited_once()
+        api_server.start.assert_awaited_once()

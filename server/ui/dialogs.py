@@ -5,6 +5,7 @@
 Все виджеты стилизованы в тёмной теме FlowLink Proxy.
 """
 
+import ctypes
 import logging
 import os
 import sys
@@ -553,6 +554,33 @@ def ask_yes_no(
     return result['value']
 
 
+def _release_grab(dialog: tk.Toplevel) -> None:
+    """Снимает grab (на Windows — захват мыши) перед уничтожением диалога.
+
+    Если окно с активным grab уничтожить без grab_release(), на Windows
+    Tk не снимет SetCapture — захват мыши остаётся висеть на
+    уничтоженном окне. Тогда следующий клик по иконке трея поглощается,
+    и popup-меню перестаёт открываться. Метод безопасен при отсутствии
+    grab (grab_release бросит TclError — ловим и игнорируем).
+
+    Дополнительно вызывается нативный ReleaseCapture: grab_release() Tk
+    на Windows НЕ гарантирует снятие SetCapture, поэтому без явного
+    вызова захват может остаться висеть на потоке.
+    """
+    try:
+        dialog.grab_release()
+    except tk.TclError as e:
+        logger.debug('Диалог: grab_release не выполнен: %s', e)
+    if sys.platform == 'win32':
+        try:
+            user32 = ctypes.windll.user32
+            user32.ReleaseCapture.restype = ctypes.c_int
+            user32.ReleaseCapture.argtypes = []
+            user32.ReleaseCapture()
+        except (OSError, AttributeError, ImportError) as e:
+            logger.debug('Диалог: не удалось снять нативный захват мыши: %s', e)
+
+
 # Подавление: сложный UI-диалог выбора элемента (список, прокрутка,
 # кнопки, ручной ввод). Разбиение нецелесообразно: аргументы задают
 # контракт вызова, а локальные переменные — виджеты одного окна.
@@ -664,11 +692,20 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
                 и закрывающая диалог.
             """
             def _action() -> None:
-                """Вызывает on_select для выбранного элемента и закрывает диалог."""
-                on_select(itm)
-                dialog.destroy()
-                if owns_root:
-                    root.quit()
+                """Вызывает on_select для выбранного элемента и закрывает диалог.
+
+                on_select обёрнут в try/finally: даже если обработчик выбора
+                бросит исключение, захват мыши снимается и диалог закрывается.
+                Иначе диалог остаётся открытым с активным SetCapture, и клики
+                по иконке трея поглощаются — меню перестаёт открываться.
+                """
+                try:
+                    on_select(itm)
+                finally:
+                    _release_grab(dialog)
+                    dialog.destroy()
+                    if owns_root:
+                        root.quit()
             return _action
 
         row = _make_compact_item_row(
@@ -691,6 +728,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
         def _on_manual() -> None:
             """Закрывает диалог и помечает ручной ввод как выбранный."""
             manual_result['clicked'] = True
+            _release_grab(dialog)
             dialog.destroy()
             if owns_root:
                 root.quit()
@@ -706,6 +744,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     # Кнопка "Отмена"
     def _on_cancel() -> None:
         """Закрывает диалог выбора без результата."""
+        _release_grab(dialog)
         dialog.destroy()
         if owns_root:
             root.quit()
@@ -741,6 +780,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
     # Обработка закрытия окна
     def _on_close() -> None:
         """Обрабатывает закрытие диалога выбора."""
+        _release_grab(dialog)
         dialog.destroy()
         if owns_root:
             root.quit()

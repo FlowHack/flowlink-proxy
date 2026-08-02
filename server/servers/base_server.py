@@ -24,6 +24,8 @@ class BaseServer(ABC):
 
     def __init__(self, host: str, port: int, name: str):
         """
+        Инициализирует базовый сервер параметрами прослушивания.
+
         Args:
             host: Интерфейс для прослушивания (127.0.0.1).
             port: Порт для прослушивания.
@@ -45,7 +47,14 @@ class BaseServer(ABC):
         raise NotImplementedError
 
     async def start(self) -> None:
-        """Запускает TCP-сервер на self._host:self._port."""
+        """Запускает TCP-сервер на self._host:self._port.
+
+        Создаёт asyncio-сервер с обработчиком _handle_client и
+        логирует факт запуска под именем flowlink.<name>.
+
+        Returns:
+            None.
+        """
         self._server = await asyncio.start_server(
             self._handle_client,
             host=self._host,

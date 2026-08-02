@@ -87,10 +87,10 @@ class TestGetBackendInfo(unittest.TestCase):
 
     @patch.object(sys, 'platform', 'linux')
     def test_has_tkinter_always_present(self):
-        """get_backend_info содержит has_tkinter."""
+        """tkinter доступен в окружении тестов — has_tkinter=True."""
         info = get_backend_info()
         self.assertIn('has_tkinter', info)
-        self.assertIsInstance(info['has_tkinter'], bool)
+        self.assertTrue(info['has_tkinter'])
 
 
 if __name__ == '__main__':

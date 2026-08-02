@@ -5,6 +5,7 @@
  */
 
 import { API_BASE } from './constants.js';
+import { getAuthToken, authHeaders } from './auth.js';
 
 /**
  * Извлекает сообщение об ошибке из ответа сервера.
@@ -34,7 +35,9 @@ async function _handleApiError(res, method) {
  */
 export async function apiGet(endpoint) {
   try {
+    const token = await getAuthToken(API_BASE);
     const res = await fetch(`${API_BASE}${endpoint}`, {
+      headers: authHeaders(token),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
@@ -63,9 +66,10 @@ export async function apiGet(endpoint) {
  */
 export async function apiPost(endpoint, body) {
   try {
+    const token = await getAuthToken(API_BASE);
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
     });
@@ -96,9 +100,10 @@ export async function apiPost(endpoint, body) {
  */
 export async function apiPostRaw(endpoint, body) {
   try {
+    const token = await getAuthToken(API_BASE);
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
     });

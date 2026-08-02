@@ -74,6 +74,16 @@ WNDPROC = ctypes.WINFUNCTYPE(  # type: ignore[reportAttributeAccessIssue]
 # Win32 хранит raw-указатель на WNDPROC; если Python соберёт мусор — краш.
 _KEEP_ALIVE_WNDPROCS: list = []
 
+# ───── Типы Win32-функций (restype/argtypes) ─────
+# Без явного restype ctypes.windll возвращает c_int (32-бит), что на Win64
+# обрезает указатели (LONG_PTR/LRESULT) до 32 бит. Это приводило к крашу:
+# GetWindowLongPtrW усекал 64-битный адрес WndProc Tk, а CallWindowProcW
+# вызывался по невалидному адресу → access violation (не ловится try/except).
+_user32.SetForegroundWindow.restype = ctypes.c_int
+_user32.SetForegroundWindow.argtypes = [wt.HWND]
+_user32.BringWindowToTop.restype = ctypes.c_int
+_user32.BringWindowToTop.argtypes = [wt.HWND]
+
 
 class _WNDCLASS(ctypes.Structure):
     """Структура WNDCLASS для RegisterClassW."""
@@ -184,8 +194,8 @@ class Win32Tray:
         if self._popup_timer_id and self._tk_root:
             try:
                 self._tk_root.after_cancel(self._popup_timer_id)
-            except tk.TclError:
-                pass
+            except tk.TclError as e:
+                logger.debug('Tray Win32: не удалось отменить after_cancel: %s', e)
             self._popup_timer_id = None
         if self._hwnd:
             try:
@@ -387,8 +397,6 @@ class Win32Tray:
                 'Tray Win32: критическая ошибка mainloop: %s',
                 e, exc_info=True,
             )
-        finally:
-            pass
 
     def _run_tk(self):
         """
@@ -585,13 +593,18 @@ class Win32Tray:
         from PIL import ImageFont  # pylint: disable=import-outside-toplevel
         try:
             return ImageFont.truetype('arial.ttf', 7)
-        except OSError:
+        except OSError as e:
+            logger.debug('Шрифт %s не найден, fallback: %s', 'arial.ttf', e)
             try:
                 return ImageFont.truetype(
                     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
                     7,
                 )
-            except OSError:
+            except OSError as exc:
+                logger.debug(
+                    'Шрифт %s не найден, fallback: %s',
+                    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', exc,
+                )
                 return ImageFont.load_default()
 
     def _create_fallback_icon(self):
@@ -659,8 +672,8 @@ class Win32Tray:
         if self._fallback_icon_path:
             try:
                 os.unlink(self._fallback_icon_path)
-            except OSError:
-                pass
+            except OSError as e:
+                logger.debug('Tray Win32: не удалось удалить временную иконку: %s', e)
             self._fallback_icon_path = None
 
         # Удаляем callback из модульного списка после удаления иконки
@@ -783,7 +796,7 @@ class Win32Tray:
                         'popup-окна: %s', e,
                     )
             else:
-                logger.warning('Tray Win32: _show_popup — tk_root is None')
+                logger.warning('Tray Win32: _show_popup — tk_root не установлен')
         except (tk.TclError, KeyError, TypeError, ValueError,
                 OSError, RuntimeError) as e:
             logger.error(
@@ -798,7 +811,9 @@ class Win32Tray:
             return 0
         # WM_MOUSEMOVE (0x200) — нормальное событие от NOTIFYICON_VERSION_4,
         # возникает при движении мыши над иконкой трея. Игнорируем.
-        if event == 0x200:
+        # WM_RBUTTONDOWN (0x204) и WM_LBUTTONDOWN (0x201) — события нажатия
+        # кнопки мыши, обрабатываются только события отпускания (UP). Игнорируем.
+        if event in (0x200, 0x204, 0x201):
             return 0
         if event not in (WM_RBUTTONUP, WM_RBUTTONDBLCLK,
                          WM_LBUTTONDBLCLK, WM_LBUTTONUP):

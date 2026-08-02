@@ -114,7 +114,7 @@ def _find_browser_pids_windows(browser_path: str) -> list[int]:
         )
     except OSError as e:
         # wmic недоступен (устарел/удалён) — переходим на PowerShell
-        logger.warning('wmic недоступен (%s), пробую PowerShell', e)
+        logger.debug('wmic недоступен (%s), пробую PowerShell', e)
     except subprocess.TimeoutExpired as e:
         logger.warning('wmic превысил таймаут (%s), пробую PowerShell', e)
 
@@ -559,7 +559,8 @@ def _process_alive(pid: int) -> bool:
     except PermissionError:
         # Процесс существует, но нет прав на сигнал 0 — считаем живым
         return True
-    except OSError:
+    except OSError as e:
+        logger.debug('Неожиданная ошибка проверки процесса %s: %s', pid, e)
         return False
     return True
 

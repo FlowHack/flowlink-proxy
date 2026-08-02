@@ -52,7 +52,7 @@ def has_pystray() -> bool:
                 logger.debug('pystray: Xlib display-ошибка (headless?): %s', exc)
                 return False
         except ImportError:
-            pass
+            logger.debug('Xlib недоступен — проверка DisplayError пропущена')
         logger.warning('pystray: неожиданная ошибка при импорте: %s', exc)
         return False
 

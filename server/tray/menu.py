@@ -90,12 +90,17 @@ def _create_fallback_icon(pil_image: types.ModuleType) -> Any:
 
     try:
         font = _font.truetype('arial.ttf', 7)
-    except OSError:
+    except OSError as e:
+        logger.debug('Шрифт %s не найден, fallback: %s', 'arial.ttf', e)
         try:
             font = _font.truetype(
                 '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 7,
             )
-        except OSError:
+        except OSError as exc:
+            logger.debug(
+                'Шрифт %s не найден, fallback: %s',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', exc,
+            )
             font = _font.load_default()
 
     bbox = draw.textbbox((0, 0), 'FLP', font=font)
@@ -652,6 +657,7 @@ def _show_close_browser_on_exit_dialog(
         log.info('tkinter недоступен — диалог закрытия браузера не показан')
         return
 
+    # Ленивый импорт: модуль browser_process подключается только при необходимости
     from server.config import \
         browser_process as _browser_process  # pylint: disable=import-outside-toplevel
 
@@ -788,6 +794,7 @@ def build_menu_items(
     proxy_port = callbacks.get('proxy_port')
     browser_running_with_proxy = False
     if browser_path and proxy_port:
+        # Ленивый импорт: модуль browser_process подключается только при необходимости
         from server.config import \
             browser_process as _bp  # pylint: disable=import-outside-toplevel
         browser_running_with_proxy = _bp.is_browser_running_with_proxy(

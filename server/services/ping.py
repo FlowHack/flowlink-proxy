@@ -37,6 +37,7 @@ async def ping_proxy(proxy_id: str) -> dict:
     try:
         proto = get_protocol(proxy)
     except ValueError as e:
+        logger.warning('Неизвестный тип прокси %s: %s', proxy.get('proxyId'), e)
         return {'alive': False, 'latency': None, 'error': f'Неизвестный тип прокси: {e}'}
 
     alive = await proto.ping(timeout=5)

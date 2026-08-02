@@ -63,6 +63,24 @@ class TestValidateTarget(unittest.TestCase):
             self._run(validate_target('::1', 80))
         self.assertIn('SSRF', str(ctx.exception))
 
+    def test_unspecified_ipv4_zero(self):
+        """0.0.0.0 → блокируется (unspecified IPv4)"""
+        with self.assertRaises(ValueError) as ctx:
+            self._run(validate_target('0.0.0.0', 80))
+        self.assertIn('SSRF', str(ctx.exception))
+
+    def test_unspecified_ipv6_unbounded(self):
+        """:: → блокируется (unspecified IPv6)"""
+        with self.assertRaises(ValueError) as ctx:
+            self._run(validate_target('::', 80))
+        self.assertIn('SSRF', str(ctx.exception))
+
+    def test_broadcast_255_255_255_255(self):
+        """255.255.255.255 → блокируется (ограниченный broadcast)"""
+        with self.assertRaises(ValueError) as ctx:
+            self._run(validate_target('255.255.255.255', 80))
+        self.assertIn('SSRF', str(ctx.exception))
+
     def test_public_domain(self):
         """example.com → разрешается (публичный домен)"""
         # Не должно выбрасывать исключение
