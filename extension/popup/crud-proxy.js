@@ -4,7 +4,7 @@
  * Использует config-based API: GET /api/config → modify → POST /api/config.
  */
 
-import { apiGet, apiPost } from '../shared/api.js';
+import { apiPatch, apiPost, apiDelete } from '../shared/api.js';
 import { isValidHost, isValidPort, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
 import { showToast } from './popup.js';
@@ -114,32 +114,17 @@ export async function handleSaveProxy(loadAndRender) {
   const saveBtn = document.getElementById('btn-proxy-save');
   setLoading(saveBtn, true);
   try {
-    const config = await apiGet('/config');
-    const proxies = config.proxies || [];
-
-    // Проверка дубликата host:port
-    const duplicates = proxies.filter(
-      p => p.host === host && p.port === port && p.proxyId !== proxyId
-    );
-    if (duplicates.length > 0) {
-      showFieldError('proxy-host', 'Прокси с таким host:port уже существует');
-      return;
-    }
-
     if (proxyId) {
-      const idx = proxies.findIndex(p => p.proxyId === proxyId);
-      if (idx !== -1) {
-        proxies[idx] = { ...proxies[idx], host, port, username, password, label };
-      }
-    } else {
-      proxies.push({
-        proxyId: crypto.randomUUID(),
+      // Редактирование существующего прокси — точечный PATCH
+      await apiPatch(`/proxy/${encodeURIComponent(proxyId)}`, {
         host, port, username, password, label,
-        isEnabled: true,
+      });
+    } else {
+      // Создание нового прокси — точечный POST
+      await apiPost('/proxies', {
+        host, port, username, password, label,
       });
     }
-    config.proxies = proxies;
-    await apiPost('/config', config);
     closeModal();
     await loadAndRender();
   } catch (e) {
@@ -166,10 +151,7 @@ export async function handleSaveProxy(loadAndRender) {
 export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
   setLoading(btn, true);
   try {
-    const config = await apiGet('/config');
-    config.proxies = (config.proxies || []).filter(p => p.proxyId !== proxyId);
-    config.masks = (config.masks || []).filter(m => m.proxyId !== proxyId);
-    await apiPost('/config', config);
+    await apiDelete(`/proxy/${encodeURIComponent(proxyId)}`);
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления прокси:', e);
@@ -188,12 +170,8 @@ export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
 export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
   checkbox.disabled = true;
   try {
-    const config = await apiGet('/config');
-    const proxy = (config.proxies || []).find(p => p.proxyId === proxyId);
-    if (proxy) {
-      proxy.isEnabled = !proxy.isEnabled;
-      await apiPost('/config', config);
-    }
+    const enabled = !checkbox.checked;
+    await apiPatch(`/proxy/${encodeURIComponent(proxyId)}/enabled`, { enabled });
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения прокси:', e);

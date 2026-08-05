@@ -66,7 +66,7 @@ async def _handle_config_get(
 async def _handle_config_post(
     data: dict, router: MaskRouter, debug: bool, need_update: bool,
     peername: tuple,
-) -> dict:
+) -> dict | tuple[dict, int]:
     """POST /api/config — обновить конфигурацию."""
     return await handlers.handle_post_config(data, router)
 
@@ -178,6 +178,22 @@ async def _handle_browser_config_get(
     return handlers.handle_get_browser_config()
 
 
+async def _handle_proxies_post(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
+) -> dict | tuple[dict, int]:
+    """POST /api/proxies — добавить прокси."""
+    return await handlers.handle_post_proxy(data, router)
+
+
+async def _handle_masks_post(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
+) -> dict | tuple[dict, int]:
+    """POST /api/masks — добавить маску."""
+    return await handlers.handle_post_mask(data, router)
+
+
 # Таблица маршрутов: (method, path) -> обработчик.
 # Единая точка регистрации эндпоинтов (DRY, SOLID).
 _ROUTES: dict[tuple[str, str], _Handler] = {
@@ -196,7 +212,90 @@ _ROUTES: dict[tuple[str, str], _Handler] = {
     ('POST', '/api/validate-browser'): _handle_validate_browser_post,
     ('GET', '/api/detected-browsers'): _handle_detected_browsers_get,
     ('GET', '/api/browser-config'): _handle_browser_config_get,
+    ('POST', '/api/proxies'): _handle_proxies_post,
+    ('POST', '/api/masks'): _handle_masks_post,
 }
+
+
+# Тип обработчика динамического маршрута: стандартный контекст + id.
+_DynamicHandler = Callable[
+    [dict, MaskRouter, bool, bool, tuple, str],
+    Awaitable[dict | tuple[dict, int]],
+]
+
+
+def _match_dynamic_route(  # pylint: disable=too-many-return-statements  # диспетчер динамических путей: несколько ветвей возврата
+    method: str, route_path: str,
+) -> tuple[_DynamicHandler, str] | None:
+    """Сопоставляет динамический путь вида /api/proxy/{id} с обработчиком.
+
+    Возвращает (обработчик, id) или None, если путь не подходит.
+    """
+    parts = route_path.split('/')
+    # Ожидаем: ['', 'api', 'proxy', '{id}'] или ['', 'api', 'proxy', '{id}', 'enabled']
+    if len(parts) < 4 or parts[0] != '' or parts[1] != 'api':
+        return None
+    if parts[2] == 'proxy' and len(parts) == 4:
+        proxy_id = parts[3]
+        if method == 'PATCH':
+            return _handle_proxy_patch, proxy_id
+        if method == 'DELETE':
+            return _handle_proxy_delete, proxy_id
+    if parts[2] == 'proxy' and len(parts) == 5 and parts[4] == 'enabled':
+        if method == 'PATCH':
+            return _handle_proxy_enabled_patch, parts[3]
+    if parts[2] == 'mask' and len(parts) == 4:
+        mask_id = parts[3]
+        if method == 'PATCH':
+            return _handle_mask_patch, mask_id
+        if method == 'DELETE':
+            return _handle_mask_delete, mask_id
+    return None
+
+
+# Обработчики динамических маршрутов принимают дополнительный параметр
+# (proxy_id/mask_id) помимо стандартного контекста запроса — единый контракт
+# диспетчера важнее лимита аргументов.
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+async def _handle_proxy_patch(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple, proxy_id: str,
+) -> dict | tuple[dict, int]:
+    """PATCH /api/proxy/{id} — обновить прокси."""
+    return await handlers.handle_patch_proxy(proxy_id, data, router)
+
+
+async def _handle_proxy_enabled_patch(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple, proxy_id: str,
+) -> dict | tuple[dict, int]:
+    """PATCH /api/proxy/{id}/enabled — переключить активность прокси."""
+    return await handlers.handle_patch_proxy_enabled(proxy_id, data, router)
+
+
+async def _handle_proxy_delete(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple, proxy_id: str,
+) -> dict | tuple[dict, int]:
+    """DELETE /api/proxy/{id} — удалить прокси."""
+    return await handlers.handle_delete_proxy(proxy_id, router)
+
+
+async def _handle_mask_patch(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple, mask_id: str,
+) -> dict | tuple[dict, int]:
+    """PATCH /api/mask/{id} — обновить маску."""
+    return await handlers.handle_patch_mask(mask_id, data, router)
+
+
+async def _handle_mask_delete(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple, mask_id: str,
+) -> dict | tuple[dict, int]:
+    """DELETE /api/mask/{id} — удалить маску."""
+    return await handlers.handle_delete_mask(mask_id, router)
+# pylint: enable=too-many-arguments,too-many-positional-arguments
 
 
 def _extract_token_from_query(query: str) -> str | None:
@@ -504,7 +603,7 @@ class ApiServer(BaseServer):
             supplied = _extract_token_from_query(query)
         return supplied == self._auth_token
 
-    async def _route_request(
+    async def _route_request(  # pylint: disable=too-many-locals  # диспетчер всех маршрутов: контекст запроса + динамические пути
         self, method: str, path: str, body: bytes,
         peername: tuple, writer: asyncio.StreamWriter,
         headers: dict | None = None,
@@ -556,7 +655,14 @@ class ApiServer(BaseServer):
                 return None
 
             handler = _ROUTES.get((method, route_path))
+            dynamic_handler: _DynamicHandler | None = None
+            dynamic_id: str | None = None
             if handler is None:
+                # Пробуем динамический маршрут /api/proxy/{id} и /api/mask/{id}
+                dynamic = _match_dynamic_route(method, route_path)
+                if dynamic is not None:
+                    dynamic_handler, dynamic_id = dynamic
+            if handler is None and dynamic_handler is None:
                 logger.warning('API: неизвестный запрос %s %s от %s',
                                method, route_path, peername)
                 return 404, {'error': f'Не найдено: {method} {route_path}'}
@@ -564,9 +670,18 @@ class ApiServer(BaseServer):
             # Единая точка вызова обработчика: парсинг JSON и
             # передача контекста
             data = json.loads(body) if body else {}
-            result = await handler(
-                data, self._router, self._debug, self._need_update, peername,
-            )
+            if dynamic_handler is not None and dynamic_id is not None:
+                result = await dynamic_handler(
+                    data, self._router, self._debug, self._need_update,
+                    peername, dynamic_id,
+                )
+            else:
+                # handler гарантированно не None: выше проверено, что
+                # либо handler, либо dynamic_handler найден.
+                assert handler is not None
+                result = await handler(
+                    data, self._router, self._debug, self._need_update, peername,
+                )
             if isinstance(result, tuple):
                 # Обработчики возвращают (response_body, status_code)
                 response_body, status_code = result

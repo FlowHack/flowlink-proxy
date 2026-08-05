@@ -157,6 +157,25 @@ export async function apiPost(endpoint, body) {
 }
 
 /**
+ * PATCH-запрос к API с JSON-телом.
+ * @param {string} endpoint — путь вида '/proxy/{id}/enabled'.
+ * @param {object} body — тело запроса (будет сериализовано в JSON).
+ * @returns {Promise<object>} — распарсенный JSON-ответ.
+ */
+export async function apiPatch(endpoint, body) {
+  return await _apiRequest('PATCH', endpoint, body);
+}
+
+/**
+ * DELETE-запрос к API (без тела).
+ * @param {string} endpoint — путь вида '/proxy/{id}'.
+ * @returns {Promise<object>} — распарсенный JSON-ответ.
+ */
+export async function apiDelete(endpoint) {
+  return await _apiRequest('DELETE', endpoint, null);
+}
+
+/**
  * POST-запрос к API с возвратом HTTP-кода.
  * Используется для обработки 422 (валидация).
  * @param {string} endpoint — путь вида '/validate-browser'.

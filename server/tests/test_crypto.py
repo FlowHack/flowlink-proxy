@@ -19,8 +19,12 @@ class TestCryptoExceptions(unittest.TestCase):
         self.orig_salt_file = crypto_mod.SALT_FILE
         crypto_mod.KEY_FILE = os.path.join(self.tmpdir, '.flowlink.key')
         crypto_mod.SALT_FILE = os.path.join(self.tmpdir, '.flowlink.salt')
+        # Сбрасываем кэш ключей при подмене путей, чтобы он не «протекал»
+        # между тестами (кэш привязан к содержимому, но файлы меняются).
+        crypto_mod.reset_key_cache()
 
     def tearDown(self):
+        crypto_mod.reset_key_cache()
         crypto_mod.KEY_FILE = self.orig_key_file
         crypto_mod.SALT_FILE = self.orig_salt_file
         for f in os.listdir(self.tmpdir):
@@ -139,3 +143,74 @@ class TestCryptoExceptions(unittest.TestCase):
         # Но расшифровываются одинаково
         self.assertEqual(crypto_mod.decrypt(enc1), text)
         self.assertEqual(crypto_mod.decrypt(enc2), text)
+
+
+class TestDerivedKeyCache(unittest.TestCase):
+    """Тесты кэша производного ключа PBKDF2 и мастер-ключа."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_key_file = crypto_mod.KEY_FILE
+        self.orig_salt_file = crypto_mod.SALT_FILE
+        crypto_mod.KEY_FILE = os.path.join(self.tmpdir, '.flowlink.key')
+        crypto_mod.SALT_FILE = os.path.join(self.tmpdir, '.flowlink.salt')
+        crypto_mod.reset_key_cache()
+        # Инициализируем ключ и соль в изолированной директории
+        crypto_mod.load_or_create_key()
+        crypto_mod._save_salt(os.urandom(32))  # pylint: disable=protected-access  # internal: фиксируем уникальную соль
+
+    def tearDown(self):
+        crypto_mod.reset_key_cache()
+        crypto_mod.KEY_FILE = self.orig_key_file
+        crypto_mod.SALT_FILE = self.orig_salt_file
+        for f in os.listdir(self.tmpdir):
+            os.remove(os.path.join(self.tmpdir, f))
+        os.rmdir(self.tmpdir)
+
+    def test_derive_key_cached(self):
+        """Второй вызов _derive_key с той же парой (ключ, соль) не выполняет PBKDF2"""
+        master = crypto_mod.load_or_create_key()
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+        ) as mock_pbkdf2:
+            first = crypto_mod._derive_key(master)  # pylint: disable=protected-access  # internal: проверка кэша
+            second = crypto_mod._derive_key(master)  # pylint: disable=protected-access
+        self.assertEqual(first, second)
+        self.assertEqual(mock_pbkdf2.call_count, 1)
+
+    def test_reset_key_cache(self):
+        """После reset_key_cache PBKDF2 выполняется заново"""
+        master = crypto_mod.load_or_create_key()
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+        ) as mock_pbkdf2:
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access
+            crypto_mod.reset_key_cache()
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access
+        self.assertEqual(mock_pbkdf2.call_count, 2)
+
+    def test_cache_invalidated_on_salt_change(self):
+        """Смена соли через _save_salt инвалидирует кэш производного ключа"""
+        master = crypto_mod.load_or_create_key()
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+        ) as mock_pbkdf2:
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access
+            crypto_mod._save_salt(os.urandom(32))  # pylint: disable=protected-access
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access
+        self.assertEqual(mock_pbkdf2.call_count, 2)
+
+    def test_cache_invalidated_on_key_recreate(self):
+        """Пересоздание ключа (повреждённый файл) инвалидирует кэш"""
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+        ) as mock_pbkdf2:
+            old_master = crypto_mod.load_or_create_key()
+            crypto_mod._derive_key(old_master)  # pylint: disable=protected-access
+            # Повреждаем файл ключа — при загрузке создаётся новый ключ
+            with open(crypto_mod.KEY_FILE, 'wb') as f:
+                f.write(b'tooshort')
+            new_master = crypto_mod.load_or_create_key()
+            self.assertNotEqual(new_master, old_master)
+            crypto_mod._derive_key(new_master)  # pylint: disable=protected-access
+        self.assertEqual(mock_pbkdf2.call_count, 2)

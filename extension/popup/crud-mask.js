@@ -4,7 +4,7 @@
  * Использует config-based API: GET /api/config → modify → POST /api/config.
  */
 
-import { apiGet, apiPost } from '../shared/api.js';
+import { apiPatch, apiPost, apiDelete } from '../shared/api.js';
 import { convertWildcardToRegex, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
 import { showToast } from './popup.js';
@@ -69,24 +69,15 @@ export async function handleSaveMask(state, loadAndRender) {
 
   setLoading(saveBtn, true);
   try {
-    const config = await apiGet('/config');
-    const masks = config.masks || [];
-
     const regexString = convertWildcardToRegex(pattern);
 
     if (maskId) {
-      // Редактирование существующей маски
-      const idx = masks.findIndex(m => m.maskId === maskId);
-      if (idx !== -1) {
-        masks[idx] = { ...masks[idx], pattern, regexString };
-      }
+      // Редактирование существующей маски — точечный PATCH
+      await apiPatch(`/mask/${encodeURIComponent(maskId)}`, { pattern, regexString });
     } else {
-      // Новая маска
-      masks.push({ maskId: crypto.randomUUID(), pattern, regexString, proxyId: state.selectedProxyId });
+      // Новая маска — точечный POST
+      await apiPost('/masks', { pattern, regexString, proxyId: state.selectedProxyId });
     }
-
-    config.masks = masks;
-    await apiPost('/config', config);
     // Форма очищается при следующем открытии в openMaskModal,
     // здесь не сбрасываем — иначе пользователь увидит пустой инпут
     // до переключения на список масок.
@@ -117,9 +108,7 @@ export async function handleSaveMask(state, loadAndRender) {
 export async function handleDeleteMask(maskId, loadAndRender, btn) {
   setLoading(btn, true);
   try {
-    const config = await apiGet('/config');
-    config.masks = (config.masks || []).filter(m => m.maskId !== maskId);
-    await apiPost('/config', config);
+    await apiDelete(`/mask/${encodeURIComponent(maskId)}`);
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления маски:', e);

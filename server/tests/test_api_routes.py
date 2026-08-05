@@ -518,5 +518,134 @@ class TestApiLogMasking(unittest.TestCase):
         )
 
 
+class TestApiDynamicRoutes(unittest.IsolatedAsyncioTestCase):
+    """Тесты динамической маршрутизации /api/proxy/{id} и /api/mask/{id}."""
+
+    def _make_server(self) -> ApiServer:
+        """Создаёт ApiServer с мок-роутером."""
+        router = MagicMock()
+        return ApiServer(
+            router, port=8081, debug=False, need_update=False,
+            auth_token=None,
+        )
+
+    async def test_patch_proxy_enabled_route(self):
+        """PATCH /api/proxy/{id}/enabled диспетчеризуется."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_patch_proxy_enabled',
+                   new=AsyncMock(return_value=({'success': True}, 200))):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'PATCH', '/api/proxy/p1/enabled', b'{"enabled":true}',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, {'success': True})
+
+    async def test_patch_proxy_route(self):
+        """PATCH /api/proxy/{id} диспетчеризуется."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_patch_proxy',
+                   new=AsyncMock(return_value=({'success': True}, 200))):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'PATCH', '/api/proxy/p1', b'{"host":"1.1.1.1"}',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, {'success': True})
+
+    async def test_delete_proxy_route(self):
+        """DELETE /api/proxy/{id} диспетчеризуется."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_delete_proxy',
+                   new=AsyncMock(return_value=({'success': True}, 200))):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'DELETE', '/api/proxy/p1', b'',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, {'success': True})
+
+    async def test_post_proxies_route(self):
+        """POST /api/proxies диспетчеризуется."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_post_proxy',
+                   new=AsyncMock(return_value=({'success': True}, 200))):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'POST', '/api/proxies', b'{"host":"1.1.1.1","port":1080}',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, {'success': True})
+
+    async def test_post_masks_route(self):
+        """POST /api/masks диспетчеризуется."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_post_mask',
+                   new=AsyncMock(return_value=({'success': True}, 200))):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'POST', '/api/masks', b'{"pattern":"*.com","proxyId":"p1"}',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, {'success': True})
+
+    async def test_delete_mask_route(self):
+        """DELETE /api/mask/{id} диспетчеризуется."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_delete_mask',
+                   new=AsyncMock(return_value=({'success': True}, 200))):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'DELETE', '/api/mask/m1', b'',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, {'success': True})
+
+    async def test_patch_mask_route(self):
+        """PATCH /api/mask/{id} диспетчеризуется."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_patch_mask',
+                   new=AsyncMock(return_value=({'success': True}, 200))):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'PATCH', '/api/mask/m1', b'{"pattern":"*.org"}',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, {'success': True})
+
+    async def test_unknown_dynamic_route_404(self):
+        """Неизвестный динамический путь → 404."""
+        server = self._make_server()
+        result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+            'GET', '/api/proxy/p1', b'',
+            ('127.0.0.1', 1234), MagicMock(),
+        )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, _ = result
+        self.assertEqual(status_code, 404)
+
+
 if __name__ == '__main__':
     unittest.main()

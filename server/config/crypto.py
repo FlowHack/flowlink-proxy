@@ -39,6 +39,28 @@ PBKDF2_ITERATIONS = 600_000
 # Константная соль для обратной совместимости со старыми ключами
 _LEGACY_SALT = b'flowlink_proxy_salt_v1'
 
+# Кэш производного ключа AES: (master_key, salt) -> derived_key.
+# PBKDF2 с 600 000 итераций выполняется только при первом обращении
+# к конкретной паре (ключ, соль); повторные вызовы берут результат из кэша.
+_DERIVED_KEY_CACHE: dict[tuple[bytes, bytes], bytes] = {}
+
+# Кэш мастер-ключа: содержимое .flowlink.key (32 байта) или None.
+# Избавляет от чтения файла при каждом encrypt/decrypt.
+_MASTER_KEY_CACHE: bytes | None = None
+
+
+def reset_key_cache() -> None:
+    """Очищает кэши мастер-ключа и производного ключа.
+
+    Вызывается при изменении соли, пересоздании мастер-ключа или
+    помещении ключа в карантин, а также в тестах при подмене
+    KEY_FILE/SALT_FILE, чтобы кэш не «протекал» между тестами.
+    """
+    # pylint: disable=global-statement  # сброс модульного кэша ключей
+    global _MASTER_KEY_CACHE
+    _DERIVED_KEY_CACHE.clear()
+    _MASTER_KEY_CACHE = None
+
 
 def _check_crypto() -> None:
     """Проверяет наличие библиотеки cryptography. Вызывает ImportError, если её нет."""
@@ -60,6 +82,8 @@ def _quarantine_corrupt_key(corrupt_key: bytes) -> None:
     Args:
         corrupt_key: Содержимое повреждённого файла ключа.
     """
+    # Ключ уходит в карантин — кэши мастер-ключа и производного ключа невалидны
+    reset_key_cache()
     try:
         quarantine_path = f'{KEY_FILE}.corrupt'
         with open(quarantine_path, 'wb') as f:
@@ -75,12 +99,21 @@ def load_or_create_key() -> bytes:
 
     Если файл существует, но имеет неверный размер — помещает его в карантин
     и создаёт новый ключ. Устанавливает права 600 на файл ключа для безопасности.
+    Результат кэшируется в _MASTER_KEY_CACHE: при повторных вызовах файл
+    не читается, если содержимое ключа не изменилось.
     """
+    # pylint: disable=global-statement  # обновление модульного кэша ключей
+    global _MASTER_KEY_CACHE
     try:
         if os.path.exists(KEY_FILE):
             with open(KEY_FILE, 'rb') as f:
                 key = f.read()
                 if len(key) == 32:
+                    cached_master = _MASTER_KEY_CACHE
+                    if cached_master is not None and cached_master == key:
+                        logger.debug('Мастер-ключ загружен из кэша')
+                        return cached_master
+                    _MASTER_KEY_CACHE = key
                     logger.debug('Мастер-ключ загружен из %s', KEY_FILE)
                     return key
             # Повреждённый ключ: не перезаписываем молча, а помещаем в карантин.
@@ -104,6 +137,7 @@ def load_or_create_key() -> bytes:
             logger.debug('chmod не поддерживается на этой платформе (Windows)')
         except OSError as e:
             logger.warning('Не удалось установить права на %s: %s', KEY_FILE, e)
+        _MASTER_KEY_CACHE = key
         logger.info('Создан новый мастер-ключ шифрования: %s', KEY_FILE)
         return key
     except OSError as e:
@@ -139,7 +173,9 @@ def _save_salt(salt: bytes) -> None:
     Сохраняет соль PBKDF2 в файл.
 
     Устанавливает права 600 для безопасности.
+    Соль изменилась — сбрасываем кэш производного ключа.
     """
+    reset_key_cache()
     with open(SALT_FILE, 'wb') as f:
         f.write(salt)
     try:
@@ -155,9 +191,17 @@ def _derive_key(master_key: bytes) -> bytes:
     PBKDF2 замедляет перебор в случае компрометации зашифрованных данных,
     делая атаку по словарю практически нереализуемой.
     Использует уникальную соль из файла или legacy-соль для обратной совместимости.
+    Результат кэшируется по паре (master_key, salt) — PBKDF2 выполняется
+    только при первом обращении к конкретной паре.
     """
     salt = _load_salt()
+    cache_key = (master_key, salt)
+    cached = _DERIVED_KEY_CACHE.get(cache_key)
+    if cached is not None:
+        logger.debug('Ключ шифрования получен из кэша PBKDF2')
+        return cached
     derived = pbkdf2_hmac('sha256', master_key, salt, PBKDF2_ITERATIONS, dklen=32)
+    _DERIVED_KEY_CACHE[cache_key] = derived
     logger.debug(
         'Ключ шифрования получен через PBKDF2 (%d итераций)',
         PBKDF2_ITERATIONS

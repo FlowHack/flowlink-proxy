@@ -6,13 +6,14 @@
 """
 
 import logging
+import uuid
 
 from server.config import autostart, browser_config
 from server.config import config as cfg
 from server.config import system_autostart
 from server.services.debug import log_config_state
 from server.services.events import emit_event
-from server.services.mask_conflicts import validate_config
+from server.services.mask_conflicts import convert_wildcard_to_regex, validate_config
 from server.services.ping import ping_proxy
 from server.services.router import MaskRouter
 from server.services.tunnel import (close_all_connections,
@@ -451,3 +452,385 @@ def handle_get_browser_config() -> dict:
             'detectedBrowsers': [],
             'error': 'Не удалось прочитать конфигурацию браузера',
         }
+
+
+# --- Точечные эндпоинты прокси и масок (Фаза 1 оптимизации) ---
+
+
+def _validate_proxy_fields(data: dict) -> tuple[dict, int] | None:
+    """Валидирует поля прокси из запроса.
+
+    Возвращает None при успехе или (ошибка, код) при неудаче.
+    """
+    host = data.get('host')
+    port = data.get('port')
+    if not isinstance(host, str) or not host.strip():
+        return {'error': 'Требуется поле "host" (строка)'}, 400
+    if not isinstance(port, int) or not 1 <= port <= 65535:
+        return {'error': 'Поле "port" должно быть целым числом от 1 до 65535'}, 400
+    return None
+
+
+def _find_duplicate_proxy(
+    proxies: list,
+    host: str,
+    port: int,
+    exclude_id: str | None = None,
+) -> dict | None:
+    """Ищет прокси с тем же host:port, исключая указанный proxyId."""
+    for p in proxies:
+        if p.get('host') == host and p.get('port') == port:
+            if exclude_id is None or p.get('proxyId') != exclude_id:
+                return p
+    return None
+
+
+def _conflict_error(conflicts: list) -> tuple[dict, int]:
+    """Формирует ответ 422 при конфликте масок."""
+    conflict = conflicts[0]
+    message = (
+        f'Прокси "{conflict["proxyLabel"]}" уже включён, и его маски '
+        f'пересекаются с масками прокси "{conflict["conflictingProxyLabel"]}". '
+        f'Выключите один из них или измените маски.'
+    )
+    logger.warning('Конфликт масок: %s', message)
+    return {'error': message, 'conflict': conflict}, 422
+
+
+async def handle_post_proxy(  # pylint: disable=too-many-locals  # обработчик точечного добавления прокси: валидация, конфликты, туннели
+    data: dict, router: MaskRouter,
+) -> dict | tuple[dict, int]:
+    """POST /api/proxies — добавляет один прокси."""
+    try:
+        if not isinstance(data, dict):
+            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+
+        validation = _validate_proxy_fields(data)
+        if validation is not None:
+            return validation
+
+        host = data['host'].strip()
+        port = data['port']
+        username = data.get('username', '')
+        password = data.get('password', '')
+        label = data.get('label', '')
+
+        old_data = cfg.load_config()
+        old_proxies = _extract_proxies_dict(old_data)
+        old_masks = _extract_masks_dict(old_data)
+
+        proxies = old_data.get('proxies', [])
+        if _find_duplicate_proxy(proxies, host, port):
+            return {'error': 'Прокси с таким host:port уже существует'}, 422
+
+        new_proxy = {
+            'proxyId': uuid.uuid4().hex,
+            'host': host,
+            'port': port,
+            'username': username,
+            'password': password,
+            'label': label,
+            'isEnabled': True,
+        }
+        proxies.append(new_proxy)
+        new_data = {
+            'proxies': proxies,
+            'masks': old_data.get('masks', []),
+        }
+
+        # Валидация конфликтов масок для нового включённого прокси
+        conflicts = validate_config(new_data['proxies'], new_data['masks'])
+        if conflicts:
+            return _conflict_error(conflicts)
+
+        cfg.save_config(new_data)
+        _update_last_active_proxy(new_data['proxies'])
+
+        new_proxies_dict = _extract_proxies_dict(new_data)
+        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
+            close_all_connections()
+
+        router.refresh()
+        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
+        log_config_state()
+        await emit_event('config_changed', {})
+        return {'success': True, 'proxy': new_proxy}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка добавления прокси: %s', e)
+        return {'error': 'Не удалось добавить прокси'}, 500
+
+
+async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return-statements  # обработчик обновления прокси: валидация, конфликты, туннели
+    proxy_id: str, data: dict, router: MaskRouter,
+) -> dict | tuple[dict, int]:
+    """PATCH /api/proxy/{id} — обновляет поля прокси."""
+    try:
+        if not isinstance(data, dict):
+            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+
+        old_data = cfg.load_config()
+        old_proxies = _extract_proxies_dict(old_data)
+        old_masks = _extract_masks_dict(old_data)
+
+        proxies = old_data.get('proxies', [])
+        idx = next((i for i, p in enumerate(proxies) if p.get('proxyId') == proxy_id), None)
+        if idx is None:
+            return {'error': 'Прокси не найден'}, 404
+
+        current = proxies[idx]
+        host = data.get('host', current.get('host'))
+        port = data.get('port', current.get('port'))
+        if not isinstance(host, str) or not host.strip():
+            return {'error': 'Требуется поле "host" (строка)'}, 400
+        if not isinstance(port, int) or not 1 <= port <= 65535:
+            return {'error': 'Поле "port" должно быть целым числом от 1 до 65535'}, 400
+
+        if _find_duplicate_proxy(proxies, host, port, exclude_id=proxy_id):
+            return {'error': 'Прокси с таким host:port уже существует'}, 422
+
+        updated = dict(current)
+        updated['host'] = host
+        updated['port'] = port
+        if 'username' in data:
+            updated['username'] = data['username']
+        if 'password' in data:
+            updated['password'] = data['password']
+        if 'label' in data:
+            updated['label'] = data['label']
+        proxies[idx] = updated
+
+        new_data = {'proxies': proxies, 'masks': old_data.get('masks', [])}
+        cfg.save_config(new_data)
+        _update_last_active_proxy(proxies)
+
+        new_proxies_dict = _extract_proxies_dict(new_data)
+        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
+            close_all_connections()
+
+        router.refresh()
+        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
+        log_config_state()
+        await emit_event('config_changed', {})
+        return {'success': True, 'proxy': updated}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка обновления прокси: %s', e)
+        return {'error': 'Не удалось обновить прокси'}, 500
+
+
+async def handle_patch_proxy_enabled(
+    proxy_id: str, data: dict, router: MaskRouter,
+) -> dict | tuple[dict, int]:
+    """PATCH /api/proxy/{id}/enabled — переключает активность прокси."""
+    try:
+        if not isinstance(data, dict) or 'enabled' not in data:
+            return {'error': 'Требуется поле "enabled" (true/false)'}, 400
+        if not isinstance(data['enabled'], bool):
+            return {'error': 'Поле "enabled" должно быть булевым (true/false)'}, 400
+        enabled = data['enabled']
+
+        old_data = cfg.load_config()
+        old_proxies = _extract_proxies_dict(old_data)
+        old_masks = _extract_masks_dict(old_data)
+
+        proxies = old_data.get('proxies', [])
+        idx = next((i for i, p in enumerate(proxies) if p.get('proxyId') == proxy_id), None)
+        if idx is None:
+            return {'error': 'Прокси не найден'}, 404
+
+        proxies[idx]['isEnabled'] = enabled
+        new_data = {'proxies': proxies, 'masks': old_data.get('masks', [])}
+
+        # При включении проверяем конфликты масок
+        if enabled:
+            conflicts = validate_config(proxies, new_data['masks'])
+            if conflicts:
+                return _conflict_error(conflicts)
+
+        cfg.save_config(new_data)
+        _update_last_active_proxy(proxies)
+
+        new_proxies_dict = _extract_proxies_dict(new_data)
+        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
+            close_all_connections()
+
+        router.refresh()
+        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
+        log_config_state()
+        await emit_event('config_changed', {})
+        return {'success': True, 'enabled': enabled}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка переключения прокси: %s', e)
+        return {'error': 'Не удалось переключить прокси'}, 500
+
+
+async def handle_delete_proxy(
+    proxy_id: str, router: MaskRouter,
+) -> dict | tuple[dict, int]:
+    """DELETE /api/proxy/{id} — удаляет прокси и связанные маски."""
+    try:
+        old_data = cfg.load_config()
+        old_proxies = _extract_proxies_dict(old_data)
+        old_masks = _extract_masks_dict(old_data)
+
+        proxies = old_data.get('proxies', [])
+        if not any(p.get('proxyId') == proxy_id for p in proxies):
+            return {'error': 'Прокси не найден'}, 404
+
+        proxies = [p for p in proxies if p.get('proxyId') != proxy_id]
+        masks = [m for m in old_data.get('masks', []) if m.get('proxyId') != proxy_id]
+        new_data = {'proxies': proxies, 'masks': masks}
+
+        cfg.save_config(new_data)
+        _update_last_active_proxy(proxies)
+
+        new_proxies_dict = _extract_proxies_dict(new_data)
+        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
+            close_all_connections()
+
+        router.refresh()
+        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
+        log_config_state()
+        await emit_event('config_changed', {})
+        return {'success': True}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка удаления прокси: %s', e)
+        return {'error': 'Не удалось удалить прокси'}, 500
+
+
+async def handle_post_mask(  # pylint: disable=too-many-return-statements  # обработчик добавления маски: валидация, конфликты
+    data: dict, router: MaskRouter,
+) -> dict | tuple[dict, int]:
+    """POST /api/masks — добавляет маску."""
+    try:
+        if not isinstance(data, dict):
+            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+
+        pattern = data.get('pattern')
+        proxy_id = data.get('proxyId')
+        if not isinstance(pattern, str) or not pattern.strip():
+            return {'error': 'Требуется поле "pattern" (строка)'}, 400
+        if not isinstance(proxy_id, str) or not proxy_id:
+            return {'error': 'Требуется поле "proxyId"'}, 400
+
+        # regexString обязателен для маршрутизации; если не передан —
+        # генерируем из wildcard-паттерна на сервере.
+        regex_string = data.get('regexString', '')
+        if not isinstance(regex_string, str) or not regex_string.strip():
+            regex_string = convert_wildcard_to_regex(pattern)
+
+        old_data = cfg.load_config()
+        old_masks = _extract_masks_dict(old_data)
+
+        proxies = old_data.get('proxies', [])
+        if not any(p.get('proxyId') == proxy_id for p in proxies):
+            return {'error': 'Прокси не найден'}, 400
+
+        masks = old_data.get('masks', [])
+        new_mask = {
+            'maskId': uuid.uuid4().hex,
+            'pattern': pattern,
+            'regexString': regex_string,
+            'proxyId': proxy_id,
+        }
+        masks.append(new_mask)
+        new_data = {'proxies': proxies, 'masks': masks}
+
+        # Валидация конфликтов масок
+        conflicts = validate_config(proxies, masks)
+        if conflicts:
+            return _conflict_error(conflicts)
+
+        cfg.save_config(new_data)
+
+        new_masks_dict = _extract_masks_dict(new_data)
+        if old_masks != new_masks_dict:
+            close_all_connections()
+
+        router.refresh()
+        _log_config_changes({}, {}, old_masks, new_masks_dict)
+        log_config_state()
+        await emit_event('config_changed', {})
+        return {'success': True, 'mask': new_mask}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка добавления маски: %s', e)
+        return {'error': 'Не удалось добавить маску'}, 500
+
+
+async def handle_patch_mask(
+    mask_id: str, data: dict, router: MaskRouter,
+) -> dict | tuple[dict, int]:
+    """PATCH /api/mask/{id} — обновляет паттерн маски."""
+    try:
+        if not isinstance(data, dict):
+            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+        pattern = data.get('pattern')
+        if not isinstance(pattern, str) or not pattern.strip():
+            return {'error': 'Требуется поле "pattern" (строка)'}, 400
+
+        old_data = cfg.load_config()
+        old_masks = _extract_masks_dict(old_data)
+
+        masks = old_data.get('masks', [])
+        idx = next((i for i, m in enumerate(masks) if m.get('maskId') == mask_id), None)
+        if idx is None:
+            return {'error': 'Маска не найдена'}, 404
+
+        masks[idx]['pattern'] = pattern
+        if 'regexString' in data:
+            masks[idx]['regexString'] = data['regexString']
+        new_data = {'proxies': old_data.get('proxies', []), 'masks': masks}
+
+        conflicts = validate_config(new_data['proxies'], masks)
+        if conflicts:
+            return _conflict_error(conflicts)
+
+        cfg.save_config(new_data)
+
+        new_masks_dict = _extract_masks_dict(new_data)
+        if old_masks != new_masks_dict:
+            close_all_connections()
+
+        router.refresh()
+        _log_config_changes({}, {}, old_masks, new_masks_dict)
+        log_config_state()
+        await emit_event('config_changed', {})
+        return {'success': True, 'mask': masks[idx]}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка обновления маски: %s', e)
+        return {'error': 'Не удалось обновить маску'}, 500
+
+
+async def handle_delete_mask(
+    mask_id: str, router: MaskRouter,
+) -> dict | tuple[dict, int]:
+    """DELETE /api/mask/{id} — удаляет маску."""
+    try:
+        old_data = cfg.load_config()
+        old_masks = _extract_masks_dict(old_data)
+
+        masks = old_data.get('masks', [])
+        # Проверяем существование маски до удаления
+        if not any(m.get('maskId') == mask_id for m in masks):
+            return {'error': 'Маска не найдена'}, 404
+
+        masks = [m for m in masks if m.get('maskId') != mask_id]
+        new_data = {'proxies': old_data.get('proxies', []), 'masks': masks}
+
+        cfg.save_config(new_data)
+
+        new_masks_dict = _extract_masks_dict(new_data)
+        if old_masks != new_masks_dict:
+            close_all_connections()
+
+        router.refresh()
+        _log_config_changes({}, {}, old_masks, new_masks_dict)
+        log_config_state()
+        await emit_event('config_changed', {})
+        return {'success': True}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка удаления маски: %s', e)
+        return {'error': 'Не удалось удалить маску'}, 500
