@@ -315,7 +315,7 @@ flowlink-proxy/
 │   │   ├── help.html          # Статическая справка (открывается из tkinter-диалога)
 │   │   └── updater.js         # Проверка обновлений
 │   ├── shared/
-│   │   ├── api.js             # HTTP GET/POST хелперы (apiGet, apiPost, apiPostRaw)
+│   │   ├── api.js             # HTTP хелперы (apiGet, apiPost, apiPatch, apiDelete, apiPostRaw)
 │   │   ├── constants.js       # API_BASE, GitHub URLs
 │   │   ├── dom.js             # escapeHtml, утилиты DOM
 │   │   ├── utils.js           # Валидация IP/port, wildcard→regex, copyEmailToClipboard
