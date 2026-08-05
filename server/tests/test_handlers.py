@@ -289,6 +289,7 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
             'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}],
         }
         result = asyncio.run(handle_post_config(data, self.router))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         # Проверяем, что данные действительно сохранились
         loaded = cfg.load_config()
@@ -307,6 +308,7 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
         """POST /api/config с пустыми данными сохраняет пустой конфиг"""
         data = {'proxies': [], 'masks': []}
         result = asyncio.run(handle_post_config(data, self.router))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         loaded = cfg.load_config()
         self.assertEqual(len(loaded['proxies']), 0)
@@ -324,6 +326,7 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
         data = {'proxies': [], 'masks': []}
         with patch('server.servers.handlers.close_tunnels_for_proxy') as mock_close:
             result = asyncio.run(handle_post_config(data, self.router))
+            assert isinstance(result, dict)
             self.assertTrue(result.get('success'))
             mock_close.assert_called_once_with('p1')
 

@@ -35,6 +35,7 @@ class TestHandlePostProxy(TempConfigMixin, unittest.TestCase):
         result = asyncio.run(handle_post_proxy(
             {'host': '1.1.1.1', 'port': 1080, 'label': 'test'}, self.router,
         ))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         self.assertIn('proxy', result)
         self.assertEqual(result['proxy']['host'], '1.1.1.1')
@@ -70,7 +71,11 @@ class TestHandlePostProxy(TempConfigMixin, unittest.TestCase):
 
     def test_post_proxy_non_dict(self):
         """Не-словарь → 400"""
-        result = asyncio.run(handle_post_proxy('bad', self.router))
+        result = asyncio.run(
+            # type: ignore[reportArgumentType] — намеренно передаём строку для проверки ошибки
+            handle_post_proxy('bad', self.router),  # type: ignore[reportArgumentType]
+        )
+        assert isinstance(result, tuple)
         self.assertEqual(result[1], 400)
 
 
@@ -92,6 +97,7 @@ class TestHandlePatchProxy(TempConfigMixin, unittest.TestCase):
         result = asyncio.run(handle_patch_proxy(
             'p1', {'host': '2.2.2.2', 'port': 9090, 'label': 'new'}, self.router,
         ))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         self.assertEqual(result['proxy']['host'], '2.2.2.2')
         self.assertEqual(result['proxy']['port'], 9090)
@@ -139,6 +145,7 @@ class TestHandlePatchProxyEnabled(TempConfigMixin, unittest.TestCase):
         result = asyncio.run(handle_patch_proxy_enabled(
             'p1', {'enabled': False}, self.router,
         ))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         self.assertFalse(result['enabled'])
         loaded = cfg.load_config()
@@ -155,6 +162,7 @@ class TestHandlePatchProxyEnabled(TempConfigMixin, unittest.TestCase):
         result = asyncio.run(handle_patch_proxy_enabled(
             'p1', {'enabled': True}, self.router,
         ))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         self.assertTrue(result['enabled'])
 
@@ -210,6 +218,7 @@ class TestHandleDeleteProxy(TempConfigMixin, unittest.TestCase):
     def test_delete_proxy_success(self):
         """Удаление прокси и связанных масок"""
         result = asyncio.run(handle_delete_proxy('p1', self.router))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         loaded = cfg.load_config()
         self.assertEqual(len(loaded['proxies']), 0)
@@ -240,6 +249,7 @@ class TestHandlePostMask(TempConfigMixin, unittest.TestCase):
             {'pattern': '*.com', 'regexString': '.*\\.com', 'proxyId': 'p1'},
             self.router,
         ))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         self.assertIn('mask', result)
         self.assertEqual(result['mask']['proxyId'], 'p1')
@@ -301,6 +311,7 @@ class TestHandlePatchMask(TempConfigMixin, unittest.TestCase):
         result = asyncio.run(handle_patch_mask(
             'm1', {'pattern': '*.org', 'regexString': '.*\\.org'}, self.router,
         ))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         self.assertEqual(result['mask']['pattern'], '*.org')
         loaded = cfg.load_config()
@@ -312,6 +323,19 @@ class TestHandlePatchMask(TempConfigMixin, unittest.TestCase):
             'nope', {'pattern': '*.org'}, self.router,
         ))
         self.assertEqual(result[1], 404)
+
+    def test_patch_mask_recomputes_regex_without_regex_string(self):
+        """Изменение pattern без regexString пересчитывает regexString на сервере"""
+        result = asyncio.run(handle_patch_mask(
+            'm1', {'pattern': '*.org'}, self.router,
+        ))
+        assert isinstance(result, dict)
+        self.assertTrue(result.get('success'))
+        self.assertEqual(result['mask']['pattern'], '*.org')
+        # regexString должен быть пересчитан из нового паттерна
+        self.assertEqual(result['mask']['regexString'], '.*\\.org')
+        loaded = cfg.load_config()
+        self.assertEqual(loaded['masks'][0]['regexString'], '.*\\.org')
 
 
 class TestHandleDeleteMask(TempConfigMixin, unittest.TestCase):
@@ -331,6 +355,7 @@ class TestHandleDeleteMask(TempConfigMixin, unittest.TestCase):
     def test_delete_mask_success(self):
         """Успешное удаление маски"""
         result = asyncio.run(handle_delete_mask('m1', self.router))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         loaded = cfg.load_config()
         self.assertEqual(len(loaded['masks']), 0)

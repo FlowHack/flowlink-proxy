@@ -780,8 +780,12 @@ async def handle_patch_mask(
             return {'error': 'Маска не найдена'}, 404
 
         masks[idx]['pattern'] = pattern
-        if 'regexString' in data:
-            masks[idx]['regexString'] = data['regexString']
+        # regexString обязателен для маршрутизации; если не передан —
+        # пересчитываем из нового wildcard-паттерна на сервере.
+        regex_string = data.get('regexString', '')
+        if not isinstance(regex_string, str) or not regex_string.strip():
+            regex_string = convert_wildcard_to_regex(pattern)
+        masks[idx]['regexString'] = regex_string
         new_data = {'proxies': old_data.get('proxies', []), 'masks': masks}
 
         conflicts = validate_config(new_data['proxies'], masks)

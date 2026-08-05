@@ -249,6 +249,13 @@ python -m server --debug --test-fallback-icon
 | `POST` | `/api/validate-browser` | Валидация пути к браузеру без сохранения. Тело: `{"browserPath": "..."}` |
 | `GET` | `/api/detected-browsers` | Список найденных браузеров (автопоиск) |
 | `GET` | `/api/browser-config` | Конфигурация браузера (path + autostart + detected) |
+| `POST` | `/api/proxies` | Добавить прокси. Тело: `{"host": "...", "port": 1080, "username": "...", "password": "...", "label": "..."}`. Дубликат host:port → 422, невалидный port → 400 |
+| `PATCH` | `/api/proxy/{id}` | Обновить поля прокси (host, port, username, password, label). Несуществующий → 404, дубликат host:port → 422 |
+| `PATCH` | `/api/proxy/{id}/enabled` | Переключить активность прокси. Тело: `{"enabled": true/false}`. Конфликт масок при включении → 422 |
+| `DELETE` | `/api/proxy/{id}` | Удалить прокси и связанные маски. Несуществующий → 404 |
+| `POST` | `/api/masks` | Добавить маску. Тело: `{"pattern": "*.com", "regexString": ".*\\.com", "proxyId": "..."}`. regexString генерируется из pattern, если не передан. Конфликт → 422 |
+| `PATCH` | `/api/mask/{id}` | Обновить маску (pattern, regexString). regexString пересчитывается из pattern, если не передан. Несуществующая → 404 |
+| `DELETE` | `/api/mask/{id}` | Удалить маску. Несуществующая → 404 |
 
 ### Примеры запросов
 

@@ -38,8 +38,9 @@ class TestConvertWildcardToRegex(unittest.TestCase):
 
     def test_non_string_returns_empty(self):
         """Не-строка возвращает пустую строку."""
-        self.assertEqual(convert_wildcard_to_regex(None), '')
-        self.assertEqual(convert_wildcard_to_regex(123), '')
+        # type: ignore[reportArgumentType] — намеренно передаём не-строки для проверки обработки
+        self.assertEqual(convert_wildcard_to_regex(None), '')  # type: ignore[reportArgumentType]
+        self.assertEqual(convert_wildcard_to_regex(123), '')  # type: ignore[reportArgumentType]
 
 
 class TestWildcardIntersects(unittest.TestCase):
@@ -63,8 +64,14 @@ class TestWildcardIntersects(unittest.TestCase):
 
     def test_non_string_returns_false(self):
         """Не-строка не пересекается."""
-        self.assertFalse(wildcard_intersects(None, '*.example.com'))
-        self.assertFalse(wildcard_intersects('*.example.com', None))
+        # type: ignore[reportArgumentType] — намеренно передаём не-строки
+        # для проверки обработки
+        self.assertFalse(
+            wildcard_intersects(None, '*.example.com'),  # type: ignore[reportArgumentType]
+        )
+        self.assertFalse(
+            wildcard_intersects('*.example.com', None),  # type: ignore[reportArgumentType]
+        )
 
 
 class TestComputeConflictGroups(unittest.TestCase):

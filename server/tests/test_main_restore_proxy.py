@@ -52,6 +52,7 @@ class TestRestoreLastActiveProxy(unittest.TestCase):
         }
         saved = self._run(config, 'p2')
         self.assertIsNotNone(saved)
+        assert saved is not None
         self.assertTrue(saved['proxies'][1]['isEnabled'])
         self.assertFalse(saved['proxies'][0]['isEnabled'])
 
@@ -87,6 +88,7 @@ class TestRestoreLastActiveProxy(unittest.TestCase):
         }
         saved = self._run(config, 'p1')
         self.assertIsNotNone(saved)
+        assert saved is not None
         self.assertTrue(saved['proxies'][0]['isEnabled'])
         self.assertFalse(saved['proxies'][1]['isEnabled'])
 
