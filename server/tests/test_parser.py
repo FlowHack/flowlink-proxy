@@ -1,18 +1,21 @@
 """
-Тесты краевых случаев парсинга протокола: regex и функции parse_connect/parse_http.
+Тесты краевых случаев парсинга протокола: regex и функции
+parse_connect/parse_http, а также skip_headers (защита от slowloris).
 """
 
+import asyncio
 import unittest
+from unittest.mock import AsyncMock
 
 from server.protocols.parser import (RE_CONNECT, RE_HTTP, parse_connect,
-                                     parse_http)
+                                     parse_http, skip_headers)
 
 # type: ignore[reportOptionalMemberAccess] / [reportGeneralTypeIssues] ниже:
 # pyright не знает, что assertIsNotNone(match) сужает тип Optional до match;
 # в тестах доступ к группам и распаковка безопасны после явной проверки.
 
 
-class TestProxyRegex(unittest.TestCase):
+class TestParserRegex(unittest.TestCase):
     """Тестируем regex-паттерны парсера."""
 
     def test_connect_regex_valid(self):
@@ -81,7 +84,7 @@ class TestProxyRegex(unittest.TestCase):
         self.assertIsNone(match)
 
 
-class TestParseConnect(unittest.TestCase):
+class TestParserParseConnect(unittest.TestCase):
     """Тесты функции parse_connect."""
 
     def test_valid_connect(self):
@@ -110,7 +113,7 @@ class TestParseConnect(unittest.TestCase):
         self.assertIsNone(result)
 
 
-class TestParseHttp(unittest.TestCase):
+class TestParserParseHttp(unittest.TestCase):
     """Тесты функции parse_http."""
 
     def test_valid_get(self):
@@ -159,3 +162,54 @@ class TestParseHttp(unittest.TestCase):
         self.assertIsNotNone(result)
         _, _, _, _, relative_line = result  # type: ignore[reportGeneralTypeIssues]
         self.assertEqual(relative_line, b'PUT /data HTTP/1.1\r\n')
+
+
+class TestSkipHeaders(unittest.IsolatedAsyncioTestCase):
+    """Тесты skip_headers — чтение заголовков и защита от slowloris."""
+
+    def _make_reader(self, lines):
+        """
+        Создаёт AsyncMock-ридер, возвращающий заданные строки из readline.
+
+        Args:
+            lines: Список байтовых строк, которые вернёт readline.
+
+        Returns:
+            AsyncMock с асинхронным readline.
+        """
+        reader = AsyncMock()
+        reader.readline = AsyncMock(side_effect=lines)
+        return reader
+
+    async def test_reads_headers_until_empty_line(self):
+        """Читает заголовки до пустой строки и возвращается (не падает)."""
+        reader = self._make_reader([
+            b'Host: example.com\r\n',
+            b'User-Agent: test\r\n',
+            b'\r\n',
+        ])
+        await skip_headers(reader)
+        # Прочитано ровно 3 строки: 2 заголовка + пустая строка-терминатор
+        self.assertEqual(reader.readline.await_count, 3)
+
+    async def test_empty_line_returns_immediately(self):
+        """При первой же пустой строке сразу возвращается (readline не повторяется)."""
+        reader = self._make_reader([
+            b'\r\n',
+            b'Host: example.com\r\n',
+        ])
+        await skip_headers(reader)
+        # После пустой строки чтение заголовков прекращается
+        self.assertEqual(reader.readline.await_count, 1)
+
+    async def test_header_limit_exceeded_does_not_raise(self):
+        """Превышение лимита заголовков → молчаливый возврат (без исключений)."""
+        # Непустые строки без пустой — цикл доходит до лимита _MAX_HEADER_LINES
+        reader = self._make_reader([b'X-Test: value\r\n'] * 200)
+        await skip_headers(reader)
+
+    async def test_timeout_does_not_raise(self):
+        """Таймаут чтения (TimeoutError) → молчаливый возврат (без исключений)."""
+        reader = AsyncMock()
+        reader.readline = AsyncMock(side_effect=asyncio.TimeoutError)
+        await skip_headers(reader)

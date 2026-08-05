@@ -211,6 +211,33 @@ class TestValidateConfig(unittest.TestCase):
         ]
         self.assertEqual(validate_config(proxies, masks), [])
 
+    def test_conflict_detected_with_regex_string_only(self):
+        """Конфликт обнаруживается для масок только с ключом 'regexString'.
+
+        Маски, сгенерированные generate_fake_proxies (debug-режим),
+        хранят только 'regexString' без 'pattern'. Валидация обязана
+        учитывать этот формат, иначе конфликты молча пропускаются.
+        """
+        proxies = [self._proxy('p1'), self._proxy('p2')]
+        masks = [
+            {'maskId': 'm1', 'proxyId': 'p1', 'regexString': '*.example.com'},
+            {'maskId': 'm2', 'proxyId': 'p2', 'regexString': '*.sub.example.com'},
+        ]
+        errors = validate_config(proxies, masks)
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]['proxyId'], 'p1')
+        self.assertEqual(errors[0]['conflictingProxyId'], 'p2')
+        self.assertEqual(errors[0]['maskPattern'], '*.example.com')
+
+    def test_no_conflict_with_regex_string_only(self):
+        """Неконфликтующие маски только с 'regexString' — нет ошибок."""
+        proxies = [self._proxy('p1'), self._proxy('p2')]
+        masks = [
+            {'maskId': 'm1', 'proxyId': 'p1', 'regexString': '*.google.com'},
+            {'maskId': 'm2', 'proxyId': 'p2', 'regexString': '*.yandex.ru'},
+        ]
+        self.assertEqual(validate_config(proxies, masks), [])
+
 
 if __name__ == '__main__':
     unittest.main()

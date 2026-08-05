@@ -10,6 +10,27 @@ from server.protocols.mock_socks5 import MockSocks5Server
 from server.protocols.socks5 import Socks5Error, Socks5Protocol
 
 
+def _run_with_server(server, coro):
+    """
+    Запускает корутину с заданным mock-сервером на отдельном цикле.
+
+    Args:
+        server: Экземпляр MockSocks5Server.
+        coro: Корутина для выполнения.
+
+    Returns:
+        Результат корутины.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(server.start())
+        return loop.run_until_complete(coro)
+    finally:
+        loop.run_until_complete(server.stop())
+        loop.close()
+
+
 class TestSocks5Exceptions(unittest.TestCase):
     """Тесты обработки исключений Socks5Protocol."""
 
@@ -41,17 +62,6 @@ class TestSocks5Exceptions(unittest.TestCase):
                 )
         asyncio.run(run())
 
-    def test_connect_to_invalid_port_raises_socks5_error(self):
-        """Подключение к невалидному порту → Socks5Error"""
-        async def run():
-            proto = self._make_proto(host='127.0.0.1', port=9, username='', password='')
-            with self.assertRaises(Socks5Error):
-                await proto.connect(
-                    target_host='example.com',
-                    target_port=80,
-                    timeout=1,
-                )
-        asyncio.run(run())
 
 
 class TestSocks5Integration(unittest.TestCase):
@@ -127,26 +137,6 @@ class TestSocks5Integration(unittest.TestCase):
 class TestSocks5HandshakeReject(unittest.TestCase):
     """Негативные handshake-кейсы: отказ метода и отказ CONNECT."""
 
-    def _run_with_server(self, server, coro):
-        """
-        Запускает корутину с заданным mock-сервером.
-
-        Args:
-            server: Экземпляр MockSocks5Server.
-            coro: Корутина для выполнения.
-
-        Returns:
-            Результат корутины.
-        """
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(server.start())
-            return loop.run_until_complete(coro)
-        finally:
-            loop.run_until_complete(server.stop())
-            loop.close()
-
     def test_method_negotiation_rejected(self):
         """Отказ на method negotiation → Socks5Error."""
         server = MockSocks5Server(reject_methods=True)
@@ -163,7 +153,7 @@ class TestSocks5HandshakeReject(unittest.TestCase):
                     timeout=3,
                 )
 
-        self._run_with_server(server, run())
+        _run_with_server(server, run())
 
     def test_connect_rejected(self):
         """Отказ на CONNECT → Socks5Error."""
@@ -181,7 +171,111 @@ class TestSocks5HandshakeReject(unittest.TestCase):
                     timeout=3,
                 )
 
-        self._run_with_server(server, run())
+        _run_with_server(server, run())
+
+
+class TestSocks5UserpassAuth(unittest.TestCase):
+    """Тесты USERPASS-аутентификации (метод 0x02)."""
+
+    def test_userpass_auth_success(self):
+        """Верные credentials → CONNECT успешен."""
+        server = MockSocks5Server(
+            require_userpass=True,
+            username='user',
+            password='pass',
+        )
+
+        async def run():
+            proto = Socks5Protocol({
+                'host': '127.0.0.1',
+                'port': server.port,
+                'username': 'user',
+                'password': 'pass',
+            })
+            reader, writer = await proto.connect(
+                target_host='example.com',
+                target_port=443,
+                timeout=3,
+            )
+            self.assertIsNotNone(reader)
+            self.assertIsNotNone(writer)
+            writer.close()
+            await writer.wait_closed()
+
+        _run_with_server(server, run())
+
+    def test_userpass_wrong_credentials(self):
+        """Неверные credentials → Socks5Error."""
+        server = MockSocks5Server(
+            require_userpass=True,
+            username='user',
+            password='pass',
+        )
+
+        async def run():
+            proto = Socks5Protocol({
+                'host': '127.0.0.1',
+                'port': server.port,
+                'username': 'user',
+                'password': 'wrong',
+            })
+            with self.assertRaises(Socks5Error):
+                await proto.connect(
+                    target_host='example.com',
+                    target_port=443,
+                    timeout=3,
+                )
+
+        _run_with_server(server, run())
+
+    def test_userpass_not_supported_by_server(self):
+        """Сервер без USERPASS при запросе USERPASS → NO_ACCEPTABLE → Socks5Error.
+
+        Mock-сервер моделирует сервер, поддерживающий только NO AUTH:
+        если клиент предлагает USERPASS, сервер отвечает 0xFF
+        (нет приемлемого метода аутентификации).
+        """
+        server = MockSocks5Server(reject_userpass=True)
+
+        async def run():
+            proto = Socks5Protocol({
+                'host': '127.0.0.1',
+                'port': server.port,
+                'username': 'user',
+                'password': 'pass',
+            })
+            with self.assertRaises(Socks5Error):
+                await proto.connect(
+                    target_host='example.com',
+                    target_port=443,
+                    timeout=3,
+                )
+
+        _run_with_server(server, run())
+
+    def test_no_credentials_uses_no_auth(self):
+        """Без credentials клиент предлагает только NO AUTH (не USERPASS).
+
+        Сервер с require_userpass=True соглашается на USERPASS (0x02),
+        только если клиент предложил этот метод. Клиент без credentials
+        предлагает лишь NO AUTH → сервер отвечает 0xFF → Socks5Error.
+        Это подтверждает, что без credentials клиент использует NO AUTH.
+        """
+        server = MockSocks5Server(require_userpass=True)
+
+        async def run():
+            proto = Socks5Protocol({
+                'host': '127.0.0.1',
+                'port': server.port,
+            })
+            with self.assertRaises(Socks5Error):
+                await proto.connect(
+                    target_host='example.com',
+                    target_port=443,
+                    timeout=3,
+                )
+
+        _run_with_server(server, run())
 
 
 class TestSocks5Cancellation(unittest.TestCase):

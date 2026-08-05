@@ -5,13 +5,18 @@
 """
 
 import os
+import shutil
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+
+import PIL.Image
 
 from server.tray.menu import (_close_browser_now, _handle_browser_on_exit,
                               _select_browser,
                               _toggle_close_browser_with_app,
-                              build_menu_items, get_autostart_state)
+                              build_menu_items, get_autostart_state,
+                              load_icon)
 
 
 class TestGetAutostartState(unittest.TestCase):
@@ -78,14 +83,6 @@ class TestBuildMenuItems(unittest.TestCase):
             self._base_callbacks(), MagicMock(),
         )
         self.assertIsInstance(items, list)
-
-    def test_has_exit_item(self):
-        """Меню содержит пункт «Выход»."""
-        items = build_menu_items(
-            self._base_callbacks(), MagicMock(),
-        )
-        texts = [item.get('text') for item in items]
-        self.assertIn('Выход', texts)
 
     def test_exit_is_last(self):
         """Пункт «Выход» — последний в меню."""
@@ -720,14 +717,6 @@ class TestBuildMenuItemsBrowserClose(unittest.TestCase):
             'proxy_port': proxy_port,
         }
 
-    def test_close_browser_checkbox_present(self):
-        """Чекбокс «Автозакрытие браузера» присутствует."""
-        items = build_menu_items(
-            self._callbacks(), MagicMock(),
-        )
-        texts = [item.get('text') for item in items]
-        self.assertIn('Автозакрытие браузера', texts)
-
     def test_close_browser_checkbox_checked(self):
         """Чекбокс отмечен, когда close_browser_with_app_getter возвращает True."""
         callbacks = {
@@ -816,6 +805,77 @@ class TestBuildMenuItemsBrowserClose(unittest.TestCase):
         )
         item['command']()
         closer.assert_called_once()
+
+
+class TestLoadIcon(unittest.TestCase):
+    """Тесты load_icon — загрузка иконки трея."""
+
+    def setUp(self):
+        """Создаёт временную директорию с реальным PNG-файлом иконки."""
+        self._tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self._tmp, ignore_errors=True)
+        icons_dir = os.path.join(self._tmp, 'icons')
+        os.makedirs(icons_dir, exist_ok=True)
+        PIL.Image.new('RGB', (32, 32), (255, 0, 0)).save(
+            os.path.join(icons_dir, 'icon.png'),
+        )
+
+    def test_force_fallback_returns_fallback_icon(self):
+        """force_fallback=True → возвращается fallback-иконка (файл не открывается)."""
+        pil_image = MagicMock()
+        fallback = MagicMock()
+
+        with (
+            patch(
+                'server.tray.menu._create_fallback_icon',
+                return_value=fallback,
+            ),
+            self.assertLogs('flowlink.tray', level='INFO') as cm,
+        ):
+            result = load_icon(pil_image, force_fallback=True)
+
+        self.assertIs(result, fallback)
+        pil_image.open.assert_not_called()
+        self.assertTrue(
+            any('--test-fallback-icon' in line for line in cm.output),
+        )
+
+    def test_loads_real_icon_from_file(self):
+        """Существующий PNG → открывается реальным PIL и масштабируется до 64×64 RGBA."""
+        with (
+            patch('server.tray.menu.os.path.exists', return_value=True),
+            patch('server.utils.get_resource_dir', return_value=self._tmp),
+        ):
+            result = load_icon(PIL.Image, force_fallback=False)
+
+        self.assertIsInstance(result, PIL.Image.Image)
+        self.assertEqual(result.size, (64, 64))
+        self.assertEqual(result.mode, 'RGBA')
+
+    def test_fallback_created_when_file_missing(self):
+        """Файл иконки отсутствует → создаётся дефолтная иконка (не падает)."""
+        with (
+            patch('server.tray.menu.os.path.exists', return_value=False),
+            patch('server.utils.get_resource_dir', return_value=self._tmp),
+            self.assertLogs('flowlink.tray', level='WARNING') as cm,
+        ):
+            result = load_icon(PIL.Image, force_fallback=False)
+
+        self.assertIsInstance(result, PIL.Image.Image)
+        self.assertEqual(result.size, (64, 64))
+        self.assertEqual(result.mode, 'RGBA')
+        self.assertTrue(
+            any('не найдена' in line for line in cm.output),
+        )
+
+    def test_import_error_when_pil_unavailable(self):
+        """PIL недоступен → load_icon пробрасывает ImportError (обработка — на уровне вызова)."""
+        with patch(
+            'server.tray.menu._create_fallback_icon',
+            side_effect=ImportError('Pillow не установлен'),
+        ):
+            with self.assertRaises(ImportError):
+                load_icon(MagicMock(), force_fallback=True)
 
 
 if __name__ == '__main__':

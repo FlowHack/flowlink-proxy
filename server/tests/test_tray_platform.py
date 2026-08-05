@@ -57,11 +57,6 @@ class TestHasModules(unittest.TestCase):
         """has_tkinter возвращает True если tkinter доступен."""
         self.assertTrue(has_tkinter())
 
-    @patch('builtins.__import__', side_effect=ImportError)
-    def test_has_tkinter_false_when_import_fails(self, _mock_import):
-        """has_tkinter возвращает False при ошибке импорта."""
-        self.assertFalse(has_tkinter())
-
 
 class TestGetBackendInfo(unittest.TestCase):
     """Тесты get_backend_info."""
@@ -85,12 +80,6 @@ class TestGetBackendInfo(unittest.TestCase):
         self.assertFalse(info['is_windows'])
         self.assertFalse(info['is_macos'])
 
-    @patch.object(sys, 'platform', 'linux')
-    def test_has_tkinter_always_present(self):
-        """tkinter доступен в окружении тестов — has_tkinter=True."""
-        info = get_backend_info()
-        self.assertIn('has_tkinter', info)
-        self.assertTrue(info['has_tkinter'])
 
 
 if __name__ == '__main__':

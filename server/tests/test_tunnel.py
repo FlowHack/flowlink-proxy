@@ -1,17 +1,34 @@
 """
-Тесты SSRF-защиты validate_target() и регрессионные тесты
-tunnel_connect()/tunnel_http() из server/services/tunnel.py.
+Тесты SSRF-защиты validate_target(), регрессионные тесты
+tunnel_connect()/tunnel_http() и тесты трекинга туннелей из
+server/services/tunnel.py.
 
 Проверяет блокировку приватных/локальных IP-адресов, разрешение публичных
-доменов, а также корректную обработку ошибок соединения (баг
-"generator didn't yield") и пересылку HTTP-ответа клиенту.
+доменов, корректную обработку ошибок соединения (баг "generator didn't yield"),
+пересылку HTTP-ответа клиенту, а также управление глобальными трекерами
+соединений: register_tunnel, unregister_tunnel, close_tunnels_for_proxy,
+close_all_proxy_tunnels, close_all_connections.
 """
 
 import asyncio
+import socket
 import unittest
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from server.services.tunnel import tunnel_connect, tunnel_http, validate_target
+# Приватные глобальные трекеры импортируются напрямую для белого ящика:
+# тесты трекинга проверяют реальную внутреннюю структуру данных tunnel.py.
+from server.services.tunnel import (
+    _active_tunnels,
+    _all_writers,
+    close_all_connections,
+    close_all_proxy_tunnels,
+    close_tunnels_for_proxy,
+    register_tunnel,
+    tunnel_connect,
+    tunnel_http,
+    unregister_tunnel,
+    validate_target,
+)
 
 
 class TestValidateTarget(unittest.TestCase):
@@ -81,15 +98,42 @@ class TestValidateTarget(unittest.TestCase):
             self._run(validate_target('255.255.255.255', 80))
         self.assertIn('SSRF', str(ctx.exception))
 
-    def test_public_domain(self):
-        """example.com → разрешается (публичный домен)"""
-        # Не должно выбрасывать исключение
-        try:
-            self._run(validate_target('example.com', 80))
-        except ValueError as e:
-            # Если example.com резолвится в приватный IP — это ок (CI/ocker)
-            if 'SSRF' not in str(e):
-                raise
+    def test_public_domain_allowed(self):
+        """Публичный домен, резолвящийся в публичный IP, не блокируется.
+
+        Не зависит от окружения: DNS-резолв мокается, поэтому инвариант
+        «публичный адрес разрешён» проверяется детерминированно.
+        """
+        async def run():
+            mock_loop = MagicMock()
+            mock_loop.getaddrinfo = AsyncMock(return_value=[
+                (socket.AF_INET, socket.SOCK_STREAM, 6, '',
+                 ('93.184.216.34', 80)),
+            ])
+            with patch(
+                'server.services.tunnel.asyncio.get_running_loop',
+                return_value=mock_loop,
+            ):
+                # Не должно бросить ValueError — публичный адрес разрешён
+                await validate_target('example.com', 80)
+        self._run(run())
+
+    def test_public_domain_resolving_to_private_blocked(self):
+        """Публичный домен, резолвящийся в приватный IP, блокируется (SSRF)."""
+        async def run():
+            mock_loop = MagicMock()
+            mock_loop.getaddrinfo = AsyncMock(return_value=[
+                (socket.AF_INET, socket.SOCK_STREAM, 6, '',
+                 ('10.0.0.5', 80)),
+            ])
+            with patch(
+                'server.services.tunnel.asyncio.get_running_loop',
+                return_value=mock_loop,
+            ):
+                with self.assertRaises(ValueError) as ctx:
+                    await validate_target('example.com', 80)
+                self.assertIn('SSRF', str(ctx.exception))
+        self._run(run())
 
     def test_invalid_host(self):
         """Невалидный хост → ValueError (не SSRF)"""
@@ -216,6 +260,145 @@ class TestTunnelConnectHttp(unittest.TestCase):
         # remote_writer должен быть закрыт в finally _tunnel_context
         remote_writer.close.assert_called()
         mock_pipe.assert_not_awaited()
+
+
+class TestTunnelTracking(unittest.TestCase):
+    """Тесты функций трекинга туннелей (белый ящик).
+
+    Покрывают register_tunnel, unregister_tunnel, close_tunnels_for_proxy,
+    close_all_proxy_tunnels, close_all_connections — управление глобальными
+    трекерами _active_tunnels (proxy_id -> список writer'ов) и _all_writers
+    (все удалённые соединения, включая direct).
+    """
+
+    def setUp(self):
+        """Сбрасывает глобальные трекеры перед каждым тестом."""
+        _active_tunnels.clear()
+        _all_writers.clear()
+
+    def tearDown(self):
+        """Очищает трекеры после теста — защита от межтестового загрязнения."""
+        _active_tunnels.clear()
+        _all_writers.clear()
+
+    def test_register_tunnel_adds_to_tracking(self):
+        """register_tunnel добавляет writer в _active_tunnels по proxy_id."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_tunnel('proxy-1', w1)
+        register_tunnel('proxy-1', w2)
+        self.assertEqual(_active_tunnels['proxy-1'], [w1, w2])
+
+    def test_register_tunnel_multiple_proxies(self):
+        """Разные proxy_id ведут к отдельным спискам в _active_tunnels."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_tunnel('proxy-a', w1)
+        register_tunnel('proxy-b', w2)
+        self.assertEqual(_active_tunnels['proxy-a'], [w1])
+        self.assertEqual(_active_tunnels['proxy-b'], [w2])
+
+    def test_unregister_tunnel_removes_writer(self):
+        """unregister_tunnel удаляет writer из списка активных туннелей."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_tunnel('proxy-1', w1)
+        register_tunnel('proxy-1', w2)
+        unregister_tunnel('proxy-1', w1)
+        self.assertEqual(_active_tunnels['proxy-1'], [w2])
+
+    def test_unregister_tunnel_removes_empty_key(self):
+        """После удаления последнего writer ключ прокси исчезает из словаря."""
+        w = MagicMock()
+        register_tunnel('proxy-1', w)
+        unregister_tunnel('proxy-1', w)
+        self.assertNotIn('proxy-1', _active_tunnels)
+
+    def test_unregister_tunnel_absent_writer_no_error(self):
+        """unregister_tunnel с незарегистрированным writer не падает."""
+        w = MagicMock()
+        register_tunnel('proxy-1', MagicMock())
+        # Этот writer в списке отсутствует — ValueError должен гаситься внутри
+        unregister_tunnel('proxy-1', w)
+        self.assertEqual(len(_active_tunnels['proxy-1']), 1)
+
+    def test_close_tunnels_for_proxy_closes_and_removes(self):
+        """close_tunnels_for_proxy закрывает все writer прокси и чистит трекеры."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_tunnel('proxy-1', w1)
+        register_tunnel('proxy-1', w2)
+        _all_writers.update([w1, w2])
+        close_tunnels_for_proxy('proxy-1')
+        w1.close.assert_called_once()
+        w2.close.assert_called_once()
+        self.assertNotIn('proxy-1', _active_tunnels)
+        self.assertNotIn(w1, _all_writers)
+        self.assertNotIn(w2, _all_writers)
+
+    def test_close_tunnels_for_proxy_ignores_other_proxies(self):
+        """close_tunnels_for_proxy('proxy-1') не трогает туннели proxy-2."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_tunnel('proxy-1', w1)
+        register_tunnel('proxy-2', w2)
+        _all_writers.update([w1, w2])
+        close_tunnels_for_proxy('proxy-1')
+        w1.close.assert_called_once()
+        w2.close.assert_not_called()
+        self.assertNotIn('proxy-1', _active_tunnels)
+        # Туннель другого прокси остаётся в трекинге и в _all_writers
+        self.assertEqual(_active_tunnels['proxy-2'], [w2])
+        self.assertIn(w2, _all_writers)
+
+    def test_close_tunnels_for_proxy_unknown_noop(self):
+        """close_tunnels_for_proxy для неизвестного proxy_id — no-op без ошибок."""
+        close_tunnels_for_proxy('nonexistent')
+        self.assertEqual(_active_tunnels, {})
+        self.assertEqual(_all_writers, set())
+
+    def test_close_all_proxy_tunnels_closes_all(self):
+        """close_all_proxy_tunnels закрывает туннели всех прокси."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        w3 = MagicMock()
+        register_tunnel('proxy-1', w1)
+        register_tunnel('proxy-2', w2)
+        register_tunnel('proxy-2', w3)
+        _all_writers.update([w1, w2, w3])
+        close_all_proxy_tunnels()
+        w1.close.assert_called_once()
+        w2.close.assert_called_once()
+        w3.close.assert_called_once()
+        self.assertEqual(_active_tunnels, {})
+        self.assertEqual(_all_writers, set())
+
+    def test_close_all_connections_closes_direct_writers(self):
+        """close_all_connections закрывает и direct-соединения без прокси."""
+        proxy_w = MagicMock()
+        # Direct-соединение присутствует только в _all_writers (без proxy_id)
+        direct_w = MagicMock()
+        register_tunnel('proxy-1', proxy_w)
+        _all_writers.update([proxy_w, direct_w])
+        close_all_connections()
+        proxy_w.close.assert_called_once()
+        direct_w.close.assert_called_once()
+        self.assertEqual(_all_writers, set())
+        self.assertEqual(_active_tunnels, {})
+
+    def test_close_oserror_does_not_break_others(self):
+        """OSError при close() не прерывает закрытие остальных writer'ов."""
+        w_bad = MagicMock()
+        w_bad.close = Mock(side_effect=OSError('already closed'))
+        w_ok = MagicMock()
+        register_tunnel('proxy-1', w_bad)
+        register_tunnel('proxy-1', w_ok)
+        _all_writers.update([w_bad, w_ok])
+        # Не должно падать: OSError логируется на debug-уровне и гасится
+        close_all_connections()
+        w_ok.close.assert_called_once()
+        self.assertEqual(_all_writers, set())
+        self.assertEqual(_active_tunnels, {})
 
 
 if __name__ == '__main__':

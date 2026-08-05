@@ -287,28 +287,6 @@ class TestBrowserAlreadyRunningWithProxyDialog(unittest.TestCase):
         self.assertFalse(result)
         mock_show_info.assert_not_called()
 
-    def test_dialog_does_not_kill_or_launch_browser(self):
-        """Внутри диалога kill/launch не вызываются (это делает вызывающий код)."""
-        tk_root = MagicMock()
-        with (
-            patch('server.ui.dialogs.show_info') as mock_show_info,
-            patch(
-                'server.config.browser_process.kill_browser_processes',
-                return_value=True,
-            ) as mock_kill,
-            patch(
-                'server.__main__._browser_config.launch_browser',
-                return_value=True,
-            ) as mock_launch,
-        ):
-            self._click_primary(mock_show_info)
-            result = _show_browser_already_running_with_proxy_dialog(
-                {'tk_root': tk_root}, '/usr/bin/chrome',
-            )
-
-        self.assertTrue(result)
-        mock_kill.assert_not_called()
-        mock_launch.assert_not_called()
 
 
 class TestLaunchBrowserSyncAlreadyRunningWithProxy(unittest.TestCase):

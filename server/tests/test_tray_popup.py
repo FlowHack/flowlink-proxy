@@ -8,9 +8,10 @@
 """
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
 try:
+    import tkinter as tk
     from server.tray.popup import FlowLinkPopup, PopupColors
     _HAS_TKINTER = True
 except ImportError:
@@ -130,64 +131,143 @@ class TestFlowLinkPopupCalcHeight(unittest.TestCase):
         self.assertEqual(result_multi - result_single, 2 * 28)
 
 @unittest.skipUnless(_HAS_TKINTER, 'tkinter не установлен')
-class TestFlowLinkPopupInit(unittest.TestCase):
-    """Тесты поведения FlowLinkPopup без реального tkinter-окна."""
+class TestFlowLinkPopupGeometry(unittest.TestCase):
+    """Тесты чистой геометрии popup (без реального tkinter-окна).
 
-    def test_set_tk_root(self):
-        """set_tk_root устанавливает корневой объект."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        sentinel = object()
-        # тест проверяет что set_tk_root принимает любой объект
-        popup.set_tk_root(sentinel)  # type: ignore[reportArgumentType]
-        # _root — internal tkinter: проверка что set_tk_root работает
-        self.assertIs(popup._root, sentinel)  # pylint: disable=protected-access
+    _calc_y_position и _is_click_outside_popup — приватные методы, но их
+    логика (позиционирование относительно курсора/экрана и проверка
+    попадания точки в прямоугольник окна) тестируема с мок-объектами
+    без display-сервера.
+    """
 
-    def test_dismiss_when_no_popup(self):
-        """dismiss() на пустом popup не бросает исключение."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # Не должен бросить исключение
-        popup.dismiss()
+    # protected-access: белый ящик — тесты сознательно обращаются
+    # к приватным методам геометрии через мок-попап
+    # pylint: disable=protected-access
 
+    def _make_popup(self) -> FlowLinkPopup:
+        """Создаёт popup без реального окна."""
+        return FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
 
-@unittest.skipUnless(_HAS_TKINTER, 'tkinter не установлен')
-class TestFlowLinkPopupTooltip(unittest.TestCase):
-    """Тесты логики тултипов (без реального tkinter-окна)."""
+    # ── _calc_y_position ──────────────────────────────────────────
 
-    def test_initial_tooltip_state(self):
-        """При создании статусбар и текст тултипа пусты."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # internal: проверка приватного состояния тултипа
-        self.assertIsNone(popup._tooltip_label)  # pylint: disable=protected-access
-        self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access  # internal: проверка тултипов
+    def test_calc_y_explicit_value_unchanged(self):
+        """Явная y возвращается без изменений (не зависит от экрана)."""
+        popup = self._make_popup()
+        # popup без _root/_popup не мешает: ветка с явной y их не трогает
+        self.assertEqual(
+            popup._calc_y_position(100, 50), 100,  # pylint: disable=protected-access
+        )
+        self.assertEqual(
+            popup._calc_y_position(0, 200), 0,  # pylint: disable=protected-access
+        )
 
-    def test_show_tooltip_without_popup_sets_text(self):
-        """_show_tooltip без popup сохраняет текст."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # internal: вызов приватного метода тултипа для проверки логики
-        popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
-        self.assertEqual(popup._tooltip_text, 'Подсказка')  # pylint: disable=protected-access
+    def test_calc_y_places_above_cursor(self):
+        """y=None: меню располагается над курсором, если влезает."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_screenheight.return_value = 1080
+        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root.winfo_pointery.return_value = 200
+        result = popup._calc_y_position(None, 50)  # pylint: disable=protected-access
+        # above_y = 200 - 50 - 8 = 142 >= 0 → меню над курсором
+        self.assertEqual(result, 142)
 
-    def test_show_tooltip_displayed_immediately(self):
-        """_show_tooltip сразу вызывает _display_tooltip (без after-задержки)."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        with patch.object(popup, '_display_tooltip') as display:
-            # internal: вызов приватного метода тултипа для проверки логики
-            popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
-            display.assert_called_once_with()
+    def test_calc_y_places_below_cursor(self):
+        """y=None: над курсором не влезает → меню под курсором."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_screenheight.return_value = 1080
+        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root.winfo_pointery.return_value = 100
+        result = popup._calc_y_position(None, 500)  # pylint: disable=protected-access
+        # above_y = 100 - 500 - 8 = -408 < 0; below_y = 108; 108 + 500 <= 1080
+        self.assertEqual(result, 108)
 
-    def test_hide_tooltip_clears_text(self):
-        """_hide_tooltip очищает текст подсказки."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # internal: проверка приватных методов тултипа
-        popup._show_tooltip('Подсказка')  # pylint: disable=protected-access
-        popup._hide_tooltip()  # pylint: disable=protected-access
-        self.assertEqual(popup._tooltip_text, '')  # pylint: disable=protected-access
+    def test_calc_y_clamps_to_bottom(self):
+        """y=None: не влезает ни над, ни под курсором → к нижнему краю."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_screenheight.return_value = 1080
+        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root.winfo_pointery.return_value = 100
+        result = popup._calc_y_position(None, 1000)  # pylint: disable=protected-access
+        # below_y + height = 108 + 1000 = 1108 > 1080 → sh - height - 4
+        self.assertEqual(result, 1080 - 1000 - 4)
 
-    def test_hide_tooltip_on_empty_no_crash(self):
-        """_hide_tooltip на пустом popup не бросает исключение."""
-        popup = FlowLinkPopup()  # type: ignore[reportPossiblyUnbound]
-        # internal: вызов приватного метода тултипа для проверки логики
-        popup._hide_tooltip()  # pylint: disable=protected-access
+    def test_calc_y_fallback_screen_height_on_tcl_error(self):
+        """TclError при получении высоты экрана → fallback 1080."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_screenheight.side_effect = tk.TclError('no display')
+        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root.winfo_pointery.return_value = 500
+        result = popup._calc_y_position(None, 100)  # pylint: disable=protected-access
+        # fallback sh=1080; above_y = 500 - 100 - 8 = 392 >= 0
+        self.assertEqual(result, 392)
+
+    # ── _is_click_outside_popup ───────────────────────────────────
+
+    def test_click_outside_without_popup(self):
+        """Без popup клик не считается внешним (False)."""
+        popup = self._make_popup()
+        self.assertFalse(
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+        )
+
+    def test_click_outside_destroyed_popup(self):
+        """Разрушенное окно (winfo_exists=False) → False."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_exists.return_value = False
+        self.assertFalse(
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+        )
+
+    def test_click_outside_unknown_geometry(self):
+        """Окно ещё не отрисовано (width<=1) → False (не закрывать меню)."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_exists.return_value = True
+        popup._popup.winfo_width.return_value = 1
+        popup._popup.winfo_height.return_value = 220
+        self.assertFalse(
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+        )
+
+    def test_click_outside_geometry(self):
+        """Клик вне прямоугольника окна → True, внутри → False."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_exists.return_value = True
+        popup._popup.winfo_width.return_value = 220
+        popup._popup.winfo_height.return_value = 100
+        popup._popup.winfo_rootx.return_value = 100
+        popup._popup.winfo_rooty.return_value = 200
+        # Прямоугольник окна: x 100..320, y 200..300
+        self.assertFalse(
+            popup._is_click_outside_popup(150, 250),  # pylint: disable=protected-access  # внутри
+        )
+        self.assertTrue(
+            popup._is_click_outside_popup(99, 250),  # pylint: disable=protected-access  # слева
+        )
+        self.assertTrue(
+            popup._is_click_outside_popup(321, 250),  # pylint: disable=protected-access  # справа
+        )
+        self.assertTrue(
+            popup._is_click_outside_popup(150, 199),  # pylint: disable=protected-access  # сверху
+        )
+        self.assertTrue(
+            popup._is_click_outside_popup(150, 301),  # pylint: disable=protected-access  # снизу
+        )
+
+    def test_click_outside_tcl_error(self):
+        """TclError при проверке геометрии → False (не падаем)."""
+        popup = self._make_popup()
+        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup.winfo_exists.side_effect = tk.TclError('bad window')
+        self.assertFalse(
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+        )
 
 
 if __name__ == '__main__':

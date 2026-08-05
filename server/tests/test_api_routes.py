@@ -12,8 +12,9 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from server.servers.api import (
-    _RequestHeaderLimit, _RequestTimeout, _build_options_response,
-    _build_response, _mask_token_in_path, _parse_http_request, ApiServer,
+    MAX_HEADER_SIZE, MAX_POST_BODY, _RequestHeaderLimit, _RequestTimeout,
+    _RequestTooLarge, _build_options_response, _build_response,
+    _mask_token_in_path, _parse_http_request, ApiServer,
 )
 
 
@@ -22,8 +23,62 @@ def _write_all(writer) -> bytes:
     return b''.join(c[0][0] for c in writer.write.call_args_list)
 
 
-class TestApiRouteRequest(unittest.IsolatedAsyncioTestCase):
-    """Тесты _route_request: распаковка кортежей и dict-ответов."""
+class TestApiRouteDispatch(unittest.IsolatedAsyncioTestCase):
+    """Параметризованная диспетчеризация маршрутов _route_request.
+
+    Одна таблица покрывает и статические маршруты (/api/ping,
+    /api/config и т.д.), и динамические (/api/proxy/{id},
+    /api/mask/{id}): мок-обработчик → проверяются статус и тело ответа.
+    Кейсы с handler_name=None — маршруты, которые не должны
+    диспетчеризоваться на обработчик (404/400): проверяется только
+    статус и наличие ключа 'error' в теле.
+    """
+
+    # protected-access: белый ящик — вызываем _route_request напрямую
+    # pylint: disable=protected-access
+
+    ROUTE_CASES = [
+        # (название, method, path, body, handler|None, статус, тело|None,
+        #  async_handler)
+        #
+        # async_handler=False для маршрутов, чьи обёртки в api.py вызывают
+        # handlers.* синхронно (без await) — мок должен быть обычным
+        # MagicMock, иначе вернётся необработанная корутина.
+        ('ping', 'POST', '/api/ping', b'{"proxyId":"p1"}',
+         'handle_ping', 200, {'alive': True}, True),
+        ('browser-path', 'POST', '/api/browser-path',
+         b'{"path":"/usr/bin/chrome"}',
+         'handle_post_browser_path', 200, {'ok': True}, True),
+        ('validate-browser', 'POST', '/api/validate-browser',
+         b'{"path":"/bad/path"}',
+         'handle_post_validate_browser', 400, {'valid': False}, False),
+        ('config-get', 'GET', '/api/config', b'',
+         'handle_get_config', 200, {'proxies': [], 'masks': []}, False),
+        ('proxy-enabled-patch', 'PATCH', '/api/proxy/p1/enabled',
+         b'{"enabled":true}',
+         'handle_patch_proxy_enabled', 200, {'success': True}, True),
+        ('proxy-patch', 'PATCH', '/api/proxy/p1', b'{"host":"1.1.1.1"}',
+         'handle_patch_proxy', 200, {'success': True}, True),
+        ('proxy-delete', 'DELETE', '/api/proxy/p1', b'',
+         'handle_delete_proxy', 200, {'success': True}, True),
+        ('proxies-post', 'POST', '/api/proxies',
+         b'{"host":"1.1.1.1","port":1080}',
+         'handle_post_proxy', 200, {'success': True}, True),
+        ('masks-post', 'POST', '/api/masks',
+         b'{"pattern":"*.com","proxyId":"p1"}',
+         'handle_post_mask', 200, {'success': True}, True),
+        ('mask-delete', 'DELETE', '/api/mask/m1', b'',
+         'handle_delete_mask', 200, {'success': True}, True),
+        ('mask-patch', 'PATCH', '/api/mask/m1', b'{"pattern":"*.org"}',
+         'handle_patch_mask', 200, {'success': True}, True),
+        # Недиспетчеризуемые маршруты: ожидается только статус + 'error'
+        ('unknown-static', 'GET', '/api/unknown', b'',
+         None, 404, None, False),
+        ('ping-missing-proxy-id', 'POST', '/api/ping', b'{}',
+         None, 400, None, False),
+        ('unknown-dynamic', 'GET', '/api/proxy/p1', b'',
+         None, 404, None, False),
+    ]
 
     def _make_server(self, auth_token: str | None = None) -> ApiServer:
         """Создаёт ApiServer с мок-роутером."""
@@ -33,91 +88,43 @@ class TestApiRouteRequest(unittest.IsolatedAsyncioTestCase):
             auth_token=auth_token,
         )
 
-    async def test_ping_returns_tuple(self):
-        """POST /api/ping возвращает кортеж (response_body, status_code)."""
+    async def test_route_table(self):
+        """Таблица маршрутов: мок-обработчик → ожидаемый статус и тело."""
         server = self._make_server()
-        with patch('server.servers.api.handlers.handle_ping',
-                   new=AsyncMock(return_value=({'alive': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'POST', '/api/ping', b'{"proxyId":"p1"}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'alive': True})
-
-    async def test_browser_path_returns_tuple(self):
-        """POST /api/browser-path возвращает кортеж (response_body, status_code)."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_post_browser_path',
-                   new=AsyncMock(return_value=({'ok': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'POST', '/api/browser-path', b'{"path":"/usr/bin/chrome"}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'ok': True})
-
-    async def test_validate_browser_returns_tuple(self):
-        """POST /api/validate-browser возвращает кортеж (response_body, status_code)."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_post_validate_browser',
-                   return_value=({'valid': False}, 400)):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'POST', '/api/validate-browser', b'{"path":"/bad/path"}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 400)
-        self.assertEqual(response_body, {'valid': False})
-
-    async def test_config_get_returns_dict(self):
-        """GET /api/config возвращает dict (код 200 по умолчанию)."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_get_config',
-                   return_value={'proxies': [], 'masks': []}):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'GET', '/api/config', b'',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'proxies': [], 'masks': []})
-
-    async def test_unknown_route_returns_404(self):
-        """Неизвестный маршрут возвращает 404."""
-        server = self._make_server()
-        result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-            'GET', '/api/unknown', b'',
-            ('127.0.0.1', 1234), MagicMock(),
-        )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 404)
-        self.assertIn('error', response_body)
-
-    async def test_ping_missing_proxy_id_returns_400(self):
-        """POST /api/ping без proxyId возвращает 400."""
-        server = self._make_server()
-        result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-            'POST', '/api/ping', b'{}',
-            ('127.0.0.1', 1234), MagicMock(),
-        )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 400)
-        self.assertIn('error', response_body)
+        for (name, method, path, body, handler_name,
+             expected_status, expected_body, is_async) in self.ROUTE_CASES:
+            with self.subTest(route=name):
+                if handler_name is not None:
+                    handler_mock = (
+                        AsyncMock(
+                            return_value=(expected_body, expected_status),
+                        )
+                        if is_async
+                        else MagicMock(
+                            return_value=(expected_body, expected_status),
+                        )
+                    )
+                    with patch(
+                        f'server.servers.api.handlers.{handler_name}',
+                        new=handler_mock,
+                    ):
+                        result = await server._route_request(
+                            method, path, body,
+                            ('127.0.0.1', 1234), MagicMock(),
+                        )
+                else:
+                    result = await server._route_request(
+                        method, path, body,
+                        ('127.0.0.1', 1234), MagicMock(),
+                    )
+                if result is None:
+                    self.fail(f'_route_request вернул None для {name}')
+                status_code, response_body = result
+                self.assertEqual(status_code, expected_status)
+                if expected_body is not None:
+                    self.assertEqual(response_body, expected_body)
+                else:
+                    self.assertIn('error', response_body)
 
 
 class TestApiAuth(unittest.IsolatedAsyncioTestCase):
@@ -493,6 +500,150 @@ class TestApiHeaderLimits(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('Origin', headers)
 
 
+class TestApiDoSLimits(unittest.IsolatedAsyncioTestCase):
+    """Тесты DoS-защиты: лимиты тела (413), заголовков (400/408),
+    ошибки парсинга JSON (400), ошибки обработчиков (500),
+    невалидный request-line (закрытие без ответа)."""
+
+    def _make_server(self, auth_token: str | None = None) -> ApiServer:
+        """Создаёт ApiServer с мок-роутером."""
+        router = MagicMock()
+        return ApiServer(
+            router, port=8081, debug=False, need_update=False,
+            auth_token=auth_token,
+        )
+
+    def _make_reader(self, data: bytes) -> asyncio.StreamReader:
+        """Создаёт StreamReader с заданными байтами."""
+        reader = asyncio.StreamReader()
+        reader.feed_data(data)
+        reader.feed_eof()
+        return reader
+
+    def _make_writer(self) -> MagicMock:
+        """Создаёт mock-писатель с awaitable drain и peername."""
+        writer = MagicMock()
+        writer.drain = AsyncMock()
+        writer.get_extra_info.return_value = ('127.0.0.1', 1234)
+        return writer
+
+    async def test_parse_too_large_body_raises(self):
+        """Превышение MAX_POST_BODY в _parse_http_request → _RequestTooLarge."""
+        # Тело не читается: _RequestTooLarge бросается сразу после проверки
+        # Content-Length, поэтому данные тела в reader не нужны.
+        reader = self._make_reader(
+            b'POST /api/config HTTP/1.1\r\n'
+            + f'Content-Length: {MAX_POST_BODY + 1}\r\n'.encode()
+            + b'\r\n',
+        )
+        with self.assertRaises(_RequestTooLarge):
+            await _parse_http_request(reader, ('127.0.0.1', 1234))
+
+    async def test_post_body_over_limit_returns_413(self):
+        """Content-Length больше MAX_POST_BODY → 413 Request Entity Too Large."""
+        server = self._make_server()
+        reader = self._make_reader(
+            b'POST /api/config HTTP/1.1\r\n'
+            + f'Content-Length: {MAX_POST_BODY + 1}\r\n'.encode()
+            + b'\r\n',
+        )
+        writer = self._make_writer()
+        await server._handle_client(reader, writer)  # pylint: disable=protected-access  # internal: проверка диспетчера напрямую
+        written = _write_all(writer)
+        self.assertIn(b'HTTP/1.1 413 Request Entity Too Large', written)
+
+    async def test_headers_total_size_over_limit_raises(self):
+        """Суммарный размер заголовков > MAX_HEADER_SIZE → _RequestHeaderLimit."""
+        # Один длинный заголовок больше MAX_HEADER_SIZE при количестве < MAX_HEADERS
+        reader = self._make_reader(
+            b'GET /api/config HTTP/1.1\r\n'
+            + b'X-Big: ' + b'a' * (MAX_HEADER_SIZE + 1) + b'\r\n'
+            + b'\r\n',
+        )
+        with self.assertRaises(_RequestHeaderLimit):
+            await _parse_http_request(reader, ('127.0.0.1', 1234))
+
+    async def test_headers_total_size_over_limit_returns_400(self):
+        """Суммарный размер заголовков > MAX_HEADER_SIZE → 400 в _handle_client."""
+        server = self._make_server()
+        reader = self._make_reader(
+            b'GET /api/config HTTP/1.1\r\n'
+            + b'X-Big: ' + b'a' * (MAX_HEADER_SIZE + 1) + b'\r\n'
+            + b'\r\n',
+        )
+        writer = self._make_writer()
+        await server._handle_client(reader, writer)  # pylint: disable=protected-access  # internal: проверка диспетчера напрямую
+        written = _write_all(writer)
+        self.assertIn(b'HTTP/1.1 400 Bad Request', written)
+
+    async def test_invalid_json_body_returns_400(self):
+        """Невалидный JSON в теле → 400 Неверный запрос."""
+        server = self._make_server()
+        result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+            'POST', '/api/config', b'{invalid json',
+            ('127.0.0.1', 1234), MagicMock(),
+        )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 400)
+        self.assertEqual(response_body, {'error': 'Неверный запрос'})
+
+    async def test_invalid_json_body_returns_400_via_handle_client(self):
+        """Невалидный JSON в теле → 400, ответ отправлен через _handle_client."""
+        server = self._make_server()
+        reader = self._make_reader(
+            b'POST /api/config HTTP/1.1\r\n'
+            b'Content-Length: 13\r\n'
+            b'\r\n'
+            b'{invalid json',
+        )
+        writer = self._make_writer()
+        await server._handle_client(reader, writer)  # pylint: disable=protected-access  # internal: проверка диспетчера напрямую
+        written = _write_all(writer)
+        self.assertIn(b'HTTP/1.1 400 Bad Request', written)
+
+    async def test_oserror_in_handler_returns_500(self):
+        """OSError в обработчике → 500 Внутренняя ошибка сервера."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_get_config',
+                   side_effect=OSError('boom')):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'GET', '/api/config', b'',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 500)
+        self.assertIn('Внутренняя ошибка сервера', response_body['error'])
+
+    async def test_runtimeerror_in_handler_returns_500(self):
+        """RuntimeError в обработчике → 500 Внутренняя ошибка сервера."""
+        server = self._make_server()
+        with patch('server.servers.api.handlers.handle_get_config',
+                   side_effect=RuntimeError('boom')):
+            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
+                'GET', '/api/config', b'',
+                ('127.0.0.1', 1234), MagicMock(),
+            )
+        if result is None:
+            self.fail('_route_request вернул None')
+        status_code, response_body = result
+        self.assertEqual(status_code, 500)
+        self.assertIn('Внутренняя ошибка сервера', response_body['error'])
+
+    async def test_invalid_request_line_closes_writer_without_response(self):
+        """Невалидный request-line → writer.close() без отправки ответа."""
+        server = self._make_server()
+        # 'INVALID' — один токен без пробела: не парсится как request-line
+        reader = self._make_reader(b'INVALID\r\n')
+        writer = self._make_writer()
+        await server._handle_client(reader, writer)  # pylint: disable=protected-access  # internal: проверка диспетчера напрямую
+        writer.write.assert_not_called()
+        writer.close.assert_called()
+
+
 class TestApiLogMasking(unittest.TestCase):
     """Тесты маскирования query-параметра token в пути для логов."""
 
@@ -516,135 +667,6 @@ class TestApiLogMasking(unittest.TestCase):
             _mask_token_in_path('/api/config'),
             '/api/config',
         )
-
-
-class TestApiDynamicRoutes(unittest.IsolatedAsyncioTestCase):
-    """Тесты динамической маршрутизации /api/proxy/{id} и /api/mask/{id}."""
-
-    def _make_server(self) -> ApiServer:
-        """Создаёт ApiServer с мок-роутером."""
-        router = MagicMock()
-        return ApiServer(
-            router, port=8081, debug=False, need_update=False,
-            auth_token=None,
-        )
-
-    async def test_patch_proxy_enabled_route(self):
-        """PATCH /api/proxy/{id}/enabled диспетчеризуется."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_patch_proxy_enabled',
-                   new=AsyncMock(return_value=({'success': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'PATCH', '/api/proxy/p1/enabled', b'{"enabled":true}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'success': True})
-
-    async def test_patch_proxy_route(self):
-        """PATCH /api/proxy/{id} диспетчеризуется."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_patch_proxy',
-                   new=AsyncMock(return_value=({'success': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'PATCH', '/api/proxy/p1', b'{"host":"1.1.1.1"}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'success': True})
-
-    async def test_delete_proxy_route(self):
-        """DELETE /api/proxy/{id} диспетчеризуется."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_delete_proxy',
-                   new=AsyncMock(return_value=({'success': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'DELETE', '/api/proxy/p1', b'',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'success': True})
-
-    async def test_post_proxies_route(self):
-        """POST /api/proxies диспетчеризуется."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_post_proxy',
-                   new=AsyncMock(return_value=({'success': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'POST', '/api/proxies', b'{"host":"1.1.1.1","port":1080}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'success': True})
-
-    async def test_post_masks_route(self):
-        """POST /api/masks диспетчеризуется."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_post_mask',
-                   new=AsyncMock(return_value=({'success': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'POST', '/api/masks', b'{"pattern":"*.com","proxyId":"p1"}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'success': True})
-
-    async def test_delete_mask_route(self):
-        """DELETE /api/mask/{id} диспетчеризуется."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_delete_mask',
-                   new=AsyncMock(return_value=({'success': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'DELETE', '/api/mask/m1', b'',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'success': True})
-
-    async def test_patch_mask_route(self):
-        """PATCH /api/mask/{id} диспетчеризуется."""
-        server = self._make_server()
-        with patch('server.servers.api.handlers.handle_patch_mask',
-                   new=AsyncMock(return_value=({'success': True}, 200))):
-            result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-                'PATCH', '/api/mask/m1', b'{"pattern":"*.org"}',
-                ('127.0.0.1', 1234), MagicMock(),
-            )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, response_body = result
-        self.assertEqual(status_code, 200)
-        self.assertEqual(response_body, {'success': True})
-
-    async def test_unknown_dynamic_route_404(self):
-        """Неизвестный динамический путь → 404."""
-        server = self._make_server()
-        result = await server._route_request(  # pylint: disable=protected-access  # internal: проверка маршрутизации напрямую
-            'GET', '/api/proxy/p1', b'',
-            ('127.0.0.1', 1234), MagicMock(),
-        )
-        if result is None:
-            self.fail('_route_request вернул None')
-        status_code, _ = result
-        self.assertEqual(status_code, 404)
 
 
 if __name__ == '__main__':

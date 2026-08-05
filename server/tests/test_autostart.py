@@ -210,6 +210,8 @@ class TestHandleGetAutostartBrowser(_TempSettingsMixin):
 
     def test_returns_dict_with_expected_keys(self):
         """Handler возвращает словарь с нужными ключами."""
+        # Подменяем SETTINGS_FILE, чтобы handler не читал реальный файл пользователя
+        self._mock_settings_file(os.path.join(self.tmpdir, '.flowlink-settings'))
         result = handle_get_autostart_browser()
         self.assertIn('autostartBrowser', result)
         self.assertIsInstance(result['autostartBrowser'], bool)
@@ -240,6 +242,9 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
 
     def test_missing_field(self):
         """POST без autostartBrowser возвращает ошибку."""
+        # Ошибка-ветка handler'а читает autostart_browser через get_autostart_browser
+        # (см. handlers.py) — подменяем SETTINGS_FILE, чтобы не читать реальный файл.
+        self._mock_settings_file(os.path.join(self.tmpdir, '.flowlink-settings'))
         result = asyncio.run(
             handle_post_autostart_browser({}),
         )
@@ -248,6 +253,9 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
     def test_non_dict_input(self):
         """POST с не-словарём возвращает ошибку."""
         # type: ignore[reportArgumentType] — намеренно передаём не-словарь для проверки ошибки
+        # Ошибка-ветка handler'а читает autostart_browser через get_autostart_browser
+        # (см. handlers.py) — подменяем SETTINGS_FILE, чтобы не читать реальный файл.
+        self._mock_settings_file(os.path.join(self.tmpdir, '.flowlink-settings'))
         result = asyncio.run(
             handle_post_autostart_browser('not a dict'),  # type: ignore[reportArgumentType]
         )

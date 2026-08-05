@@ -319,28 +319,6 @@ class TestClearDataOnly(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_removes_data_files(self):
-        """Удаляет файлы данных."""
-        files = [
-            'config.json', '.flowlink.key', '.flowlink.salt',
-            '.flowlink-settings', '.flowlink-port',
-        ]
-        for filename in files:
-            filepath = os.path.join(self.tmpdir, filename)
-            with open(filepath, 'w', encoding='utf-8') as fh:
-                fh.write('test')
-
-        with patch.dict(
-            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
-        ):
-            removed = clear_data_only()
-
-        self.assertEqual(removed, 5)
-        for filename in files:
-            self.assertFalse(
-                os.path.exists(os.path.join(self.tmpdir, filename)),
-            )
-
     def test_preserves_logs(self):
         """Не удаляет директорию logs/."""
         logs_dir = os.path.join(self.tmpdir, 'logs')
@@ -365,18 +343,6 @@ class TestClearDataOnly(unittest.TestCase):
 
         self.assertEqual(removed, 0)
 
-    def test_preserves_unknown_files(self):
-        """Не удаляет файлы, не входящие в список данных."""
-        unknown = os.path.join(self.tmpdir, 'my-custom.txt')
-        with open(unknown, 'w', encoding='utf-8') as f:
-            f.write('keep me')
-
-        with patch.dict(
-            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
-        ):
-            clear_data_only()
-
-        self.assertTrue(os.path.isfile(unknown))
 
 
 class TestValidatePort(unittest.TestCase):

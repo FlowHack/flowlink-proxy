@@ -159,17 +159,28 @@ def compute_conflict_groups(  # pylint: disable=too-many-locals  # постро�
     return groups
 
 
+def _mask_pattern(mask: dict[str, Any]) -> str:
+    """Возвращает паттерн маски для проверки конфликтов.
+
+    Маски в конфиге хранятся под ключом 'regexString' (используется
+    маршрутизацией), а 'pattern' — только для масок, созданных через API.
+    Читаем 'regexString' с фолбэком на 'pattern', чтобы валидация
+    корректно обрабатывала оба формата.
+    """
+    return mask.get('regexString') or mask.get('pattern', '')
+
+
 def _proxies_conflict(
     masks_a: list[dict[str, Any]],
     masks_b: list[dict[str, Any]],
 ) -> bool:
     """Проверяет, конфликтуют ли два прокси по своим маскам."""
     for mask_a in masks_a:
-        pattern_a = mask_a.get('pattern', '')
+        pattern_a = _mask_pattern(mask_a)
         if not pattern_a:
             continue
         for mask_b in masks_b:
-            pattern_b = mask_b.get('pattern', '')
+            pattern_b = _mask_pattern(mask_b)
             if not pattern_b:
                 continue
             if wildcard_intersects(pattern_a, pattern_b):
@@ -256,11 +267,11 @@ def _first_conflicting_pattern(
 ) -> str:
     """Возвращает первый паттерн маски, вызвавший конфликт."""
     for mask_a in masks_a:
-        pattern_a = mask_a.get('pattern', '')
+        pattern_a = _mask_pattern(mask_a)
         if not pattern_a:
             continue
         for mask_b in masks_b:
-            pattern_b = mask_b.get('pattern', '')
+            pattern_b = _mask_pattern(mask_b)
             if not pattern_b:
                 continue
             if wildcard_intersects(pattern_a, pattern_b):

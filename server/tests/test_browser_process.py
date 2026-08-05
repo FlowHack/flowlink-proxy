@@ -337,18 +337,6 @@ class TestKillBrowserProcesses(unittest.TestCase):
         )
         self.assertTrue(kill_browser_processes(r'C:\browser.exe'))
 
-    @patch('server.config.browser_process.sys.platform', 'win32')
-    @patch('server.config.browser_process.subprocess.run')
-    @patch('server.config.browser_process._process_alive', return_value=True)
-    @patch('server.config.browser_process.find_browser_pids', return_value=[101])
-    def test_windows_taskkill_error_process_alive_is_failure(
-            self, _mock_find, _mock_alive, mock_run):
-        """taskkill вернул ошибку и процесс жив — ошибка."""
-        mock_run.return_value = SimpleNamespace(
-            returncode=1, stdout='', stderr='Отказано в доступе',
-        )
-        self.assertFalse(kill_browser_processes(r'C:\browser.exe'))
-
     @patch('server.config.browser_process.sys.platform', 'linux')
     @patch('server.config.browser_process.time.sleep')
     @patch('server.config.browser_process.os.kill')

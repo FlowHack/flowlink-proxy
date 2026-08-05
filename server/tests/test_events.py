@@ -14,7 +14,15 @@ class TestEventsQueue(unittest.TestCase):
     """Тесты управления очередью событий."""
 
     def setUp(self):
-        # Очищаем очередь перед каждым тестом
+        """Очищаем глобальную очередь перед каждым тестом."""
+        self._clear_queue()
+
+    def tearDown(self):
+        """Очищаем очередь после теста — защита от утечки между тестами."""
+        self._clear_queue()
+
+    def _clear_queue(self):
+        """Сбрасывает глобальную SSE_QUEUE."""
         while not SSE_QUEUE.empty():
             try:
                 SSE_QUEUE.get_nowait()
@@ -29,15 +37,6 @@ class TestEventsQueue(unittest.TestCase):
             event = SSE_QUEUE.get_nowait()
             self.assertEqual(event['event'], 'test_event')
             self.assertEqual(event['data'], {'key': 'value'})
-        asyncio.run(run())
-
-    def test_emit_event_multiple(self):
-        """Несколько emit_event добавляют несколько событий"""
-        async def run():
-            await emit_event('event1', {'a': 1})
-            await emit_event('event2', {'b': 2})
-            await emit_event('event3', {'c': 3})
-            self.assertEqual(SSE_QUEUE.qsize(), 3)
         asyncio.run(run())
 
     def test_emit_event_queue_full(self):

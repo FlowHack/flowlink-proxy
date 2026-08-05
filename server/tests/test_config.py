@@ -50,7 +50,12 @@ class TestConfigExceptions(TempConfigEnabledMixin, unittest.TestCase):
         self.assertEqual(len(loaded['masks']), 1)
 
     def test_save_with_encrypt_error(self):
-        """Ошибка шифрования при сохранении не убивает процесс"""
+        """Ошибка шифрования: конфиг сохраняется с пустыми полями.
+
+        _crypto_field при сбое шифрования возвращает None, а save_config
+        подставляет пустую строку вместо шифртекста — данные не теряются
+        (прокси остаётся в конфиге) и процесс не падает.
+        """
         data = {
             'proxies': [
                 {'proxyId': 'p1', 'host': '1.2.3.4', 'port': 1080,
@@ -60,6 +65,11 @@ class TestConfigExceptions(TempConfigEnabledMixin, unittest.TestCase):
         }
         with patch.object(crypto_mod, 'encrypt', side_effect=Exception('AES failed')):
             cfg.save_config(data)
+        saved = config_repo.load_raw()
+        self.assertEqual(len(saved['proxies']), 1)
+        proxy = saved['proxies'][0]
+        self.assertEqual(proxy['username'], '')
+        self.assertEqual(proxy['password'], '')
 
     def test_load_with_decrypt_error(self):
         """Ошибка расшифровки username/password → пустая строка, процесс не падает"""
