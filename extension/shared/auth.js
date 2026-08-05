@@ -94,6 +94,21 @@ export function resetAuthTokenCache() {
 }
 
 /**
+ * Полностью сбрасывает токен: кэш в памяти и сохранённый в storage.
+ * Используется при получении 401 от бэкенда — токен больше не валиден
+ * (бэкенд перезапущен, токен сменился), нужно перезапросить через bootstrap.
+ * @returns {Promise<void>}
+ */
+export async function resetAuthToken() {
+  _cachedToken = null;
+  try {
+    await chrome.storage.local.remove(TOKEN_STORAGE_KEY);
+  } catch (e) {
+    console.warn('[FlowLink Proxy] auth: не удалось удалить токен из storage:', e);
+  }
+}
+
+/**
  * Формирует заголовки запроса с токеном аутентификации.
  * @param {string|null} token — токен (может быть null — тогда без заголовка).
  * @param {object} [extra] — дополнительные заголовки (например Content-Type).

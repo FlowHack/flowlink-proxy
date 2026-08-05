@@ -5,7 +5,7 @@
  */
 
 import { API_BASE } from './constants.js';
-import { getAuthToken, authHeaders } from './auth.js';
+import { getAuthToken, authHeaders, resetAuthToken } from './auth.js';
 
 /**
  * Типизированная ошибка API.
@@ -66,36 +66,84 @@ function _classifyFetchError(e) {
 }
 
 /**
- * GET-запрос к API.
- * @param {string} endpoint — путь вида '/config', '/status' и т.д.
+ * Выполняет HTTP-запрос к API с автоматическим сбросом токена при 401.
+ *
+ * При получении 401 (токен больше не валиден — бэкенд перезапущен):
+ * 1. Сбрасывает старый токен (кэш + storage)
+ * 2. Перезапрашивает токен через bootstrap
+ * 3. Повторяет исходный запрос с новым токеном
+ *
+ * @param {string} method — HTTP-метод ('GET' или 'POST').
+ * @param {string} endpoint — путь вида '/config', '/status'.
+ * @param {object|null} body — тело запроса (null для GET).
  * @returns {Promise<object>} — распарсенный JSON-ответ.
  */
-export async function apiGet(endpoint) {
+async function _apiRequest(method, endpoint, body) {
   try {
     const token = await getAuthToken(API_BASE);
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      headers: authHeaders(token),
-      signal: AbortSignal.timeout(10000),
-    });
+    const res = await _fetchWithAuth(method, endpoint, body, token);
+    if (!res.ok && res.status === 401) {
+      // Токен больше не валиден (бэкенд перезапущен) — сбрасываем и пробуем ещё раз
+      console.log('[FlowLink Proxy] api: получен 401, сбрасываю токен и перезапрашиваю');
+      await resetAuthToken();
+      const newToken = await getAuthToken(API_BASE);
+      const retryRes = await _fetchWithAuth(method, endpoint, body, newToken);
+      if (!retryRes.ok) {
+        throw new ApiError(await _handleApiError(retryRes, method), 'http');
+      }
+      return await _parseJsonResponse(retryRes);
+    }
     if (!res.ok) {
-      throw new ApiError(await _handleApiError(res, 'GET'), 'http');
+      throw new ApiError(await _handleApiError(res, method), 'http');
     }
-    try {
-      return await res.json();
-    } catch (e) {
-      console.warn('[FlowLink Proxy] apiGet: невалидный JSON:', e);
-      throw new ApiError('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.', 'json');
-    }
+    return await _parseJsonResponse(res);
   } catch (e) {
-    // Если ошибка уже типизирована (HTTP/JSON) — пробрасываем как есть
     if (e instanceof ApiError) {
       throw e;
     }
-    // Сетевая ошибка или таймаут — классифицируем
     const kind = _classifyFetchError(e);
     const prefix = kind === 'timeout' ? 'TIMEOUT:' : 'NETWORK:';
     throw new ApiError(prefix + (e.message || String(e)), kind);
   }
+}
+
+/**
+ * Выполняет fetch с заданными параметрами.
+ * @param {string} method — HTTP-метод.
+ * @param {string} endpoint — путь API.
+ * @param {object|null} body — тело запроса.
+ * @param {string|null} token — токен аутентификации.
+ * @returns {Promise<Response>}
+ */
+async function _fetchWithAuth(method, endpoint, body, token) {
+  const headers = authHeaders(token);
+  if (body !== null) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return await fetch(`${API_BASE}${endpoint}`, {
+    method,
+    headers,
+    body: body !== null ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(10000),
+  });
+}
+
+/**
+ * Парсит JSON-ответ, бросает ApiError при неудаче.
+ * @param {Response} res — ответ fetch.
+ * @returns {Promise<object>}
+ */
+async function _parseJsonResponse(res) {
+  try {
+    return await res.json();
+  } catch (e) {
+    console.warn('[FlowLink Proxy] api: невалидный JSON:', e);
+    throw new ApiError('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.', 'json');
+  }
+}
+
+export async function apiGet(endpoint) {
+  return await _apiRequest('GET', endpoint, null);
 }
 
 /**
@@ -105,33 +153,7 @@ export async function apiGet(endpoint) {
  * @returns {Promise<object>} — распарсенный JSON-ответ.
  */
 export async function apiPost(endpoint, body) {
-  try {
-    const token = await getAuthToken(API_BASE);
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      method: 'POST',
-      headers: authHeaders(token, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) {
-      throw new ApiError(await _handleApiError(res, 'POST'), 'http');
-    }
-    try {
-      return await res.json();
-    } catch (e) {
-      console.warn('[FlowLink Proxy] apiPost: невалидный JSON:', e);
-      throw new ApiError('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.', 'json');
-    }
-  } catch (e) {
-    // Если ошибка уже типизирована (HTTP/JSON) — пробрасываем как есть
-    if (e instanceof ApiError) {
-      throw e;
-    }
-    // Сетевая ошибка или таймаут — классифицируем
-    const kind = _classifyFetchError(e);
-    const prefix = kind === 'timeout' ? 'TIMEOUT:' : 'NETWORK:';
-    throw new ApiError(prefix + (e.message || String(e)), kind);
-  }
+  return await _apiRequest('POST', endpoint, body);
 }
 
 /**

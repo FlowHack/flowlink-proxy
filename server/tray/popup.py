@@ -294,6 +294,13 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             self._popup.attributes('-topmost', True)
             self._popup.configure(bg=PopupColors.BG)
             self._popup.focus_force()
+            # Сбрасываем остаточный grab после вложенного event loop
+            # (wait_variable в _launch_browser_callback), иначе
+            # grab_set() на новом popup может не перехватить события.
+            try:
+                self._root.grab_release()
+            except tk.TclError:
+                pass
             # grab_set() направляет все клики вне меню в popup-окно,
             # где их перехватывает bind_all('<Button-1>', _on_global_click)
             self._popup.grab_set()
@@ -562,6 +569,38 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                 'Popup: не удалось установить '
                 'обработчики закрытия меню: %s', e,
             )
+
+        # Fallback-опрос фокуса: если grab_set не перехватывает клики
+        # (например, после вложенного event loop), периодически проверяем
+        # фокус и закрываем меню при его потере.
+        def _poll_focus() -> None:
+            """Периодически проверяет фокус и закрывает меню при потере."""
+            if not self._popup or not self._popup.winfo_exists():
+                return
+            try:
+                focused = self._popup.focus_get()
+                # Если фокус ушёл на другое окно или None — закрываем
+                if focused is None or focused != self._popup:
+                    # Проверяем, что фокус не на дочернем виджете popup
+                    if focused is None or not str(focused).startswith(
+                        str(self._popup),
+                    ):
+                        self.dismiss()
+                        return
+            except tk.TclError:
+                self.dismiss()
+                return
+            # Продолжаем опрос пока popup открыт
+            try:
+                if self._popup and self._popup.winfo_exists():
+                    self._popup.after(200, _poll_focus)
+            except tk.TclError:
+                pass
+
+        try:
+            self._popup.after(250, _poll_focus)
+        except tk.TclError:
+            pass
 
         # Плавное появление
         self._fade_in()
