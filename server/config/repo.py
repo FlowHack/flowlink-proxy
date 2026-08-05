@@ -21,6 +21,8 @@ CONFIG_FILE = os.path.join(get_data_dir(), 'config.json')
 DEFAULT_CONFIG = {
     'proxies': [],
     'masks': [],
+    # id последнего включённого прокси — восстанавливается при запуске.
+    'lastActiveProxyId': None,
 }
 
 

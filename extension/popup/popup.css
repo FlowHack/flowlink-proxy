@@ -1035,12 +1035,16 @@ body {
   transform: translateX(-50%);
   background: var(--accent-red);
   color: #fff;
-  padding: 8px 16px;
+  padding: 10px 16px;
   border-radius: var(--radius);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.4;
   z-index: 200;
-  max-width: calc(100% - 32px);
+  /* Фиксированная ширина: длинные сообщения (например, конфликты масок)
+     переносятся аккуратно, а не растягивают тост на весь попап. */
+  width: calc(100% - 48px);
+  max-width: 340px;
   overflow-wrap: break-word;
   word-wrap: break-word;
   text-align: center;
@@ -1055,6 +1059,7 @@ body {
 
 .toast-error {
   background: var(--accent-red);
+  border: 1px solid var(--accent-red-hover);
 }
 
 .toast-warning {

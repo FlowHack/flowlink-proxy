@@ -1026,6 +1026,10 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
     автозапуск браузера и обработку сигналов — вынос в отдельные функции
     разорвал бы единый жизненный цикл сервера.
     """
+    # Восстанавливаем последний активный прокси перед инициализацией роутера,
+    # чтобы _rebuild сразу собрал корректные правила маршрутизации.
+    _restore_last_active_proxy()
+
     try:
         router = MaskRouter()
     except RuntimeError as e:
@@ -1203,6 +1207,65 @@ async def main() -> None:
         cfg.inject_proxies(fake_data)
 
     await _run_server(args)
+
+
+def _restore_last_active_proxy() -> None:
+    """Восстанавливает последний активный прокси при запуске.
+
+    Логика:
+      1. Читаем lastActiveProxyId из конфига.
+      2. Если прокси существует — включаем его, остальные выключаем.
+      3. Если lastActiveProxyId отсутствует или прокси не найден —
+         ничего не делаем (состояние включённости берётся из config.json).
+
+    Восстановление выполняется до инициализации MaskRouter, чтобы
+    _rebuild сразу собрал корректные правила маршрутизации.
+    """
+    try:
+        config_data = cfg.load_config(force=True)
+    except (OSError, RuntimeError) as e:
+        logger.warning('Не удалось загрузить конфиг для восстановления: %s', e)
+        return
+
+    proxies = config_data.get('proxies', [])
+    if not proxies:
+        return
+
+    last_active_id = cfg.get_last_active_proxy()
+    if not last_active_id:
+        # Нет последнего активного прокси (все выключены или включено
+        # несколько неконфликтующих) — оставляем состояние как есть.
+        return
+
+    # Проверяем, существует ли прокси.
+    target_exists = any(p.get('proxyId') == last_active_id for p in proxies)
+    if not target_exists:
+        logger.info(
+            'Последний активный прокси %s не найден, состояние не меняется',
+            last_active_id,
+        )
+        return
+
+    # Включаем целевой прокси, остальные выключаем.
+    changed = False
+    for proxy in proxies:
+        pid = proxy.get('proxyId')
+        if not pid:
+            continue
+        should_enable = pid == last_active_id
+        if proxy.get('isEnabled', True) != should_enable:
+            proxy['isEnabled'] = should_enable
+            changed = True
+
+    if changed:
+        try:
+            cfg.save_config(config_data)
+            logger.info(
+                'Восстановлен активный прокси: %s',
+                last_active_id,
+            )
+        except (OSError, RuntimeError) as e:
+            logger.warning('Не удалось сохранить восстановленный конфиг: %s', e)
 
 
 if __name__ == '__main__':

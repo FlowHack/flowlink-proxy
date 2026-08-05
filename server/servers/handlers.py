@@ -12,6 +12,7 @@ from server.config import config as cfg
 from server.config import system_autostart
 from server.services.debug import log_config_state
 from server.services.events import emit_event
+from server.services.mask_conflicts import validate_config
 from server.services.ping import ping_proxy
 from server.services.router import MaskRouter
 from server.services.tunnel import (close_all_connections,
@@ -104,8 +105,13 @@ def handle_get_config() -> dict:
         }
 
 
-async def handle_post_config(data: dict, router: MaskRouter) -> dict:
-    """POST /api/config — обновляет конфигурацию и перезагружает маршруты."""
+async def handle_post_config(data: dict, router: MaskRouter) -> dict | tuple[dict, int]:
+    """POST /api/config — обновляет конфигурацию и перезагружает маршруты.
+
+    Перед сохранением проверяет конфликты масок: в группе конфликтующих
+    прокси может быть включён только один. При конфликте возвращает
+    HTTP 422 с деталями.
+    """
     try:
         old_data = cfg.load_config()
         old_proxies = _extract_proxies_dict(old_data)
@@ -114,18 +120,41 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict:
         if not isinstance(data, dict):
             raise ValueError('Тело запроса должно быть JSON-объектом')
 
+        new_proxies = data.get('proxies', [])
+        new_masks = data.get('masks', [])
+
+        # Валидация конфликтов масок: не более одного включённого прокси
+        # в каждой группе конфликта.
+        conflicts = validate_config(new_proxies, new_masks)
+        if conflicts:
+            conflict = conflicts[0]
+            message = (
+                f'Прокси "{conflict["proxyLabel"]}" уже включён, и его маски '
+                f'пересекаются с масками прокси "{conflict["conflictingProxyLabel"]}". '
+                f'Выключите один из них или измените маски.'
+            )
+            logger.warning(
+                'Конфликт масок при сохранении конфига: %s',
+                message,
+            )
+            return {'error': message, 'conflict': conflict}, 422
+
         cfg.save_config(data)
 
-        new_proxies = _extract_proxies_dict(data)
-        new_masks = _extract_masks_dict(data)
+        # Обновляем lastActiveProxyId: если ровно один прокси включён —
+        # запоминаем его, иначе сбрасываем.
+        _update_last_active_proxy(new_proxies)
 
-        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies)
-        if needs_full_flush or old_masks != new_masks:
+        new_proxies_dict = _extract_proxies_dict(data)
+        new_masks_dict = _extract_masks_dict(data)
+
+        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+        if needs_full_flush or old_masks != new_masks_dict:
             close_all_connections()
 
         router.refresh()
 
-        _log_config_changes(old_proxies, new_proxies, old_masks, new_masks)
+        _log_config_changes(old_proxies, new_proxies_dict, old_masks, new_masks_dict)
         log_config_state()
 
         await emit_event('config_changed', {})
@@ -134,6 +163,22 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict:
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка сохранения конфига: %s', e)
         return {'error': 'Не удалось сохранить конфигурацию'}
+
+
+def _update_last_active_proxy(proxies: list) -> None:
+    """Обновляет lastActiveProxyId по списку прокси.
+
+    Если включён ровно один прокси — запоминаем его id.
+    Если включено несколько или ни одного — сбрасываем.
+    """
+    enabled_ids = [
+        p.get('proxyId') for p in proxies
+        if p.get('proxyId') and p.get('isEnabled', True)
+    ]
+    if len(enabled_ids) == 1:
+        cfg.set_last_active_proxy(enabled_ids[0])
+    else:
+        cfg.set_last_active_proxy(None)
 
 
 def handle_get_status(debug: bool, need_update: bool = False) -> dict:

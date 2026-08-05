@@ -148,10 +148,12 @@ def set_enabled(val: bool) -> None:
 
 def save_config(data: dict) -> None:
     """Шифрует username/password и сохраняет конфиг.
-    isEnabled НЕ пишется в файл — хранится только в памяти."""
+    isEnabled НЕ пишется в файл — хранится только в памяти.
+    lastActiveProxyId сохраняется из текущего файла, если не передан явно."""
     to_save = {
         'proxies': [],
         'masks': data.get('masks', []),
+        'lastActiveProxyId': data.get('lastActiveProxyId', _load_last_active()),
     }
 
     for proxy in data.get('proxies', []):
@@ -258,6 +260,8 @@ def inject_proxies(data: dict) -> int:
     merged = {
         'proxies': existing_proxies + new_proxies,
         'masks': existing_masks + new_masks,
+        # Сохраняем lastActiveProxyId, чтобы инъекция не затирала его.
+        'lastActiveProxyId': existing.get('lastActiveProxyId'),
     }
 
     invalidate_cache()
@@ -271,3 +275,38 @@ def inject_proxies(data: dict) -> int:
         len(new_proxies), len(new_masks), proxy_count, mask_count,
     )
     return len(new_proxies)
+
+
+def _load_last_active() -> str | None:
+    """Возвращает lastActiveProxyId из файла конфига (без кэша)."""
+    try:
+        data = load_raw()
+    except (OSError, RuntimeError) as e:
+        logger.warning('Не удалось прочитать lastActiveProxyId: %s', e)
+        return None
+    value = data.get('lastActiveProxyId')
+    return value if isinstance(value, str) and value else None
+
+
+def get_last_active_proxy() -> str | None:
+    """Возвращает id последнего включённого прокси или None."""
+    return _load_last_active()
+
+
+def set_last_active_proxy(proxy_id: str | None) -> None:
+    """Сохраняет id последнего включённого прокси в config.json.
+
+    Args:
+        proxy_id: id прокси или None для сброса.
+    """
+    try:
+        data = load_raw()
+    except (OSError, RuntimeError) as e:
+        logger.warning('Не удалось обновить lastActiveProxyId: %s', e)
+        return
+    data['lastActiveProxyId'] = proxy_id if proxy_id else None
+    invalidate_cache()
+    try:
+        save_raw(data)
+    except OSError as e:
+        logger.error('Не удалось сохранить lastActiveProxyId: %s', e)

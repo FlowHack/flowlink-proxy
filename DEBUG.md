@@ -234,7 +234,7 @@ python -m server --debug --test-fallback-icon
 | Метод | Путь | Описание |
 |-------|------|----------|
 | `GET` | `/api/config` | Получить конфигурацию (прокси, маски, isEnabled) |
-| `POST` | `/api/config` | Обновить конфигурацию. Тело — JSON-объект с `proxies[]` и `masks[]` |
+| `POST` | `/api/config` | Обновить конфигурацию. Тело — JSON-объект с `proxies[]` и `masks[]`. При конфликте масок (включено более одного прокси из группы с пересекающимися масками) возвращает `422` с `{"error": "...", "conflict": {...}}` |
 | `POST` | `/api/enabled` | Установить глобальный флаг. Тело: `{"enabled": true/false}` |
 | `GET` | `/api/status` | Статус backend (proxiesCount, masksCount, debug, needUpdate) |
 | `GET` | `/api/version` | Версия сервера: `{"version": "X.X.X"}` |
@@ -289,7 +289,6 @@ curl -X POST http://127.0.0.1:8081/api/ping \
 
 ```json
 {
-  "isEnabled": true,
   "proxies": [
     {
       "proxyId": "uuid",
@@ -305,11 +304,17 @@ curl -X POST http://127.0.0.1:8081/api/ping \
     {
       "maskId": "uuid",
       "proxyId": "uuid",
-      "regexString": "*.google.com"
+      "pattern": "*google.com*",
+      "regexString": ".*google\\.com.*"
     }
-  ]
+  ],
+  "lastActiveProxyId": "uuid"
 }
 ```
+
+> `isEnabled` (глобальный тоггл) хранится только в памяти и в config.json не пишется.
+> `lastActiveProxyId` — id последнего включённого прокси, восстанавливается при запуске.
+> Маска содержит `pattern` (wildcard-шаблон для UI) и `regexString` (сконвертированный regex для маршрутизации).
 
 Файл `.flowlink-settings` (JSON) в директории данных содержит:
 

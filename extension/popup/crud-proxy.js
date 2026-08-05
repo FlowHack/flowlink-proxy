@@ -197,7 +197,15 @@ export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения прокси:', e);
-    showToast('Не удалось переключить прокси. Проверьте соединение с бэкендом.', 'error');
+    // При 422 сервер возвращает текст конфликта масок — показываем его.
+    // Чекбокс не переключается, т.к. apiPost бросил исключение до loadAndRender.
+    const isNetworkError = e.kind === 'network' || e.kind === 'timeout'
+      || e.message.startsWith('NETWORK:') || e.message.startsWith('TIMEOUT:')
+      || e.message.includes('Failed to fetch');
+    const msg = isNetworkError
+      ? 'Не удалось переключить прокси. Проверьте соединение с бэкендом.'
+      : e.message;
+    showToast(msg, 'error');
   } finally {
     checkbox.disabled = false;
   }
