@@ -98,7 +98,7 @@ let eventSource = null;
 let _sseErrorCount = 0;
 
 /**
- * Проверяет валидность токена через запрос к /api/version.
+ * Проверяет валидность токена через запрос к /api/status.
  * Возвращает true, если токен валиден (или сервер недоступен — пытаемся открыть SSE).
  * Возвращает false, если получен 401/403 — токен устарел.
  * @param {string} baseUrl — базовый URL API (http://127.0.0.1:port/api).
@@ -107,7 +107,7 @@ let _sseErrorCount = 0;
  */
 async function _verifyToken(baseUrl, token) {
   try {
-    const res = await fetch(`${baseUrl}/version`, {
+    const res = await fetch(`${baseUrl}/status`, {
       method: 'GET',
       headers: authHeaders(token),
       signal: AbortSignal.timeout(3000),
