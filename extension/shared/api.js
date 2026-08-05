@@ -66,9 +66,9 @@ function _classifyFetchError(e) {
 }
 
 /**
- * Выполняет HTTP-запрос к API с автоматическим сбросом токена при 401.
+ * Выполняет HTTP-запрос к API с автоматическим сбросом токена при 401/403.
  *
- * При получении 401 (токен больше не валиден — бэкенд перезапущен):
+ * При получении 401/403 (токен больше не валиден — бэкенд перезапущен):
  * 1. Сбрасывает старый токен (кэш + storage)
  * 2. Перезапрашивает токен через bootstrap
  * 3. Повторяет исходный запрос с новым токеном
@@ -82,9 +82,9 @@ async function _apiRequest(method, endpoint, body) {
   try {
     const token = await getAuthToken(API_BASE);
     const res = await _fetchWithAuth(method, endpoint, body, token);
-    if (!res.ok && res.status === 401) {
-      // Токен больше не валиден (бэкенд перезапущен) — сбрасываем и пробуем ещё раз
-      console.log('[FlowLink Proxy] api: получен 401, сбрасываю токен и перезапрашиваю');
+    if (!res.ok && (res.status === 401 || res.status === 403)) {
+      // Токен невалиден (401/403) — бэкенд мог перезапуститься, сбрасываем и пробуем ещё раз
+      console.log('[FlowLink Proxy] api: получен ' + res.status + ', сбрасываю токен и перезапрашиваю');
       await resetAuthToken();
       const newToken = await getAuthToken(API_BASE);
       const retryRes = await _fetchWithAuth(method, endpoint, body, newToken);

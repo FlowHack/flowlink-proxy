@@ -7,7 +7,7 @@
  * чтобы popup знал, что данные изменились.
  */
 
-import { getAuthToken, authHeaders } from '../shared/auth.js';
+import { getAuthToken, authHeaders, resetAuthToken } from '../shared/auth.js';
 
 console.log('[FlowLink Proxy] Service Worker стартует');
 
@@ -98,6 +98,31 @@ let eventSource = null;
 let _sseErrorCount = 0;
 
 /**
+ * Проверяет валидность токена через запрос к /api/version.
+ * Возвращает true, если токен валиден (или сервер недоступен — пытаемся открыть SSE).
+ * Возвращает false, если получен 401/403 — токен устарел.
+ * @param {string} baseUrl — базовый URL API (http://127.0.0.1:port/api).
+ * @param {string} token — токен авторизации.
+ * @returns {Promise<boolean>}
+ */
+async function _verifyToken(baseUrl, token) {
+  try {
+    const res = await fetch(`${baseUrl}/version`, {
+      method: 'GET',
+      headers: authHeaders(token),
+      signal: AbortSignal.timeout(3000),
+    });
+    // 401/403 — невалидный токен, остальные коды (включая 200/500) считаем валидными,
+    // чтобы не блокировать попытку подключения к SSE.
+    return res.status !== 401 && res.status !== 403;
+  } catch (e) {
+    // Сеть недоступна или таймаут — считаем токен валидным (попытка SSE всё равно будет)
+    console.debug('[FlowLink Proxy] SSE: не удалось проверить токен:', (e && e.message) ? e.message : e);
+    return true;
+  }
+}
+
+/**
  * Подключается к SSE-эндпоинту бэкенда.
  * При получении config_changed — сохраняет флаг в storage.
  * Автоматически переподключается при обрыве.
@@ -110,7 +135,16 @@ function connectSSE() {
   // EventSource не поддерживает кастомные заголовки, поэтому токен
   // передаётся в query-параметре. Бэкенд маскирует его в логах.
   const baseUrl = `http://127.0.0.1:${apiPort}/api`;
-  getAuthToken(baseUrl).then((token) => {
+  getAuthToken(baseUrl).then(async (token) => {
+    // Проверяем, что токен ещё валиден: бэкенд мог перезапуститься и сгенерировать новый
+    if (token) {
+      const isTokenValid = await _verifyToken(baseUrl, token);
+      if (!isTokenValid) {
+        console.warn('[FlowLink Proxy] SSE: токен устарел (401/403), сбрасываю и перезапрашиваю через bootstrap');
+        await resetAuthToken();
+        token = await getAuthToken(baseUrl);
+      }
+    }
     const url = token
       ? `${baseUrl}/events?token=${encodeURIComponent(token)}`
       : `${baseUrl}/events`;
