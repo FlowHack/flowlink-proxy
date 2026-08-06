@@ -70,13 +70,18 @@ class TestParserRegex(unittest.TestCase):
         """RE_HTTP совпадает с корректным HTTP запросом"""
         match = RE_HTTP.match(b'GET http://example.com/path HTTP/1.1\r\n')
         self.assertIsNotNone(match)
-        host = match.group(2).decode()  # type: ignore[reportOptionalMemberAccess]
+        # group(2) — схема, group(3) — host
+        scheme = match.group(2).decode()  # type: ignore[reportOptionalMemberAccess]
+        host = match.group(3).decode()  # type: ignore[reportOptionalMemberAccess]
+        self.assertEqual(scheme, 'http')
         self.assertEqual(host, 'example.com')
 
     def test_http_regex_https(self):
         """RE_HTTP совпадает с https URL"""
         match = RE_HTTP.match(b'GET https://example.com/ HTTP/1.1\r\n')
         self.assertIsNotNone(match)
+        scheme = match.group(2).decode()  # type: ignore[reportOptionalMemberAccess]
+        self.assertEqual(scheme, 'https')
 
     def test_http_regex_no_method(self):
         """Не HTTP запрос → None"""
@@ -128,23 +133,28 @@ class TestParserParseHttp(unittest.TestCase):
         self.assertIn(b'GET /path HTTP/1.1', relative_line)
 
     def test_valid_post_with_port(self):
-        """POST с явным портом — порт входит в host-group парсера"""
+        """POST с явным портом — порт парсится из URL"""
         result = parse_http(b'POST http://example.com:8080/api HTTP/1.1')
         self.assertIsNotNone(result)
         _, host, port, path, _ = result  # type: ignore[reportGeneralTypeIssues]
-        # Парсер включает порт в host-group: example.com:8080
-        self.assertEqual(host, 'example.com:8080')
-        # Группа порта не захватывается отдельно (поглощается хостом)
-        self.assertEqual(port, 80)
+        self.assertEqual(host, 'example.com')
+        self.assertEqual(port, 8080)
         self.assertEqual(path, '/api')
 
     def test_valid_https(self):
-        """HTTPS URL — порт по умолчанию 80 (парсер не различает http/https)"""
+        """HTTPS URL без порта — порт по умолчанию 443"""
         result = parse_http(b'GET https://example.com/ HTTP/1.1')
         self.assertIsNotNone(result)
+        _, host, port, _, _ = result  # type: ignore[reportGeneralTypeIssues]
+        self.assertEqual(host, 'example.com')
+        self.assertEqual(port, 443)
+
+    def test_valid_https_with_explicit_port(self):
+        """HTTPS URL с явным портом — явный порт имеет приоритет"""
+        result = parse_http(b'GET https://example.com:8443/ HTTP/1.1')
+        self.assertIsNotNone(result)
         _, _, port, _, _ = result  # type: ignore[reportGeneralTypeIssues]
-        # Парсер использует порт по умолчанию 80 для всех протоколов
-        self.assertEqual(port, 80)
+        self.assertEqual(port, 8443)
 
     def test_http_invalid(self):
         """Некорректная строка → None"""

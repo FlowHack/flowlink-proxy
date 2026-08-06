@@ -14,6 +14,19 @@ from server.config import config
 
 logger = logging.getLogger('flowlink.router')
 
+# Максимальная длина URL для проверки по маскам. Сверхдлинные URL (патологически
+# длинные query/path) пропускаются без regex-поиска — защита от ReDoS и
+# от раздувания логов при маршрутизации.
+_MAX_ROUTE_URL_LENGTH = 8192
+# Максимальная длина исходного текста regex-маски. Сверхдлинные маски
+# пропускаются: компиляция и поиск по ним дороги и редко легитимны.
+_MAX_MASK_REGEX_LENGTH = 300
+# Эвристика обнаружения «вложенных квантификаторов» — главного источника ReDoS:
+# группа, внутри которой есть квантификатор (+/*/?) и которая сама имеет
+# неограниченный квантификатор (+/*). Примеры: (a+)+, (a*)*, (a?)+, (\w+)+.
+# Такие маски пропускаются с предупреждением вместо выполнения дорогого поиска.
+_RE_UNSAFE_PATTERN = re.compile(r'\([^()]*[+*?][^()]*\)[+*]')
+
 
 class MaskRouter:
     """
@@ -33,7 +46,9 @@ class MaskRouter:
         self._proxy_map: dict[str, dict] = {}
         self._rebuild()
 
-    def _rebuild(self) -> None:
+    def _rebuild(  # pylint: disable=too-many-branches,too-many-statements  # множество проверок валидности масок и прокси
+        self,
+    ) -> None:
         """
         Перестраивает список правил из текущего конфига.
         Вызывается при инициализации и refresh().
@@ -90,6 +105,20 @@ class MaskRouter:
                 logger.debug('Маска %s пропущена: прокси %s выключен', regex_raw, pid)
                 continue
 
+            if len(regex_raw) > _MAX_MASK_REGEX_LENGTH:
+                logger.warning(
+                    'Маска %s слишком длинная (%d символов, лимит %d), пропущена',
+                    pid, len(regex_raw), _MAX_MASK_REGEX_LENGTH,
+                )
+                continue
+            if _RE_UNSAFE_PATTERN.search(regex_raw):
+                logger.warning(
+                    'Маска %s содержит потенциально опасный regex '
+                    '(вложенные квантификаторы, риск ReDoS), пропущена: %s',
+                    pid, regex_raw,
+                )
+                continue
+
             try:
                 regex = re.compile(regex_raw)
             except re.error as e:
@@ -129,6 +158,17 @@ class MaskRouter:
         Returns:
             Словарь с host/port/username/password или None, если нет совпадений.
         """
+        if url is None:
+            return None
+        # Ограничение длины URL: сверхдлинные URL не проверяются по маскам
+        # (защита от ReDoS-атак через длинный вход для «тяжёлых» regex).
+        if len(url) > _MAX_ROUTE_URL_LENGTH:
+            logger.warning(
+                'URL слишком длинный (%d символов, лимит %d) — '
+                'regex-поиск пропущен (защита от ReDoS)',
+                len(url), _MAX_ROUTE_URL_LENGTH,
+            )
+            return None
         for rule in self._rules:
             try:
                 if rule['regex'].search(url):

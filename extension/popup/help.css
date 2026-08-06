@@ -1,5 +1,6 @@
 /* Стили страницы установки расширения (help.html).
-   Тёмная тема с фиолетовым акцентом — единая стилистика FlowLink Proxy. */
+   Тёмная тема с красным акцентом — единая стилистика FlowLink Proxy.
+   Цвета синхронизированы с ThemeColors (server/ui/theme.py). */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -13,10 +14,10 @@ body {
 
 .container { max-width: 640px; margin: 0 auto; }
 
-h1 { color: #7c6bff; margin-bottom: 1rem; font-size: 1.5rem; }
-h2 { color: #9d8fff; margin: 1.5rem 0 0.5rem; font-size: 1.1rem; }
+h1 { color: #e74c3c; margin-bottom: 1rem; font-size: 1.5rem; }
+h2 { color: #c0392b; margin: 1.5rem 0 0.5rem; font-size: 1.1rem; }
 p { margin-bottom: 0.8rem; }
-a { color: #7c6bff; }
+a { color: #e74c3c; }
 ol, ul { padding-left: 1.5rem; margin-bottom: 1rem; }
 li { margin-bottom: 0.4rem; }
 
@@ -37,7 +38,7 @@ code {
 
 .step-num {
   display: inline-block;
-  background: #7c6bff;
+  background: #e74c3c;
   color: #fff;
   width: 24px;
   height: 24px;
@@ -61,6 +62,6 @@ code {
   margin-top: 2rem;
   padding-top: 1rem;
   border-top: 1px solid #2a2a4a;
-  color: #666;
+  color: #666666;
   font-size: 0.85rem;
 }

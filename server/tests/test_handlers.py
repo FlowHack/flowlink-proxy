@@ -270,6 +270,35 @@ class TestLogConfigChanges(unittest.TestCase):
         msgs = self._get_log_messages()
         self.assertTrue(any('Удалена маска' in m for m in msgs))
 
+    def test_mask_change_not_logged(self):
+        """Изменение regexString маски НЕ логируется (фиксация текущего контракта)
+
+        _log_config_changes сообщает только о добавленных/удалённых масках,
+        изменение существующей маски не попадает в лог.
+        """
+        old_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}}
+        new_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.org'}}
+        proxy = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        _log_config_changes(proxy, proxy, old_m, new_m)
+        self.assertEqual(self._get_log_messages(), [])
+
+    def test_proxy_username_password_change_not_logged(self):
+        """Изменение только username/password прокси НЕ логируется
+
+        Текущий контракт: логируется смена host/port, а смена
+        credentials (username/password) — нет.
+        """
+        old_p = {
+            'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
+                   'username': 'old_user', 'password': 'old_pass'},
+        }
+        new_p = {
+            'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
+                   'username': 'new_user', 'password': 'new_pass'},
+        }
+        _log_config_changes(old_p, new_p, {}, {})
+        self.assertEqual(self._get_log_messages(), [])
+
 
 class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
     """Тесты handle_post_config — критический путь сохранения конфига."""

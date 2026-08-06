@@ -7,6 +7,7 @@
 """
 
 import signal
+import subprocess
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -18,7 +19,7 @@ from server.config.browser_process import (find_browser_pids,
                                            is_browser_running,
                                            is_browser_running_with_proxy,
                                            kill_browser_processes,
-                                           _proxy_arg_pattern)
+                                           _parse_pids, _proxy_arg_pattern)
 
 # Путь к браузеру, используемый в большинстве тестов
 _BROWSER = '/usr/bin/google-chrome'
@@ -145,6 +146,51 @@ class TestFindBrowserPids(unittest.TestCase):
         result = find_browser_pids(r'C:\browser.exe')
         self.assertEqual(result, [42])
         self.assertEqual(mock_run.call_count, 2)
+
+    @patch('server.config.browser_process.sys.platform', 'win32')
+    @patch('server.config.browser_process.subprocess.run')
+    def test_windows_wmic_timeout_uses_powershell(self, mock_run):
+        """Таймаут wmic (TimeoutExpired) — fallback на PowerShell."""
+        mock_run.side_effect = [
+            subprocess.TimeoutExpired('wmic', 10),
+            SimpleNamespace(returncode=0, stdout='ProcessId\n999\n', stderr=''),
+        ]
+        result = find_browser_pids(r'C:\browser.exe')
+        self.assertEqual(result, [999])
+        self.assertEqual(mock_run.call_count, 2)
+        second_args = mock_run.call_args_list[1].args[0]
+        self.assertEqual(second_args[0], 'powershell')
+
+    @patch('server.config.browser_process.sys.platform', 'linux')
+    @patch('server.config.browser_process.subprocess.run',
+           side_effect=subprocess.TimeoutExpired('pgrep', 10))
+    def test_posix_timeout_returns_empty(self, _mock_run):
+        """Таймаут pgrep (TimeoutExpired) — пустой список (без падения)."""
+        self.assertEqual(find_browser_pids(_BROWSER), [])
+
+
+class TestParsePids(unittest.TestCase):
+    """Прямые тесты _parse_pids — разбор вывода wmic/PowerShell/pgrep."""
+
+    def test_parses_numeric_lines(self):
+        """Числовые строки разбираются в список целых PID."""
+        self.assertEqual(
+            _parse_pids('ProcessId\n123\n456\n'), [123, 456],
+        )
+
+    def test_skips_garbage_and_empty_lines(self):
+        """Заголовки, пустые и нечисловые строки пропускаются."""
+        self.assertEqual(
+            _parse_pids('PID\n123\n\nabc\n456\n'), [123, 456],
+        )
+
+    def test_empty_output(self):
+        """Пустой вывод — пустой список."""
+        self.assertEqual(_parse_pids(''), [])
+
+    def test_case_insensitive_header(self):
+        """Заголовок 'processid' (нижний регистр) пропускается."""
+        self.assertEqual(_parse_pids('processid\n7\n'), [7])
 
 
 class TestIsBrowserRunning(unittest.TestCase):

@@ -77,6 +77,16 @@ class TestMaskSensitive(unittest.TestCase):
         result = mask_sensitive('{"password":"has \\"escaped\\" quote"}')
         self.assertIn('"password":"***"', result)
 
+    def test_masks_backslash_in_value(self):
+        """Значение с бэкслешем внутри (pass\\word) → маскируется целиком."""
+        result = mask_sensitive(r'{"password":"pass\word"}')
+        self.assertEqual(result, '{"password":"***"}')
+
+    def test_masks_trailing_backslash_in_value(self):
+        """Значение с завершающим бэкслешем → маскируется целиком."""
+        result = mask_sensitive(r'{"password":"trailing\\"}')
+        self.assertEqual(result, '{"password":"***"}')
+
     def test_does_not_mask_normal_fields(self):
         """Обычные поля не изменяются."""
         self.assertEqual(

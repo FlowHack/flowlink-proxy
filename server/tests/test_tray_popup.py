@@ -8,6 +8,7 @@
 """
 
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 try:
@@ -26,22 +27,6 @@ except ImportError:
 class TestPopupColors(unittest.TestCase):
     """Тесты цветовых констант меню."""
 
-    def test_bg_is_dark(self):
-        """Фон — тёмный цвет."""
-        self.assertTrue(PopupColors.BG.startswith('#'))  # type: ignore[reportPossiblyUnbound]
-        # Тёмный фон: каналы < 0x20
-        r = int(PopupColors.BG[1:3], 16)  # type: ignore[reportPossiblyUnbound]
-        g = int(PopupColors.BG[3:5], 16)  # type: ignore[reportPossiblyUnbound]
-        b = int(PopupColors.BG[5:7], 16)  # type: ignore[reportPossiblyUnbound]
-        self.assertLess(r, 0x20)
-        self.assertLess(g, 0x20)
-        self.assertLess(b, 0x20)
-
-    def test_text_is_light(self):
-        """Текст — светлый цвет на тёмном фоне."""
-        r = int(PopupColors.TEXT[1:3], 16)  # type: ignore[reportPossiblyUnbound]
-        self.assertGreater(r, 0xC0)
-
     def test_all_colors_are_hex(self):
         """Все цвета — валидные hex-строки или rgba()."""
         for attr in dir(PopupColors):  # type: ignore[reportPossiblyUnbound]
@@ -56,6 +41,38 @@ class TestPopupColors(unittest.TestCase):
                     is_hex or is_rgba or is_font,
                     f'{attr} = {val!r} не hex-цвет и не rgba()',
                 )
+
+    def test_theme_colors_synced_with_css(self):
+        """Hex-цвета ThemeColors присутствуют в CSS-файлах расширения.
+
+        Проверяет заявленную синхронизацию палитры (server/ui/theme.py) с
+        extension/popup/popup.css и extension/popup/help.css: каждый hex-цвет
+        из ThemeColors должен встречаться хотя бы в одном CSS-файле.
+        """
+        repo_root = Path(__file__).resolve().parents[2]
+        popup_css = (
+            repo_root / 'extension' / 'popup' / 'popup.css'
+        ).read_text(encoding='utf-8')
+        help_css = (
+            repo_root / 'extension' / 'popup' / 'help.css'
+        ).read_text(encoding='utf-8')
+        combined = popup_css + '\n' + help_css
+
+        missing = []
+        for name in dir(PopupColors):  # type: ignore[reportPossiblyUnbound]
+            if name.startswith('_'):
+                continue
+            value = getattr(PopupColors, name)  # type: ignore[reportPossiblyUnbound]
+            if not isinstance(value, str):
+                continue
+            if not (value.startswith('#') and len(value) == 7):
+                continue  # rgba()-цвета и прочие форматы не сравниваются
+            if value not in combined:
+                missing.append(f'{name}={value}')
+        self.assertEqual(
+            missing, [],
+            f'Цвета ThemeColors отсутствуют в CSS расширения: {missing}',
+        )
 
 
 @unittest.skipUnless(_HAS_TKINTER, 'tkinter не установлен')

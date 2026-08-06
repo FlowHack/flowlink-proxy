@@ -182,7 +182,11 @@ class TestRouterExceptions(TempConfigMixin, unittest.TestCase):
         self.assertEqual(result['proxyId'], 'p1')  # type: ignore[reportOptionalSubscript]
 
     def test_route_long_url(self):
-        """Очень длинный URL (10 КБ) не вызывает ReDoS"""
+        """URL длиннее лимита (10 КБ) → маршрутизация пропускается (защита от ReDoS)
+
+        Сверхдлинные URL не проверяются по маскам — возвращается None,
+        а не выполняется потенциально дорогой regex-поиск.
+        """
         config_repo.save_raw({
             'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
                          'username': '', 'password': '', 'isEnabled': True}],
@@ -192,7 +196,7 @@ class TestRouterExceptions(TempConfigMixin, unittest.TestCase):
         router = MaskRouter()
         long_path = 'a' * 10240
         result = router.route(f'https://www.example.com/{long_path}')
-        self.assertIsNotNone(result)
+        self.assertIsNone(result)
 
     def test_route_special_chars_in_url(self):
         """URL со спецсимволами (query params, fragment)"""
@@ -206,3 +210,57 @@ class TestRouterExceptions(TempConfigMixin, unittest.TestCase):
         url = 'https://www.example.com/path?a=1&b=2#section'
         result = router.route(url)
         self.assertIsNotNone(result)
+
+    def test_route_proxy_with_invalid_host_port_skipped(self):
+        """Прокси с некорректными host/port → маска пропускается"""
+        config_repo.save_raw({
+            'proxies': [
+                {'proxyId': 'p_no_host', 'host': '', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': True},
+                {'proxyId': 'p_bad_port', 'host': '10.0.0.9', 'port': 0,
+                 'username': '', 'password': '', 'isEnabled': True},
+                {'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                 'username': '', 'password': '', 'isEnabled': True},
+            ],
+            'masks': [
+                {'maskId': 'm_no_host', 'proxyId': 'p_no_host',
+                 'regexString': r'\.nohost\.com'},
+                {'maskId': 'm_bad_port', 'proxyId': 'p_bad_port',
+                 'regexString': r'\.badport\.com'},
+                {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.example\.com'},
+            ],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        # Маски, ссылающиеся на прокси с битыми host/port, не маршрутизируются
+        self.assertIsNone(router.route('https://www.nohost.com/'))
+        self.assertIsNone(router.route('https://www.badport.com/'))
+        # Рабочий прокси продолжает маршрутизироваться
+        result = router.route('https://www.example.com/')
+        self.assertIsNotNone(result)
+        self.assertEqual(result['host'], '10.0.0.1')  # type: ignore[reportOptionalSubscript]
+
+    def test_route_redos_pattern_does_not_hang(self):
+        """Опасный regex (вложенные квантификаторы) не зависает на длинной строке
+
+        Маска (a+)+$ — классический ReDoS: без защиты поиск по строке
+        из тысяч символов 'a' с хвостом '!' занимал бы экспоненциальное время.
+        Защита: такая маска пропускается при сборке правил, поэтому
+        маршрутизация завершается мгновенно, возвращая None.
+        """
+        config_repo.save_raw({
+            'proxies': [{'proxyId': 'p1', 'host': '10.0.0.1', 'port': 1080,
+                         'username': '', 'password': '', 'isEnabled': True}],
+            'masks': [
+                {'maskId': 'm_redos', 'proxyId': 'p1', 'regexString': r'(a+)+$'},
+                {'maskId': 'm_good', 'proxyId': 'p1', 'regexString': r'\.example\.com'},
+            ],
+            'isEnabled': True,
+        })
+        router = MaskRouter()
+        # Длинная строка 'a' с '!' в конце — триггер экспоненциального бэктрекинга
+        long_url = 'https://' + 'a' * 5000 + '!' + '/'
+        result = router.route(long_url)
+        self.assertIsNone(result)
+        # Обычная маска продолжает работать
+        self.assertIsNotNone(router.route('https://www.example.com/'))

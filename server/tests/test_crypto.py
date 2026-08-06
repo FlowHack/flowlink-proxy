@@ -51,6 +51,7 @@ class TestCryptoExceptions(unittest.TestCase):
         """Пустая строка → пустая строка"""
         self.assertEqual(crypto_mod.decrypt(''), '')
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_encrypt_decrypt_roundtrip(self):
         """Шифрование-дешифрование работает корректно"""
         original = 'my_secret_password'
@@ -58,6 +59,7 @@ class TestCryptoExceptions(unittest.TestCase):
         decrypted = crypto_mod.decrypt(encrypted)
         self.assertEqual(original, decrypted)
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_encrypt_decrypt_unicode(self):
         """Шифрование-дешифрование Unicode-строки"""
         original = 'пароль_кириллица_🔑'
@@ -65,6 +67,7 @@ class TestCryptoExceptions(unittest.TestCase):
         decrypted = crypto_mod.decrypt(encrypted)
         self.assertEqual(original, decrypted)
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_encrypt_decrypt_long_string(self):
         """Шифрование-дешифрование длинной строки (10 КБ)"""
         original = 'x' * 10240
@@ -134,6 +137,7 @@ class TestCryptoExceptions(unittest.TestCase):
         with open(crypto_mod.SALT_FILE, 'rb') as f:
             self.assertEqual(f.read(), test_salt)
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_multiple_encryptions_different_ciphertexts(self):
         """Два шифрования одной строки дают разный шифротекст (разный IV)"""
         text = 'same_password'
@@ -171,7 +175,7 @@ class TestDerivedKeyCache(unittest.TestCase):
         """Второй вызов _derive_key с той же парой (ключ, соль) не выполняет PBKDF2"""
         master = crypto_mod.load_or_create_key()
         with patch.object(
-            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
         ) as mock_pbkdf2:
             first = crypto_mod._derive_key(master)  # pylint: disable=protected-access  # internal: проверка кэша
             second = crypto_mod._derive_key(master)  # pylint: disable=protected-access
@@ -182,7 +186,7 @@ class TestDerivedKeyCache(unittest.TestCase):
         """После reset_key_cache PBKDF2 выполняется заново"""
         master = crypto_mod.load_or_create_key()
         with patch.object(
-            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
         ) as mock_pbkdf2:
             crypto_mod._derive_key(master)  # pylint: disable=protected-access
             crypto_mod.reset_key_cache()
@@ -193,7 +197,7 @@ class TestDerivedKeyCache(unittest.TestCase):
         """Смена соли через _save_salt инвалидирует кэш производного ключа"""
         master = crypto_mod.load_or_create_key()
         with patch.object(
-            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
         ) as mock_pbkdf2:
             crypto_mod._derive_key(master)  # pylint: disable=protected-access
             crypto_mod._save_salt(os.urandom(32))  # pylint: disable=protected-access
@@ -203,7 +207,7 @@ class TestDerivedKeyCache(unittest.TestCase):
     def test_cache_invalidated_on_key_recreate(self):
         """Пересоздание ключа (повреждённый файл) инвалидирует кэш"""
         with patch.object(
-            crypto_mod, 'pbkdf2_hmac', wraps=crypto_mod.pbkdf2_hmac,
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
         ) as mock_pbkdf2:
             old_master = crypto_mod.load_or_create_key()
             crypto_mod._derive_key(old_master)  # pylint: disable=protected-access

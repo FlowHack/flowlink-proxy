@@ -48,21 +48,12 @@ class TestGetDataDirPlatform(unittest.TestCase):
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_linux_uses_home(self, mock_sys, _mock_makedirs):
-        """На Linux/macOS используется $HOME/.FlowHack/FlowLink Proxy."""
-        mock_sys.platform = 'linux'
-        mock_sys.frozen = False
-        result = get_data_dir()
-        home = os.path.expanduser('~')
-        self.assertEqual(
-            result, os.path.join(home, '.FlowHack', 'FlowLink Proxy'),
-        )
+        """На Linux используется $HOME/.FlowHack/FlowLink Proxy.
 
-    @patch.dict(os.environ, {}, clear=True)
-    @patch('os.makedirs')
-    @patch('server.utils.sys')
-    def test_macos_uses_home(self, mock_sys, _mock_makedirs):
-        """На macOS используется $HOME/.FlowHack/FlowLink Proxy."""
-        mock_sys.platform = 'darwin'
+        macOS (darwin) попадает в ту же ветку else, что и Linux —
+        отдельного теста не требуется (общая логика).
+        """
+        mock_sys.platform = 'linux'
         mock_sys.frozen = False
         result = get_data_dir()
         home = os.path.expanduser('~')
