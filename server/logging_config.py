@@ -9,8 +9,12 @@ import logging.handlers
 import os
 import sys
 
+# Текущий уровень логирования для файлового хендлера (сохраняется между вызовами reopen_logging)
+# pylint: disable=invalid-name  # мутабельная переменная уровня модуля, а не константа
+_current_level = logging.INFO
 
-def reopen_logging(recreate: bool = True, level: int = logging.INFO) -> None:
+
+def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
     """
     Переоткрывает файловый хендлер логгера.
 
@@ -23,8 +27,11 @@ def reopen_logging(recreate: bool = True, level: int = logging.INFO) -> None:
         recreate: Создавать ли новый хендлер после закрытия старого.
             False нужно для очистки логов: файл лога освобождается
             до удаления, а новый хендлер создаётся после (в finally).
-        level: Уровень логирования для нового хендлера.
+        level: Уровень логирования для нового хендлера. Если None, используется
+            текущий уровень (_current_level), сохранённый при setup_logging.
     """
+    if level is None:
+        level = _current_level
     root = logging.getLogger()
     log_file = None
     old_handler = None
@@ -104,8 +111,10 @@ def reopen_logging(recreate: bool = True, level: int = logging.INFO) -> None:
 
 
 def setup_logging(debug: bool = False) -> None:
-    """Настраивает корневой логгер: консоль (INFO/DEBUG) + файл с ротацией (DEBUG)."""
+    """Настраивает корневой логгер: консоль (INFO/DEBUG) + файл с ротацией (INFO/DEBUG)."""
     level = logging.DEBUG if debug else logging.INFO
+    global _current_level  # pylint: disable=global-statement  # запись уровня для reopen_logging
+    _current_level = level
     fmt = logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
@@ -120,7 +129,7 @@ def setup_logging(debug: bool = False) -> None:
     console.setFormatter(fmt)
     root.addHandler(console)
 
-    # Файл: DEBUG+ с ротацией
+    # Файл: INFO+ с ротацией
     try:
         # Ленивый импорт для избежания циклической зависимости:
         # server.utils лениво импортирует logging_config (reopen_logging).

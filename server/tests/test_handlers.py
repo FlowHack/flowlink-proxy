@@ -13,7 +13,8 @@ from server.config import repo as config_repo
 from server.servers.handlers import (_close_tunnels_on_config_change,
                                      _extract_masks_dict,
                                      _extract_proxies_dict,
-                                     _log_config_changes, handle_get_config,
+                                     _log_config_changes, handle_get_browser_config,
+                                     handle_get_config,
                                      handle_get_status, handle_get_version,
                                      handle_post_config, handle_post_enabled)
 from server.services.router import MaskRouter
@@ -137,6 +138,26 @@ class TestHandleGetVersion(unittest.TestCase):
         result = handle_get_version()
         self.assertIn('version', result)
         self.assertIsInstance(result['version'], str)
+
+
+class TestHandleGetBrowserConfig(unittest.TestCase):
+    """Тесты handle_get_browser_config."""
+
+    def test_response_has_no_detected_browsers(self):
+        """Ответ не содержит поле detectedBrowsers (убрано из горячего пути)."""
+        with patch('server.servers.handlers.browser_config.get_browser_config',
+                   return_value={'browserPath': '/path', 'autostartBrowser': True}):
+            result = handle_get_browser_config()
+        self.assertNotIn('detectedBrowsers', result)
+        self.assertEqual(result['browserPath'], '/path')
+
+    def test_response_includes_browser_path_and_autostart(self):
+        """Ответ содержит browserPath и autostartBrowser."""
+        with patch('server.servers.handlers.browser_config.get_browser_config',
+                   return_value={'browserPath': '/custom/path', 'autostartBrowser': False}):
+            result = handle_get_browser_config()
+        self.assertEqual(result['browserPath'], '/custom/path')
+        self.assertFalse(result['autostartBrowser'])
 
 
 class TestCloseTunnelsOnConfigChange(unittest.TestCase):

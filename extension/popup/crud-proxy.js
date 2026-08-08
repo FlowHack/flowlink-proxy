@@ -180,7 +180,7 @@ export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
     checkbox.checked = !enabled;
 
     // При 422 сервер возвращает текст конфликта масок — показываем его.
-    // Чекбокс не переключается, т.к. apiPost бросил исключение до loadAndRender.
+    // Чекбокс возвращаем в исходное состояние при ошибке.
     const isNetworkError = e.kind === 'network' || e.kind === 'timeout'
       || e.message.startsWith('NETWORK:') || e.message.startsWith('TIMEOUT:')
       || e.message.includes('Failed to fetch');
