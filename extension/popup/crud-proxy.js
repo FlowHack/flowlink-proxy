@@ -170,11 +170,15 @@ export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
 export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
   checkbox.disabled = true;
   try {
-    const enabled = !checkbox.checked;
+    const enabled = checkbox.checked;
     await apiPatch(`/proxy/${encodeURIComponent(proxyId)}/enabled`, { enabled });
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения прокси:', e);
+    // При ошибке возвращаем чекбокс в исходное состояние
+    const enabled = checkbox.checked;
+    checkbox.checked = !enabled;
+
     // При 422 сервер возвращает текст конфликта масок — показываем его.
     // Чекбокс не переключается, т.к. apiPost бросил исключение до loadAndRender.
     const isNetworkError = e.kind === 'network' || e.kind === 'timeout'

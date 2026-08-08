@@ -440,8 +440,6 @@ def handle_get_browser_config() -> dict:
     """GET /api/browser-config — полная конфигурация браузера."""
     try:
         config = browser_config.get_browser_config()
-        detected = browser_config.auto_detect_browsers()
-        config['detectedBrowsers'] = detected
         return config
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка чтения browser_config: %s', e)
@@ -449,7 +447,6 @@ def handle_get_browser_config() -> dict:
             'browserPath': '',
             'autostartBrowser': True,
             'parallelLaunch': False,
-            'detectedBrowsers': [],
             'error': 'Не удалось прочитать конфигурацию браузера',
         }
 

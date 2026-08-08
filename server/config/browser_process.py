@@ -219,8 +219,8 @@ def is_browser_running(browser_path: str) -> bool:
     """
     pids = find_browser_pids(browser_path)
     if pids:
-        logger.info('Браузер уже запущен: %s (PID: %s)',
-                    browser_path, ', '.join(str(p) for p in pids))
+        logger.debug('Браузер уже запущен: %s (PID: %s)',
+                     browser_path, ', '.join(str(p) for p in pids))
         return True
     return False
 
@@ -388,7 +388,7 @@ def is_browser_running_with_proxy(browser_path: str, proxy_port: int) -> bool:
     """
     pids = find_browser_pids_with_proxy(browser_path, proxy_port)
     if pids:
-        logger.info(
+        logger.debug(
             'Браузер запущен через FlowLink Proxy: %s (PID: %s)',
             browser_path, ', '.join(str(p) for p in pids),
         )

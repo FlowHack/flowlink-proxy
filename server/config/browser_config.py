@@ -59,7 +59,7 @@ def auto_detect_browsers() -> list[dict]:
             found.append({'name': name, 'path': path})
             logger.debug('Обнаружен браузер: %s (%s)', name, path)
 
-    logger.info('Обнаружено браузеров: %d', len(found))
+    logger.debug('Обнаружено браузеров: %d', len(found))
     return found
 
 

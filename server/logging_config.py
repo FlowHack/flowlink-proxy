@@ -10,7 +10,7 @@ import os
 import sys
 
 
-def reopen_logging(recreate: bool = True) -> None:
+def reopen_logging(recreate: bool = True, level: int = logging.INFO) -> None:
     """
     Переоткрывает файловый хендлер логгера.
 
@@ -23,6 +23,7 @@ def reopen_logging(recreate: bool = True) -> None:
         recreate: Создавать ли новый хендлер после закрытия старого.
             False нужно для очистки логов: файл лога освобождается
             до удаления, а новый хендлер создаётся после (в finally).
+        level: Уровень логирования для нового хендлера.
     """
     root = logging.getLogger()
     log_file = None
@@ -88,7 +89,7 @@ def reopen_logging(recreate: bool = True) -> None:
             logging.getLogger('flowlink').debug(
                 'reopen_logging: os.chmod не поддерживается, пропускаю'
             )
-        new_handler.setLevel(logging.DEBUG)
+        new_handler.setLevel(level)
         new_handler.setFormatter(fmt)
         root.addHandler(new_handler)
         logger = logging.getLogger('flowlink')
@@ -145,7 +146,7 @@ def setup_logging(debug: bool = False) -> None:
             logging.getLogger('flowlink').debug(
                 'setup_logging: os.chmod не поддерживается, пропускаю'
             )
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(level)
         file_handler.setFormatter(fmt)
         root.addHandler(file_handler)
     except OSError as e:

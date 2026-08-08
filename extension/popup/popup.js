@@ -331,11 +331,6 @@ async function pollBackend() {
       if (storage.configChanged) {
         await chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления из storage:', e));
         await loadAndRender();
-      } else {
-        // SSE может быть недоступно (service worker спит) — сами проверяем
-        // browser-config, чтобы баннер «браузер не указан» скрывался
-        // без ожидания SSE-события.
-        await refreshBrowserConfig();
       }
     } else {
       // Был не подключён, всё ещё не подключён — увеличиваем интервал
@@ -396,27 +391,7 @@ function stopPolling() {
   }
 }
 
-/**
- * Перечитывает конфигурацию браузера и обновляет баннер «браузер не указан».
- * Вызывается при каждом поллинге: service worker может спать и не получать
- * SSE-события, поэтому popup сам проверяет актуальность browser-path/autostart.
- */
-async function refreshBrowserConfig() {
-  try {
-    const browserConfig = await apiGet('/browser-config');
-    const autostartBrowser = browserConfig.autostartBrowser === true;
-    const browserPath = browserConfig.browserPath || '';
-    if (autostartBrowser !== state.autostartBrowser || browserPath !== state.browserPath) {
-      console.log('[FlowLink Proxy] Конфигурация браузера изменилась, обновляю UI');
-      state.autostartBrowser = autostartBrowser;
-      state.browserPath = browserPath;
-      render(state);
-    }
-  } catch (e) {
-    // Не критично — данные браузера просто не обновятся в этом цикле поллинга
-    console.warn('[FlowLink Proxy] Не удалось проверить конфигурацию браузера:', e);
-  }
-}
+
 
 /**
  * Мгновенная реакция на SSE-события бэкенда.
