@@ -9,7 +9,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-green.svg)](LICENSE.txt)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-orange?logo=googlechrome&logoColor=white)](extension/)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen)](https://github.com/FlowHack/flowlink-proxy/releases/latest)
-[![CI: master](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml?query=branch%3Amaster)
+[![CI](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/FlowHack/flowlink-proxy?label=Release&color=blue)](https://github.com/FlowHack/flowlink-proxy/releases/latest)
 
 Автоматическая маршрутизация трафика: сайты по маскам — через SOCKS5-прокси с паролем, остальные — напрямую.
