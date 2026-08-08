@@ -300,6 +300,23 @@ class TestReopenLogging(unittest.TestCase):
         # Файл лога пересоздан новым хендлером
         self.assertTrue(os.path.isfile(self._log_file))
 
+    def test_preserves_debug_level_after_reopen(self):
+        """reopen_logging() сохраняет DEBUG-уровень, заданный в setup_logging.
+
+        Если сервер запущен с --debug, после переоткрытия хендлера
+        (например, очистки логов) уровень файлового логгера не должен
+        откатываться на INFO.
+        """
+        # Имитируем setup_logging(debug=True): устанавливаем уровень DEBUG
+        # через явный вызов reopen_logging(level=DEBUG), который синхронизирует
+        # _current_level. Затем повторный reopen_logging() без уровня должен
+        # сохранить DEBUG.
+        reopen_logging(level=logging.DEBUG)
+        reopen_logging()
+        handlers = self._file_handlers()
+        self.assertEqual(len(handlers), 1)
+        self.assertEqual(handlers[0].level, logging.DEBUG)
+
 
 class TestClearDataOnly(unittest.TestCase):
     """Тесты clear_data_only."""

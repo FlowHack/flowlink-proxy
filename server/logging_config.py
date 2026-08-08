@@ -30,8 +30,13 @@ def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
         level: Уровень логирования для нового хендлера. Если None, используется
             текущий уровень (_current_level), сохранённый при setup_logging.
     """
+    global _current_level  # pylint: disable=global-statement  # синхронизация уровня
     if level is None:
         level = _current_level
+    else:
+        # Явно переданный уровень синхронизируем с _current_level,
+        # чтобы последующие вызовы без уровня использовали актуальное значение
+        _current_level = level
     root = logging.getLogger()
     log_file = None
     old_handler = None
