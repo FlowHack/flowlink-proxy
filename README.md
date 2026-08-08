@@ -6,6 +6,11 @@
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen)](https://github.com/FlowHack/flowlink-proxy/releases/latest)
 [![AI: DeepSeek](https://img.shields.io/badge/AI-DeepSeek-4A6CF7?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDJhNyA3IDAgMCAwLTcgN2MwIDMgMS41IDUuNSA0IDdsLTEgNmg0bC0xLTZjMi41LTEuNSA0LTQgNC03YTcgNyAwIDAgMC03LTd6Ii8+PC9zdmc+)](https://deepseek.com)
 [![AI: AiderDesk](https://img.shields.io/badge/AI-AiderDesk-7C3AED?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiByeD0iNCIvPjxwYXRoIGQ9Ik04IDEyaDgiLz48cGF0aCBkPSJNMTIgOHY4Ii8+PC9zdmc+)](https://aiderdesk.com)
+[![AI: Mistral](https://img.shields.io/badge/AI-Mistral-FF7000?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMTMgMiAzIDE0IDEyIDE0IDExIDIyIDIxIDEwIDEyIDEwIDEzIDIiLz48L3N2Zz4=)](https://mistral.ai)
+[![AI: Gemini](https://img.shields.io/badge/AI-Gemini-4285F4?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIxMiAyIDE1LjA5IDguMjYgMjIgOS4yNyAxNyAxNC4xNCAxOC4xOCAyMS4wMiAxMiAxNy43NyA1LjgyIDIxLjAyIDcgMTQuMTQgMiA5LjI3IDguOTEgOC4yNiAxMiAyIi8+PC9zdmc+)](https://gemini.google.com)
+[![CI: develop](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml?query=branch%3Adevelop)
+[![CI: master](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/FlowHack/flowlink-proxy/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Release](https://img.shields.io/github/v/release/FlowHack/flowlink-proxy?label=Release&color=blue)](https://github.com/FlowHack/flowlink-proxy/releases/latest)
 
 Автоматическая маршрутизация трафика: сайты по маскам — через SOCKS5-прокси с паролем, остальные — напрямую.
 
@@ -32,10 +37,12 @@ SOCKS5 с паролем       Прямое соединение
 FlowLink Proxy создан с использованием **AI-assisted development** в среде **AiderDesk**.
 
 **Роли:**
-- **DeepSeek (Architect Manager)** — архитектура проекта, распределение задач, контроль качества
-- **Big Pickle (SubAgent)** — реализация задач средней сложности, рефакторинг, написание тестов, запуск линтинга (pylint, pyright, pytest)
+- **DeepSeek (Architect Manager)** — архитектура проекта, распределение задач, контроль качества, выполнение сверхсложных задач (ядро, TLS, криптография, asyncio-сокеты)
+- **Big Pickle (SubAgent)** — чтение файлов, реализация задач средней сложности, рефакторинг, написание тестов, QA (pylint, pyright, pytest), ревью кода
+- **Mistral (SubAgent)** — первичный генератор кода: новые функции, модули, рефакторинг, исправление багов
+- **Gemini (SubAgent)** — резервный генератор кода (используется, когда Mistral недоступен)
 
-Архитектор-менеджер определяет план, делегирует выполнение субагенту и проверяет результат. Такой подход позволил поддерживать высокое качество кода при минимальном времени разработки.
+Архитектор-менеджер определяет план, делегирует выполнение субагентам и проверяет результат. Такой подход позволил поддерживать высокое качество кода при минимальном времени разработки.
 
 ---
 
