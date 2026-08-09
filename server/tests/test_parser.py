@@ -215,11 +215,13 @@ class TestSkipHeaders(unittest.IsolatedAsyncioTestCase):
     async def test_header_limit_exceeded_does_not_raise(self):
         """Превышение лимита заголовков → молчаливый возврат (без исключений)."""
         # Непустые строки без пустой — цикл доходит до лимита _MAX_HEADER_LINES
-        reader = self._make_reader([b'X-Test: value\r\n'] * 200)
+        reader = self._make_reader([b'X-Test: value\r\n'] * 100)
         await skip_headers(reader)
+        self.assertEqual(reader.readline.await_count, 100)
 
     async def test_timeout_does_not_raise(self):
         """Таймаут чтения (TimeoutError) → молчаливый возврат (без исключений)."""
         reader = AsyncMock()
         reader.readline = AsyncMock(side_effect=asyncio.TimeoutError)
         await skip_headers(reader)
+        self.assertEqual(reader.readline.await_count, 1)

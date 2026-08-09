@@ -139,6 +139,7 @@ def read_key_material() -> tuple[bytes | None, bytes | None]:
     """
 
     def _read(path: str) -> bytes | None:
+        """Читает содержимое файла из каталога данных."""
         if not os.path.exists(path):
             return None
         with open(path, 'rb') as f:

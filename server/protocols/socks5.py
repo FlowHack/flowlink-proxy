@@ -213,7 +213,7 @@ class Socks5Protocol(ProxyProtocol):
             if addr.version == 6:
                 return ATYP_IPV6, addr.packed
         except ValueError:
-            pass
+            logger.debug("Адрес '%s' не является IP-адресом, обрабатываем как домен", host)
 
         host_bytes = host.encode()
         if len(host_bytes) > 255:

@@ -242,12 +242,12 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                         except tk.TclError as e:
                             logger.debug('Popup: dismiss() — TclError при grab_release: %s', e)
                 except tk.TclError:
-                    logger.debug('Popup: dismiss() — окно уже уничтожено, пропускаю grab_release')
+                    logger.debug("Не удалось освободить grab окна (вероятно, окно уже закрыто)")
                 try:
                     if self._popup.winfo_exists():
                         self._popup.destroy()
                 except tk.TclError:
-                    logger.debug('Popup: dismiss() — окно уже уничтожено, пропускаю destroy')
+                    logger.debug("Окно уже уничтожено при проверке существования")
         except (OSError, RuntimeError, ValueError) as e:
             logger.error('Popup: dismiss() — критическая ошибка: %s', e, exc_info=True)
         finally:
@@ -300,7 +300,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
             try:
                 self._root.grab_release()
             except tk.TclError:
-                pass
+                logger.debug("Не удалось освободить grab окна (вероятно, окно уже закрыто)")
             # grab_set() направляет все клики вне меню в popup-окно,
             # где их перехватывает bind_all('<Button-1>', _on_global_click)
             self._popup.grab_set()
@@ -595,12 +595,12 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                 if self._popup and self._popup.winfo_exists():
                     self._popup.after(200, _poll_focus)
             except tk.TclError:
-                pass
+                logger.debug("Окно уже уничтожено при проверке существования")
 
         try:
             self._popup.after(250, _poll_focus)
         except tk.TclError:
-            pass
+            logger.debug("Не удалось запланировать отложенный вызов (окно закрыто)")
 
         # Плавное появление
         self._fade_in()

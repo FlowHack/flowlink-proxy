@@ -237,9 +237,9 @@ class TestDerivedKeyCache(unittest.TestCase):
         with patch.object(
             crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
         ) as mock_pbkdf2:
-            crypto_mod._derive_key(master)  # pylint: disable=protected-access
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
             crypto_mod.reset_key_cache()
-            crypto_mod._derive_key(master)  # pylint: disable=protected-access
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
         self.assertEqual(mock_pbkdf2.call_count, 2)
 
     def test_cache_invalidated_on_salt_change(self):
@@ -248,9 +248,9 @@ class TestDerivedKeyCache(unittest.TestCase):
         with patch.object(
             crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
         ) as mock_pbkdf2:
-            crypto_mod._derive_key(master)  # pylint: disable=protected-access
-            crypto_mod._save_salt(os.urandom(32))  # pylint: disable=protected-access
-            crypto_mod._derive_key(master)  # pylint: disable=protected-access
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+            crypto_mod._save_salt(os.urandom(32))  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
         self.assertEqual(mock_pbkdf2.call_count, 2)
 
     def test_cache_invalidated_on_key_recreate(self):
@@ -259,11 +259,11 @@ class TestDerivedKeyCache(unittest.TestCase):
             crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
         ) as mock_pbkdf2:
             old_master = crypto_mod.load_or_create_key()
-            crypto_mod._derive_key(old_master)  # pylint: disable=protected-access
+            crypto_mod._derive_key(old_master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
             # Повреждаем файл ключа — при загрузке создаётся новый ключ
             with open(crypto_mod.KEY_FILE, 'wb') as f:
                 f.write(b'tooshort')
             new_master = crypto_mod.load_or_create_key()
             self.assertNotEqual(new_master, old_master)
-            crypto_mod._derive_key(new_master)  # pylint: disable=protected-access
+            crypto_mod._derive_key(new_master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
         self.assertEqual(mock_pbkdf2.call_count, 2)

@@ -19,11 +19,12 @@ Win32 бэкенд системного трей через ctypes.
 #   too-few-public-methods — ctypes data-классы (0 публичных методов)
 #   import-outside-toplevel — ленивый импорт get_resource_dir
 #                  для отложенной инициализации пути к иконке
+# Обёртка над Win32 API через ctypes (WinAPI-специфика).
 # pylint: disable=invalid-name,no-member
 # pylint: disable=use-implicit-booleaness-not-comparison-to-zero
-# pylint: disable=attribute-defined-outside-init
-# pylint: disable=too-few-public-methods,too-many-instance-attributes
-# pylint: disable=import-outside-toplevel
+# pylint: disable=attribute-defined-outside-init  # поля структур ctypes задаются через _fields_ вне __init__
+# pylint: disable=too-few-public-methods,too-many-instance-attributes  # ctypes data-классы без публичных методов
+# pylint: disable=import-outside-toplevel  # ленивый импорт get_resource_dir для пути к иконке
 
 import ctypes
 import ctypes.wintypes as wt

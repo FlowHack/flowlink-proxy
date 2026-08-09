@@ -142,7 +142,8 @@ class TestValidateTarget(unittest.TestCase):
                 return_value=mock_loop,
             ):
                 # Не должно бросить ValueError — публичный адрес разрешён
-                await validate_target('example.com', 80)
+                result = await validate_target('example.com', 80)
+                self.assertEqual(result, ['93.184.216.34'])
         self._run(run())
 
     def test_public_domain_resolving_to_private_blocked(self):

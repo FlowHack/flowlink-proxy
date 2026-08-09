@@ -709,6 +709,7 @@ def _make_action(
 ) -> Callable[[], None]:
     """Создаёт замыкание callable→() для пункта меню."""
     def _wrapper() -> None:
+        """Обёртка-декоратор для обработки кликов пунктов меню."""
         func(callbacks, log, **extra)
     return _wrapper
 

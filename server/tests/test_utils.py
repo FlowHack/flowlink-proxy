@@ -178,7 +178,7 @@ class TestClearAllData(unittest.TestCase):
         logs_dir = os.path.join(self.tmpdir, 'logs')
         self.assertTrue(os.path.isdir(logs_dir))
 
-    def test_returns_zero_when_empty(self):
+    def test_clear_all_data_returns_zero_when_empty(self):
         """Возвращает 0 если файлов данных нет."""
         with patch.dict(
             os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
@@ -242,7 +242,7 @@ class TestClearLogsOnly(unittest.TestCase):
         logs_dir = os.path.join(self.tmpdir, 'logs')
         self.assertTrue(os.path.isdir(logs_dir))
 
-    def test_returns_zero_when_no_logs(self):
+    def test_clear_logs_only_returns_zero_when_no_logs(self):
         """Возвращает 0 если директории logs/ нет."""
         with patch.dict(
             os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
@@ -342,7 +342,7 @@ class TestClearDataOnly(unittest.TestCase):
 
         self.assertTrue(os.path.isfile(log_path))
 
-    def test_returns_zero_when_empty(self):
+    def test_clear_data_only_returns_zero_when_empty(self):
         """Возвращает 0 если файлов данных нет."""
         with patch.dict(
             os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},

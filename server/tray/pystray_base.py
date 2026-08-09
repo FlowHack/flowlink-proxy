@@ -35,6 +35,7 @@ class PystrayTray:  # pylint: disable=too-many-instance-attributes
     """
 
     def __init__(self, callbacks: Dict[str, Any], platform_name: str) -> None:
+        """Инициализация базового трей-бэкенда."""
         self._callbacks = callbacks
         self._platform_name = platform_name
         self._logger = logging.getLogger(f'flowlink.tray.{platform_name.lower()}')
@@ -118,6 +119,7 @@ class PystrayTray:  # pylint: disable=too-many-instance-attributes
             # pyright не принимает его в аннотациях (reportInvalidTypeForm),
             # поэтому параметры типизируются как Any.
             def on_click(icon: Any, item: Any) -> None:
+                """Обработчик клика по пункту меню."""
                 del icon, item
                 self._show_popup()
 

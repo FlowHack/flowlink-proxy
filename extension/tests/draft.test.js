@@ -80,6 +80,7 @@ const {
   applyMaskDraft,
   restoreUiDraft,
   isDraftValid,
+  DRAFT_FIELD_KEYS,
 } = await import('../popup/draft.js');
 
 // Импортируем реальную функцию t из модуля i18n.js
@@ -261,16 +262,11 @@ test('isDraftValid: draft без mask при openModal=modal-mask → false', ()
 });
 
 test('DRAFT_FIELD_KEYS: ввод в proxy-host добавляет host в touched', () => {
-  const DRAFT_FIELD_KEYS = {
-    'proxy-host': 'host',
-    'proxy-port': 'port',
-    'proxy-username': 'username',
-    'proxy-password': 'password',
-    'proxy-label': 'label',
-    'mask-pattern': 'pattern',
-  };
   assert.equal(DRAFT_FIELD_KEYS['proxy-host'], 'host');
   assert.equal(DRAFT_FIELD_KEYS['proxy-port'], 'port');
+  assert.equal(DRAFT_FIELD_KEYS['proxy-username'], 'username');
+  assert.equal(DRAFT_FIELD_KEYS['proxy-password'], 'password');
+  assert.equal(DRAFT_FIELD_KEYS['proxy-label'], 'label');
   assert.equal(DRAFT_FIELD_KEYS['mask-pattern'], 'pattern');
 });
 

@@ -175,50 +175,50 @@ class TestFlowLinkPopupGeometry(unittest.TestCase):
             popup._calc_y_position(100, 50), 100,  # pylint: disable=protected-access
         )
         self.assertEqual(
-            popup._calc_y_position(0, 200), 0,  # pylint: disable=protected-access
+            popup._calc_y_position(0, 200), 0,  # pylint: disable=protected-access  # тест обращается к приватному API окна
         )
 
     def test_calc_y_places_above_cursor(self):
         """y=None: меню располагается над курсором, если влезает."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_screenheight.return_value = 1080
-        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._root.winfo_pointery.return_value = 200
-        result = popup._calc_y_position(None, 50)  # pylint: disable=protected-access
+        result = popup._calc_y_position(None, 50)  # pylint: disable=protected-access  # тест обращается к приватному API окна
         # above_y = 200 - 50 - 8 = 142 >= 0 → меню над курсором
         self.assertEqual(result, 142)
 
     def test_calc_y_places_below_cursor(self):
         """y=None: над курсором не влезает → меню под курсором."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_screenheight.return_value = 1080
-        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._root.winfo_pointery.return_value = 100
-        result = popup._calc_y_position(None, 500)  # pylint: disable=protected-access
+        result = popup._calc_y_position(None, 500)  # pylint: disable=protected-access  # тест обращается к приватному API окна
         # above_y = 100 - 500 - 8 = -408 < 0; below_y = 108; 108 + 500 <= 1080
         self.assertEqual(result, 108)
 
     def test_calc_y_clamps_to_bottom(self):
         """y=None: не влезает ни над, ни под курсором → к нижнему краю."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_screenheight.return_value = 1080
-        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._root.winfo_pointery.return_value = 100
-        result = popup._calc_y_position(None, 1000)  # pylint: disable=protected-access
+        result = popup._calc_y_position(None, 1000)  # pylint: disable=protected-access  # тест обращается к приватному API окна
         # below_y + height = 108 + 1000 = 1108 > 1080 → sh - height - 4
         self.assertEqual(result, 1080 - 1000 - 4)
 
     def test_calc_y_fallback_screen_height_on_tcl_error(self):
         """TclError при получении высоты экрана → fallback 1080."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_screenheight.side_effect = tk.TclError('no display')
-        popup._root = MagicMock()  # pylint: disable=protected-access
+        popup._root = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._root.winfo_pointery.return_value = 500
-        result = popup._calc_y_position(None, 100)  # pylint: disable=protected-access
+        result = popup._calc_y_position(None, 100)  # pylint: disable=protected-access  # тест обращается к приватному API окна
         # fallback sh=1080; above_y = 500 - 100 - 8 = 392 >= 0
         self.assertEqual(result, 392)
 
@@ -228,33 +228,33 @@ class TestFlowLinkPopupGeometry(unittest.TestCase):
         """Без popup клик не считается внешним (False)."""
         popup = self._make_popup()
         self.assertFalse(
-            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access  # тест обращается к приватному API окна
         )
 
     def test_click_outside_destroyed_popup(self):
         """Разрушенное окно (winfo_exists=False) → False."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_exists.return_value = False
         self.assertFalse(
-            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access  # тест обращается к приватному API окна
         )
 
     def test_click_outside_unknown_geometry(self):
         """Окно ещё не отрисовано (width<=1) → False (не закрывать меню)."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_exists.return_value = True
         popup._popup.winfo_width.return_value = 1
         popup._popup.winfo_height.return_value = 220
         self.assertFalse(
-            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access  # тест обращается к приватному API окна
         )
 
     def test_click_outside_geometry(self):
         """Клик вне прямоугольника окна → True, внутри → False."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_exists.return_value = True
         popup._popup.winfo_width.return_value = 220
         popup._popup.winfo_height.return_value = 100
@@ -280,10 +280,10 @@ class TestFlowLinkPopupGeometry(unittest.TestCase):
     def test_click_outside_tcl_error(self):
         """TclError при проверке геометрии → False (не падаем)."""
         popup = self._make_popup()
-        popup._popup = MagicMock()  # pylint: disable=protected-access
+        popup._popup = MagicMock()  # pylint: disable=protected-access  # тест обращается к приватному API окна
         popup._popup.winfo_exists.side_effect = tk.TclError('bad window')
         self.assertFalse(
-            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access
+            popup._is_click_outside_popup(100, 100),  # pylint: disable=protected-access  # тест обращается к приватному API окна
         )
 
 

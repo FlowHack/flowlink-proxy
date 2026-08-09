@@ -708,6 +708,7 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
     logs_dir = os.path.join(get_data_dir(), 'logs')
 
     def _on_stop():
+        """Обработчик остановки сервера из трея."""
         try:
             loop.call_soon_threadsafe(stop_event.set)
         except RuntimeError:
@@ -715,27 +716,35 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
             logger.debug('Loop уже закрыт при остановке сервера')
 
     def _autostart_getter() -> bool:
+        """Геттер флага автозапуска браузера для меню."""
         return _autostart.get_autostart_browser()
 
     def _autostart_setter(value: bool) -> None:
+        """Сеттер флага автозапуска браузера из меню."""
         _autostart.set_autostart_browser(value)
 
     def _system_autostart_getter() -> bool:
+        """Геттер статуса автозапуска с системой для меню."""
         return _system_autostart.is_system_autostart_enabled()
 
     def _system_autostart_setter(value: bool) -> None:
+        """Сеттер статуса автозапуска с системой из меню."""
         _system_autostart.set_system_autostart_enabled(value)
 
     def _log_dir_getter() -> str:
+        """Геттер пути к каталогу логов для меню."""
         return logs_dir
 
     def _data_dir_getter() -> str:
+        """Геттер пути к каталогу данных для меню."""
         return get_data_dir()
 
     def _clear_logs() -> None:
+        """Очистка логов по запросу из меню."""
         clear_logs_only()
 
     def _clear_data() -> None:
+        """Очистка данных по запросу из меню."""
         clear_all_data()
 
     def _browser_path_saver(path: str) -> None:
