@@ -197,6 +197,23 @@ function _openEventSource(url) {
       void chrome.storage.local.set({ configChanged: true, configChangedAt: Date.now() }).catch(e => console.warn('[FlowLink Proxy] SSE: ошибка записи в storage:', e));
     });
 
+    // Ошибка бэкенда (например, не удалось сохранить конфиг) —
+    // передаём в popup через storage для отображения баннера
+    eventSource.addEventListener('backend_error', (event) => {
+      console.warn('[FlowLink Proxy] SSE: ошибка бэкенда');
+      let errorData = {};
+      try {
+        errorData = JSON.parse(event.data) || {};
+      } catch (e) {
+        console.warn('[FlowLink Proxy] SSE: ошибка парсинга backend_error:', e);
+      }
+      void chrome.storage.local.set({
+        backendError: true,
+        backendErrorAt: Date.now(),
+        backendErrorOperation: errorData.operation || '',
+      }).catch(e => console.warn('[FlowLink Proxy] SSE: ошибка записи в storage:', e));
+    });
+
     eventSource.onerror = (err) => {
       _sseErrorCount++;
       if (_sseErrorCount % 5 === 0) {

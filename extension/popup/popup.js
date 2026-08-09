@@ -404,7 +404,30 @@ function stopPolling() {
  * changes.configChanged.newValue === undefined и условие ниже не срабатывает.
  */
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local' || !changes.configChanged || !changes.configChanged.newValue) {
+  if (area !== 'local') {
+    return;
+  }
+  // Ошибка бэкенда (SSE backend_error, например не удалось сохранить конфиг) —
+  // показываем баннер и сбрасываем флаг
+  if (changes.backendError && changes.backendError.newValue) {
+    console.warn('[FlowLink Proxy] storage.onChanged: ошибка бэкенда, показываю баннер');
+    if (document.readyState === 'loading') {
+      // DOM ещё не готов — флаг НЕ удаляем: его прочитает DOMContentLoaded,
+      // иначе баннер потеряется в гонке загрузки
+      return;
+    }
+    chrome.storage.local.remove('backendError').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления из storage:', e));
+    renderBanner('error', t('saveSettingsFailed'), {
+      bannerId: 'banner-backend-error',
+      actionText: t('close'),
+      actionCallback: () => {
+        const banner = document.getElementById('banner-backend-error');
+        if (banner) banner.classList.add('hidden');
+      },
+    });
+    return;
+  }
+  if (!changes.configChanged || !changes.configChanged.newValue) {
     return;
   }
   console.log('[FlowLink Proxy] storage.onChanged: флаг configChanged установлен, перезагружаю данные');
@@ -655,6 +678,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const storage = await chrome.storage.local.get(['configChanged']);
     if (storage.configChanged) {
       await chrome.storage.local.remove('configChanged').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления configChanged из storage:', e));
+    }
+
+    // Ошибка бэкенда, полученная через SSE (backend_error), пока popup был
+    // закрыт — показываем баннер при открытии и сбрасываем флаг
+    const errStorage = await chrome.storage.local.get(['backendError']);
+    if (errStorage.backendError) {
+      await chrome.storage.local.remove('backendError').catch(e => console.warn('[FlowLink Proxy] Ошибка удаления backendError из storage:', e));
+      renderBanner('error', t('saveSettingsFailed'), {
+        bannerId: 'banner-backend-error',
+        actionText: t('close'),
+        actionCallback: () => {
+          const banner = document.getElementById('banner-backend-error');
+          if (banner) banner.classList.add('hidden');
+        },
+      });
     }
 
     // Первая загрузка — один раз, без поллинга
