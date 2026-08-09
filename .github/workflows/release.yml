@@ -5,6 +5,11 @@ on:
     workflows: [Build]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Текст релиза (если пусто — будет использован файл RELEASE_NOTES.md)'
+        required: false
+        type: string
 
 jobs:
   create-release:
@@ -32,7 +37,6 @@ jobs:
           fi
 
           # 2. Fallback: определяем ближайший тег по SHA коммита
-          #    (workflow_run.head_branch для tag-пуша возвращает ветку, а не тег)
           git fetch --tags --force
           SHA="${{ github.event.workflow_run.head_sha }}"
           TAG_FROM_SHA=$(git describe --tags --abbrev=0 "$SHA" 2>/dev/null || true)
@@ -47,6 +51,12 @@ jobs:
           VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)" 2>/dev/null || echo "0.0.0")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source=version.py" >> "$GITHUB_OUTPUT"
+
+      - name: Подготовка текста релиза
+        run: |
+          if [ -n "${{ github.event.inputs.release_notes }}" ]; then
+            echo "${{ github.event.inputs.release_notes }}" > RELEASE_NOTES.md
+          fi
 
       - name: Загрузка всех артефактов
         uses: actions/download-artifact@v4
@@ -65,39 +75,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${{ steps.version.outputs.version }}"
-          # Удаляем существующий release на этом теге, если он есть
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
 
-      - name: Создание Draft Release
+      - name: Создание Release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
-          generate_release_notes: true
+          draft: false
+          body_path: RELEASE_NOTES.md
           tag_name: v${{ steps.version.outputs.version }}
           name: FlowLink Proxy v${{ steps.version.outputs.version }}
           files: release-files/*
-          body: |
-            ## FlowLink Proxy v${{ steps.version.outputs.version }}
-
-            ### Артефакты
-
-            | Платформа | Формат | Описание |
-            |-----------|--------|----------|
-            | Windows x64 | `.exe` | Inno Setup установщик |
-            | Linux x64 | `.tar.gz` | Standalone + лаунчер + документация |
-            | Linux x64 | `.deb` | Автоматическая установка (dpkg) |
-            | Linux x64 | `.rpm` | Автоматическая установка (rpm) |
-            | macOS x64 | `.tar.gz` | Standalone + лаунчер + документация |
-            | macOS x64 | `.pkg` | Автоматическая установка |
-            | macOS arm64 | `.tar.gz` | Standalone + лаунчер + документация |
-            | macOS arm64 | `.pkg` | Автоматическая установка |
-            | Все платформы | `.crx` | Chrome расширение (установка вручную) |
-
-            ### Установка
-
-            Подробные инструкции: [SETUP.md](https://github.com/FlowHack/flowlink-proxy/blob/develop/SETUP.md)
-
-            ### Лицензия
-
-            GNU AGPL v3 — [LICENSE.txt](https://github.com/FlowHack/flowlink-proxy/blob/develop/LICENSE.txt)
-            [EULA.rtf](https://github.com/FlowHack/flowlink-proxy/blob/develop/EULA.rtf)

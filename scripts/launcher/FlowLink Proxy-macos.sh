@@ -22,6 +22,8 @@ elif [ -f "$SCRIPT_DIR/flowlink-proxy" ]; then
     BACKEND="$SCRIPT_DIR/flowlink-proxy"
 elif command -v "FlowLink Proxy" &>/dev/null; then
     BACKEND="FlowLink Proxy"
+elif command -v flowlink-proxy &>/dev/null; then
+    BACKEND="flowlink-proxy"
 fi
 
 if [ -z "$BACKEND" ]; then

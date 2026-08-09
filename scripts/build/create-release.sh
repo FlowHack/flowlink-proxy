@@ -97,6 +97,15 @@ elif [ "$OS_NAME" = "macos" ]; then
     fi
 fi
 
+# Установщик и автозапуск
+if [ -f "$PROJECT_DIR/scripts/install/install.sh" ]; then
+    cp "$PROJECT_DIR/scripts/install/install.sh" "$RELEASE_DIR/"
+    chmod +x "$RELEASE_DIR/install.sh"
+fi
+if [ -d "$PROJECT_DIR/scripts/autostart" ]; then
+    cp -r "$PROJECT_DIR/scripts/autostart" "$RELEASE_DIR/"
+fi
+
 # --- Создание tar.gz ---
 mkdir -p "$OUTPUT_DIR"
 TARBALL="$OUTPUT_DIR/$RELEASE_NAME.tar.gz"

@@ -10,7 +10,7 @@ import { GITHUB_API_RELEASES, GITHUB_RELEASES_URL } from '../shared/constants.js
 
 let backendVersion = null;
 
-/** Тег последнего доступного обновления (например 'v0.3.0') или пустая строка. */
+/** Тег последнего доступного обновления (например 'v0.1.0') или пустая строка. */
 let latestTag = null;
 
 /** Флаг: подсказка про VPN/прокси уже показана (не спамим). */
@@ -101,7 +101,7 @@ function _showVpnHint() {
 
 /**
  * Отображает баннер с информацией о доступном обновлении.
- * @param {string} tag — тег релиза (например 'v0.3.0').
+ * @param {string} tag — тег релиза (например 'v0.1.0').
  * @param {string} url — URL релиза на GitHub.
  */
 function showUpdateBanner(tag, url) {

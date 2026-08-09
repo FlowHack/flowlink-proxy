@@ -508,7 +508,7 @@ const _UPDATE_SUB_TEXTS = {
 
 /** @type {boolean} True, когда модалка открыта в режиме «Обновление». */
 let _isUpdateMode = false;
-/** @type {string} Тег доступного обновления (например 'v0.3.0') или пустая строка. */
+/** @type {string} Тег доступного обновления (например 'v0.1.0') или пустая строка. */
 let _updateTag = '';
 
 /** Список вкладок help-модалки (порядок отображения). */
@@ -536,7 +536,7 @@ let _context = 'general';
  * Открывает модальное окно помощи.
  * @param {string} [tab] — вкладка для открытия (по умолчанию 'backend').
  * @param {boolean} [isUpdate] — режим обновления.
- * @param {string} [updateTag] — тег доступного обновления (например 'v0.3.0').
+ * @param {string} [updateTag] — тег доступного обновления (например 'v0.1.0').
  * @param {string} [context] — контекст открытия ('general', 'backend-error',
  *   'browser-warning', 'update').
  */
