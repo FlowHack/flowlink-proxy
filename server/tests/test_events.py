@@ -6,6 +6,7 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from server.services import events as events_mod
 from server.services.events import (_MAX_QUEUE_SIZE, SSE_QUEUE, emit_event)
 from server.services.sse import handle_sse
 
@@ -84,6 +85,21 @@ class TestEventsQueue(unittest.TestCase):
             await emit_event('overflow', {'d': 4})
             # Очередь не должна вырасти за maxsize
             self.assertLessEqual(SSE_QUEUE.qsize(), _MAX_QUEUE_SIZE)
+        asyncio.run(run())
+
+    def test_emit_event_queue_full_increments_dropped_counter(self):
+        """При переполнении очереди счётчик отброшенных событий увеличивается."""
+        async def run():
+            dropped_before = events_mod.get_dropped_events_count()
+            # Заполняем очередь до максимума
+            for _ in range(_MAX_QUEUE_SIZE):
+                SSE_QUEUE.put_nowait({'event': 'filler', 'data': {}})
+            # Попытка добавить ещё одно событие
+            await emit_event('overflow', {'d': 4})
+            self.assertEqual(
+                events_mod.get_dropped_events_count(),
+                dropped_before + 1,
+            )
         asyncio.run(run())
 
 
