@@ -12,6 +12,7 @@ import logging
 import socket
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import ipaddress
 from ipaddress import ip_address
 
 from server.protocols import ProxyError, get_protocol
@@ -27,6 +28,11 @@ _all_writers: set[asyncio.StreamWriter] = set()
 
 # Трекинг активных SOCKS5-туннелей: proxy_id -> список remote_writer
 _active_tunnels: dict[str, list[asyncio.StreamWriter]] = {}
+
+# Трекинг клиентских (браузерных) соединений: proxy_id -> set[client_writer].
+# Нужен для принудительного закрытия keep-alive CONNECT-туннелей браузера
+# при выключении прокси или изменении правил маршрутизации.
+_client_writers: dict[str, set[asyncio.StreamWriter]] = {}
 
 
 def register_tunnel(proxy_id: str, writer: asyncio.StreamWriter) -> None:
@@ -62,8 +68,38 @@ def unregister_tunnel(proxy_id: str, writer: asyncio.StreamWriter) -> None:
             _active_tunnels.pop(proxy_id, None)
 
 
+def register_client_writer(proxy_id: str, writer: asyncio.StreamWriter) -> None:
+    """Регистрирует клиентский writer для отслеживания keep-alive туннеля.
+
+    Args:
+        proxy_id: Идентификатор прокси (или None для direct-соединения).
+        writer: asyncio StreamWriter клиентского соединения.
+    """
+    if proxy_id not in _client_writers:
+        _client_writers[proxy_id] = set()
+    _client_writers[proxy_id].add(writer)
+
+
+def unregister_client_writer(proxy_id: str, writer: asyncio.StreamWriter) -> None:
+    """Удаляет клиентский writer из отслеживаемых при завершении туннеля.
+
+    Args:
+        proxy_id: Идентификатор прокси.
+        writer: asyncio StreamWriter клиентского соединения для удаления.
+    """
+    writers = _client_writers.get(proxy_id)
+    if writers:
+        writers.discard(writer)
+        if not writers:
+            _client_writers.pop(proxy_id, None)
+
+
 def close_tunnels_for_proxy(proxy_id: str) -> None:
     """Принудительно закрывает все активные туннели указанного прокси.
+
+    Закрывает и upstream-соединения (к SOCKS5-прокси), и клиентские
+    keep-alive CONNECT-туннели браузера, чтобы Chrome переподключился
+    и получил актуальную маршрутизацию.
 
     Args:
         proxy_id: Идентификатор прокси, чьи туннели нужно закрыть.
@@ -77,6 +113,15 @@ def close_tunnels_for_proxy(proxy_id: str) -> None:
                          proxy_id, e)
         _all_writers.discard(w)
 
+    # Закрываем клиентские keep-alive туннели браузера
+    client_writers = _client_writers.pop(proxy_id, set())
+    for cw in client_writers:
+        try:
+            cw.close()
+        except OSError as e:
+            logger.debug('Туннель: ошибка закрытия клиентского writer '
+                         'прокси %s: %s', proxy_id, e)
+
 
 def close_all_proxy_tunnels() -> None:
     """Закрывает все активные прокси-туннели (при глобальном выключении)."""
@@ -87,8 +132,9 @@ def close_all_proxy_tunnels() -> None:
 def close_all_connections() -> None:
     """Закрывает ВСЕ соединения через прокси-сервер (прокси + direct).
 
-    Очищает оба трекера: _all_writers (все удалённые соединения)
-    и _active_tunnels (SOCKS5-туннели по proxy_id).
+    Очищает все трекеры: _all_writers (все удалённые соединения),
+    _active_tunnels (SOCKS5-туннели по proxy_id) и _client_writers
+    (клиентские keep-alive туннели браузера).
     """
     for w in list(_all_writers):
         try:
@@ -98,6 +144,16 @@ def close_all_connections() -> None:
                          'закрытии соединений: %s', e)
     _all_writers.clear()
     _active_tunnels.clear()
+
+    # Закрываем все клиентские keep-alive туннели браузера
+    for cw in list(_client_writers.values()):
+        for writer in cw:
+            try:
+                writer.close()
+            except OSError as e:
+                logger.debug('Туннель: ошибка закрытия клиентского writer '
+                             'при глобальном закрытии соединений: %s', e)
+    _client_writers.clear()
 
 
 async def _send_error(
@@ -123,7 +179,27 @@ async def _send_error(
         logger.debug('Не удалось отправить 502 клиенту (%s): %s', redact_url(url), e)
 
 
-async def validate_target(host: str, port: int) -> None:
+def _is_blocked_address(
+    addr: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> bool:
+    """Проверяет, является ли адрес заблокированным для SSRF-защиты.
+
+    Args:
+        addr: IP-адрес для проверки.
+
+    Returns:
+        True, если адрес заблокирован, False в противном случае.
+    """
+    broadcast_addr = ip_address('255.255.255.255')
+    return (
+        addr.is_private or addr.is_loopback or addr.is_link_local
+        or addr.is_unspecified or addr == broadcast_addr
+        or (addr.version == 6 and addr.ipv4_mapped is not None)
+        or addr.is_multicast or addr.is_reserved
+    )
+
+
+async def validate_target(host: str, port: int) -> list[str]:
     """
     Проверяет, что целевой хост не является приватным/локальным IP (SSRF-защита).
 
@@ -136,10 +212,15 @@ async def validate_target(host: str, port: int) -> None:
       - ::1 (IPv6 loopback)
       - 0.0.0.0 и :: (unspecified — ведут на localhost)
       - 255.255.255.255 (ограниченный broadcast)
+      - IPv4-mapped IPv6 (например, ::ffff:127.0.0.1)
+      - multicast и reserved адреса
 
     Args:
         host: Целевой хост (IP или домен).
         port: Целевой порт.
+
+    Returns:
+        Список проверенных IP-адресов, разрешенных для подключения.
 
     Raises:
         ValueError: если хост резолвится в приватный/локальный/недопустимый IP.
@@ -154,21 +235,25 @@ async def validate_target(host: str, port: int) -> None:
 
     # 255.255.255.255 — ограниченный broadcast: у него все флаги
     # ipaddress равны False, но адрес указывает на локальный стек.
-    broadcast_addr = ip_address('255.255.255.255')
+    validated_ips = []
 
     for _, _, _, _, sockaddr in addrs:
         ip = sockaddr[0]
         try:
             addr = ip_address(ip)
-            if (addr.is_private or addr.is_loopback or addr.is_link_local
-                    or addr.is_unspecified or addr == broadcast_addr):
+            if _is_blocked_address(addr):
                 raise ValueError(
                     f'SSRF заблокирован: {host} резолвится в недопустимый адрес {ip}'
                 )
+            validated_ips.append(ip)
         except ValueError as e:
             if 'SSRF' in str(e):
                 raise
             continue  # невалидный IP — пропускаем
+
+    if not validated_ips:
+        raise ValueError(f'SSRF заблокирован: {host} не имеет допустимых IP-адресов')
+    return validated_ips
 
 
 async def _establish_remote(
@@ -176,6 +261,7 @@ async def _establish_remote(
     target_port: int,
     proxy: dict | None = None,
     timeout: float = 10,
+    validated_ip: str | None = None,
 ) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
     """Создаёт соединение до цели через прокси (если proxy) или напрямую.
 
@@ -184,6 +270,7 @@ async def _establish_remote(
         target_port: Целевой порт.
         proxy: Конфигурация прокси. Если None — прямое соединение.
         timeout: Таймаут установки соединения, секунд.
+        validated_ip: Предварительно проверенный IP-адрес (для прямого соединения).
 
     Returns:
         Кортеж (reader, writer) для обмена данными с целью.
@@ -195,6 +282,11 @@ async def _establish_remote(
     if proxy:
         proto = get_protocol(proxy)
         return await proto.connect(target_host, target_port, timeout=timeout)
+    if validated_ip:
+        return await asyncio.wait_for(
+            asyncio.open_connection(validated_ip, target_port),
+            timeout=timeout,
+        )
     return await asyncio.wait_for(
         asyncio.open_connection(target_host, target_port),
         timeout=timeout,
@@ -273,15 +365,20 @@ async def _tunnel_context(
     proxy_id = proxy.get('proxyId') if proxy else None
     remote_writer = None
     try:
+        validated_ips = None
+        if not proxy:
+            validated_ips = await validate_target(target_host, target_port)
         remote_reader, remote_writer = await _establish_remote(
             target_host=target_host,
             target_port=target_port,
             proxy=proxy,
+            validated_ip=validated_ips[0] if validated_ips else None,
         )
 
         _all_writers.add(remote_writer)
         if proxy_id:
             register_tunnel(proxy_id, remote_writer)
+            register_client_writer(proxy_id, _client_writer)
 
         yield remote_reader, remote_writer, proxy_addr_str
 
@@ -297,6 +394,7 @@ async def _tunnel_context(
             _all_writers.discard(remote_writer)
             if proxy_id:
                 unregister_tunnel(proxy_id, remote_writer)
+                unregister_client_writer(proxy_id, _client_writer)
             # Закрываем удалённый writer в ЛЮБОМ случае. Если клиент оборвал
             # соединение до pipe (writer.write/drain упали), remote_writer уже
             # удалён из трекеров, но остаётся открытым — без закрытия это
