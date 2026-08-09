@@ -130,9 +130,9 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict | tuple[dic
         if conflicts:
             conflict = conflicts[0]
             message = (
-                f'Прокси "{conflict["proxyLabel"]}" уже включён, и его маски '
-                f'пересекаются с масками прокси "{conflict["conflictingProxyLabel"]}". '
-                f'Выключите один из них или измените маски.'
+                f'Маски прокси "{conflict["proxyLabel"]}" и '
+                f'"{conflict["conflictingProxyLabel"]}" пересекаются. '
+                f'Включён может быть только один из них.'
             )
             logger.warning(
                 'Конфликт масок при сохранении конфига: %s',
@@ -502,9 +502,9 @@ def _conflict_error(conflicts: list) -> tuple[dict, int]:
     """Формирует ответ 422 при конфликте масок."""
     conflict = conflicts[0]
     message = (
-        f'Прокси "{conflict["proxyLabel"]}" уже включён, и его маски '
-        f'пересекаются с масками прокси "{conflict["conflictingProxyLabel"]}". '
-        f'Выключите один из них или измените маски.'
+        f'Маски прокси "{conflict["proxyLabel"]}" и '
+        f'"{conflict["conflictingProxyLabel"]}" пересекаются. '
+        f'Включён может быть только один из них.'
     )
     logger.warning('Конфликт масок: %s', message)
     return {'error': message, 'conflict': conflict}, 422

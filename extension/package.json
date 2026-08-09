@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "sync-version": "node -e \"const fs=require('fs');const m=JSON.parse(fs.readFileSync('manifest.json','utf8'));const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=m.version;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n');console.log('Версия синхронизирована:',m.version);\""
   }
 }
