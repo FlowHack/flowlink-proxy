@@ -175,6 +175,28 @@ class TestCryptoExceptions(unittest.TestCase):
         crypto_mod.load_or_create_key()
         self.assertFalse(crypto_mod.is_crypto_healthy())
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
+    def test_rotate_key_invalidates_old_ciphertext(self):
+        """После rotate_key старый шифротекст не расшифровывается новым ключом."""
+        crypto_mod.reset_key_cache()
+        encrypted = crypto_mod.encrypt('old-password')
+        crypto_mod.rotate_key()
+        try:
+            # Ленивый импорт: cryptography не обязательна на всех окружениях
+            from cryptography.exceptions import \
+                InvalidTag  # pylint: disable=import-outside-toplevel
+        except ImportError:
+            InvalidTag = Exception  # type: ignore[misc]  # fallback для сред без cryptography
+        with self.assertRaises(InvalidTag):
+            crypto_mod.decrypt(encrypted)
+
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
+    def test_rotate_key_roundtrip_with_new_key(self):
+        """После rotate_key encrypt/decrypt работают с новым ключом."""
+        crypto_mod.rotate_key()
+        encrypted = crypto_mod.encrypt('new-password')
+        self.assertEqual(crypto_mod.decrypt(encrypted), 'new-password')
+
 
 class TestDerivedKeyCache(unittest.TestCase):
     """Тесты кэша производного ключа PBKDF2 и мастер-ключа."""

@@ -79,6 +79,95 @@ def is_crypto_healthy() -> bool:
     return _CRYPTO_HEALTHY
 
 
+def _write_private_file(path: str, data: bytes) -> None:
+    """
+    Перезаписывает приватный файл с правами 0600.
+
+    Единая точка записи файлов ключа и соли (DRY): os.open с режимом 0o600,
+    на платформах без поддержки режима (Windows) — обычный open.
+
+    Args:
+        path: Путь к файлу.
+        data: Содержимое для записи.
+
+    Raises:
+        OSError: если запись не удалась.
+    """
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    except NotImplementedError:
+        logger.debug('os.open с 0o600 не поддерживается на этой платформе (Windows)')
+        with open(path, 'wb') as f:
+            f.write(data)
+    else:
+        with os.fdopen(fd, 'wb') as f:
+            f.write(data)
+
+
+def rotate_key() -> None:
+    """
+    Ротирует мастер-ключ и соль PBKDF2 (генерирует новые).
+
+    Вызывающий код ОБЯЗАН до вызова расшифровать все поля старым ключом
+    (cfg.load_config()), а после — перешифровать новым (cfg.save_config()):
+    иначе старые шифротексты станут нечитаемыми (GCM InvalidTag).
+    Файл ключа перезаписывается с правами 0600; соль — новая уникальная.
+    Кэши ключей сбрасываются через _save_salt → reset_key_cache().
+
+    Raises:
+        OSError: если не удалось записать новый ключ или соль.
+        ImportError: если библиотека cryptography недоступна.
+    """
+    _check_crypto()
+    new_key = os.urandom(32)
+    _write_private_file(KEY_FILE, new_key)
+    # Новая соль PBKDF2 (reset_key_cache вызывается внутри _save_salt)
+    _save_salt(os.urandom(32))
+    logger.info('Мастер-ключ и соль ротированы: %s', KEY_FILE)
+
+
+def read_key_material() -> tuple[bytes | None, bytes | None]:
+    """
+    Читает текущие мастер-ключ и соль для возможного отката ротации.
+
+    Возвращает содержимое файлов или None для отсутствующих. Используется
+    обработчиком ротации ключа: при сбое перешифрования конфига материалы
+    восстанавливаются, иначе старый шифротекст станет нечитаемым.
+
+    Returns:
+        Кортеж (ключ, соль): bytes содержимое или None, если файла нет.
+    """
+
+    def _read(path: str) -> bytes | None:
+        if not os.path.exists(path):
+            return None
+        with open(path, 'rb') as f:
+            return f.read()
+
+    return _read(KEY_FILE), _read(SALT_FILE)
+
+
+def restore_key_material(key: bytes | None, salt: bytes | None) -> None:
+    """
+    Восстанавливает мастер-ключ и соль после неудачной ротации.
+
+    Записывает сохранённые материалы обратно (права 0600) и сбрасывает
+    кэши. Файлы, которых не было до ротации (None), не создаются.
+
+    Args:
+        key: Старый мастер-ключ или None (файла не существовало).
+        salt: Старая соль или None (файла не существовало).
+
+    Raises:
+        OSError: если восстановление файлов не удалось.
+    """
+    if key is not None:
+        _write_private_file(KEY_FILE, key)
+    if salt is not None:
+        _write_private_file(SALT_FILE, salt)
+    reset_key_cache()
+
+
 def _check_crypto() -> None:
     """Проверяет наличие библиотеки cryptography. Вызывает ImportError, если её нет."""
     if not HAS_CRYPTO:
@@ -154,15 +243,7 @@ def load_or_create_key() -> bytes:
             )
 
         key = os.urandom(32)
-        try:
-            fd = os.open(KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        except NotImplementedError:
-            logger.debug('os.open с 0o600 не поддерживается на этой платформе (Windows)')
-            with open(KEY_FILE, 'wb') as f:
-                f.write(key)
-        else:
-            with os.fdopen(fd, 'wb') as f:
-                f.write(key)
+        _write_private_file(KEY_FILE, key)
         # Генерируем уникальную соль для нового ключа
         _save_salt(os.urandom(32))
         _MASTER_KEY_CACHE = key
@@ -205,15 +286,7 @@ def _save_salt(salt: bytes) -> None:
     Соль изменилась — сбрасываем кэш производного ключа.
     """
     reset_key_cache()
-    try:
-        fd = os.open(SALT_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    except NotImplementedError:
-        logger.debug('os.open с 0o600 не поддерживается на этой платформе (Windows)')
-        with open(SALT_FILE, 'wb') as f:
-            f.write(salt)
-    else:
-        with os.fdopen(fd, 'wb') as f:
-            f.write(salt)
+    _write_private_file(SALT_FILE, salt)
 
 
 def _derive_key(master_key: bytes) -> bytes:

@@ -73,6 +73,14 @@ async def _handle_config_post(
     return await handlers.handle_post_config(data, router)
 
 
+async def _handle_rotate_key_post(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
+) -> dict | tuple[dict, int]:
+    """POST /api/rotate-key — ротация ключа шифрования."""
+    return await handlers.handle_rotate_key()
+
+
 async def _handle_status_get(
     data: dict, router: MaskRouter, debug: bool, need_update: bool,
     peername: tuple,
@@ -232,6 +240,7 @@ _ROUTES: dict[tuple[str, str], _Handler] = {
     ('GET', '/api/browser-config'): _handle_browser_config_get,
     ('POST', '/api/proxies'): _handle_proxies_post,
     ('POST', '/api/masks'): _handle_masks_post,
+    ('POST', '/api/rotate-key'): _handle_rotate_key_post,
     ('GET', '/api/language'): _handle_language_get,
     ('POST', '/api/language'): _handle_language_post,
 }

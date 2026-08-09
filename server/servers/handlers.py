@@ -586,6 +586,71 @@ async def _handle_save_error(
     return {'error': user_message}, 500
 
 
+async def _apply_mask_changes(
+    new_data: dict,
+    old_masks: dict,
+    router: MaskRouter,
+) -> None:
+    """
+    Сохраняет конфиг и применяет изменения масок.
+
+    Единый шаблон послесейвовой обработки для обработчиков масок:
+    сохранить конфиг → при изменении масок закрыть соединения →
+    пересобрать маршрутизатор → залогировать изменения → оповестить
+    расширение через SSE.
+
+    Args:
+        new_data: Новый конфиг (собранный словарь с 'proxies' и 'masks').
+        old_masks: Словарь масок ДО изменения (для сравнения).
+        router: Маршрутизатор для refresh().
+    """
+    cfg.save_config(new_data)
+    new_masks_dict = _extract_masks_dict(new_data)
+    # Маски изменились — закрываем соединения, чтобы клиентские туннели
+    # браузера переподключились по новым правилам маршрутизации
+    if old_masks != new_masks_dict:
+        close_all_connections()
+    router.refresh()
+    _log_config_changes({}, {}, old_masks, new_masks_dict)
+    log_config_state()
+    await emit_event('config_changed', {})
+
+
+async def handle_rotate_key() -> dict | tuple[dict, int]:
+    """
+    POST /api/rotate-key — ротирует ключ шифрования и перешифровывает пароли.
+
+    Порядок операций обязателен: сначала расшифровка всех полей старым
+    ключом (cfg.load_config), затем ротация ключа/соли (crypto.rotate_key),
+    затем повторное шифрование новым ключом (cfg.save_config). Иначе старые
+    шифротексты станут нечитаемыми и пароли будут потеряны.
+
+    Перед ротацией текущие ключ и соль сохраняются в памяти: если запись
+    перешифрованного конфига упадёт, материалы откатываются (best-effort),
+    чтобы конфиг на диске остался читаемым старым ключом.
+    """
+    try:
+        data = cfg.load_config()
+        old_key, old_salt = _crypto.read_key_material()
+        _crypto.rotate_key()
+        try:
+            cfg.save_config(data)
+        except Exception:  # pylint: disable=broad-exception-caught  # откат обязателен при любой ошибке перешифрования
+            # Перешифрование не удалось: восстанавливаем старый ключ и соль,
+            # иначе зашифрованные старым ключом данные на диске станут
+            # нечитаемыми (GCM InvalidTag) — потеря паролей.
+            _crypto.restore_key_material(old_key, old_salt)
+            raise
+        await emit_event('config_changed', {})
+        return {'success': True}
+    except (OSError, RuntimeError, ImportError, ValueError) as e:
+        logger.error('Ошибка ротации ключа: %s', e)
+        await emit_event('backend_error', {
+            'message': _('Не удалось выполнить ротацию ключа шифрования'),
+        })
+        return {'error': _('Не удалось выполнить ротацию ключа шифрования')}, 500
+
+
 async def handle_post_proxy(  # pylint: disable=too-many-locals  # обработчик точечного добавления прокси: валидация, конфликты, туннели
     data: dict, router: MaskRouter,
 ) -> dict | tuple[dict, int]:
@@ -803,20 +868,12 @@ async def handle_post_mask(  # pylint: disable=too-many-return-statements  # о�
         if conflicts:
             return _conflict_error(conflicts)
 
-        cfg.save_config(new_data)
-
-        new_masks_dict = _extract_masks_dict(new_data)
-        if old_masks != new_masks_dict:
-            close_all_connections()
-
-        router.refresh()
-        _log_config_changes({}, {}, old_masks, new_masks_dict)
-        log_config_state()
-        await emit_event('config_changed', {})
+        await _apply_mask_changes(new_data, old_masks, router)
         return {'success': True, 'mask': new_mask}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
-        logger.error('Ошибка добавления маски: %s', e)
-        return {'error': _('Не удалось добавить маску')}, 500
+        return await _handle_save_error(
+            'добавления маски', _('Не удалось добавить маску'), e,
+        )
 
 
 async def handle_patch_mask(
@@ -851,20 +908,12 @@ async def handle_patch_mask(
         if conflicts:
             return _conflict_error(conflicts)
 
-        cfg.save_config(new_data)
-
-        new_masks_dict = _extract_masks_dict(new_data)
-        if old_masks != new_masks_dict:
-            close_all_connections()
-
-        router.refresh()
-        _log_config_changes({}, {}, old_masks, new_masks_dict)
-        log_config_state()
-        await emit_event('config_changed', {})
+        await _apply_mask_changes(new_data, old_masks, router)
         return {'success': True, 'mask': masks[idx]}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
-        logger.error('Ошибка обновления маски: %s', e)
-        return {'error': _('Не удалось обновить маску')}, 500
+        return await _handle_save_error(
+            'обновления маски', _('Не удалось обновить маску'), e,
+        )
 
 
 async def handle_delete_mask(
@@ -883,20 +932,12 @@ async def handle_delete_mask(
         masks = [m for m in masks if m.get('maskId') != mask_id]
         new_data = {'proxies': old_data.get('proxies', []), 'masks': masks}
 
-        cfg.save_config(new_data)
-
-        new_masks_dict = _extract_masks_dict(new_data)
-        if old_masks != new_masks_dict:
-            close_all_connections()
-
-        router.refresh()
-        _log_config_changes({}, {}, old_masks, new_masks_dict)
-        log_config_state()
-        await emit_event('config_changed', {})
+        await _apply_mask_changes(new_data, old_masks, router)
         return {'success': True}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
-        logger.error('Ошибка удаления маски: %s', e)
-        return {'error': _('Не удалось удалить маску')}, 500
+        return await _handle_save_error(
+            'удаления маски', _('Не удалось удалить маску'), e,
+        )
 
 
 def handle_get_language() -> dict:
