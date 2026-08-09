@@ -10,6 +10,7 @@ from unittest.mock import patch
 from server.config import crypto as crypto_mod
 
 
+# pylint: disable=too-many-public-methods  # тестовый класс: по методу на кейс, лимит pylint ниже числа кейсов
 class TestCryptoExceptions(unittest.TestCase):
     """Тесты обработки исключений и краевых случаев crypto.py."""
 
@@ -22,6 +23,8 @@ class TestCryptoExceptions(unittest.TestCase):
         # Сбрасываем кэш ключей при подмене путей, чтобы он не «протекал»
         # между тестами (кэш привязан к содержимому, но файлы меняются).
         crypto_mod.reset_key_cache()
+        # Сбрасываем флаг здоровья крипто-модуля для детерминизма тестов
+        crypto_mod._CRYPTO_HEALTHY = True  # pylint: disable=protected-access  # тестовый сброс модульного флага
 
     def tearDown(self):
         crypto_mod.reset_key_cache()
@@ -147,6 +150,30 @@ class TestCryptoExceptions(unittest.TestCase):
         # Но расшифровываются одинаково
         self.assertEqual(crypto_mod.decrypt(enc1), text)
         self.assertEqual(crypto_mod.decrypt(enc2), text)
+
+
+    def test_crypto_healthy_by_default(self):
+        """Без повреждений is_crypto_healthy() возвращает True."""
+        self.assertTrue(crypto_mod.is_crypto_healthy())
+
+    def test_corrupt_salt_marks_unhealthy(self):
+        """Повреждённая соль (не 32 байта) → is_crypto_healthy() = False."""
+        # Создаём валидный ключ и соль
+        crypto_mod.load_or_create_key()
+        # Повреждаем файл соли
+        with open(crypto_mod.SALT_FILE, 'wb') as f:
+            f.write(b'short-salt')
+        crypto_mod.reset_key_cache()
+        # encrypt вызывает _derive_key → _load_salt, фиксирующий повреждение
+        crypto_mod.encrypt('secret')
+        self.assertFalse(crypto_mod.is_crypto_healthy())
+
+    def test_key_file_wrong_size_marks_unhealthy(self):
+        """Повреждённый ключ (не 32 байта) → is_crypto_healthy() = False."""
+        with open(crypto_mod.KEY_FILE, 'wb') as f:
+            f.write(b'too short')
+        crypto_mod.load_or_create_key()
+        self.assertFalse(crypto_mod.is_crypto_healthy())
 
 
 class TestDerivedKeyCache(unittest.TestCase):

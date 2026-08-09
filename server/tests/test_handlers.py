@@ -427,3 +427,13 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
         if isinstance(result, tuple):
             result = result[0]
         self.assertIn('error', result)
+
+
+class TestGetStatusCryptoFlag(unittest.TestCase):
+    """Тесты поля cryptoHealthy в /api/status."""
+
+    def test_get_status_includes_crypto_healthy(self):
+        """Статус содержит булев флаг здоровья крипто-модуля."""
+        status = handle_get_status(debug=False)
+        self.assertIn('cryptoHealthy', status)
+        self.assertIsInstance(status['cryptoHealthy'], bool)

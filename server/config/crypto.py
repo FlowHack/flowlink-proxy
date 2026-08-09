@@ -62,6 +62,23 @@ def reset_key_cache() -> None:
     _MASTER_KEY_CACHE = None
 
 
+# Флаг повреждения ключа/соли в текущей сессии. Выставляется один раз
+# (не сбрасывается), чтобы пользователь через /api/status узнал, что
+# зашифрованные пароли могут быть нечитаемы (повреждён ключ или соль).
+_CRYPTO_HEALTHY = True
+
+
+def _mark_crypto_unhealthy() -> None:
+    """Помечает крипто-состояние как повреждённое (соль/ключ)."""
+    global _CRYPTO_HEALTHY  # pylint: disable=global-statement  # модульный флаг состояния
+    _CRYPTO_HEALTHY = False
+
+
+def is_crypto_healthy() -> bool:
+    """Возвращает True, если ключ и соль не были повреждены при загрузке."""
+    return _CRYPTO_HEALTHY
+
+
 def _check_crypto() -> None:
     """Проверяет наличие библиотеки cryptography. Вызывает ImportError, если её нет."""
     if not HAS_CRYPTO:
@@ -128,6 +145,7 @@ def load_or_create_key() -> bytes:
             # Повреждённый ключ: не перезаписываем молча, а помещаем в карантин.
             # Иначе все зашифрованные пароли станут нечитаемыми без возможности восстановления.
             _quarantine_corrupt_key(key)
+            _mark_crypto_unhealthy()
             logger.error(
                 'Файл ключа %s повреждён (размер %d байт вместо 32). '
                 'Ключ перемещён в карантин, создан новый. '
@@ -173,6 +191,7 @@ def _load_salt() -> bytes:
                 if len(salt) == 32:
                     return salt
             logger.warning('Файл соли повреждён, используется legacy-соль')
+            _mark_crypto_unhealthy()
     except OSError as e:
         logger.warning('Не удалось прочитать файл соли %s: %s', SALT_FILE, e)
     return _LEGACY_SALT
