@@ -9,6 +9,7 @@ HTTP API сервер для управления FlowLink Proxy из расши
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 from typing import Awaitable, Callable
@@ -82,7 +83,7 @@ async def _handle_status_get(
 async def _handle_enabled_post(
     data: dict, router: MaskRouter, debug: bool, need_update: bool,
     peername: tuple,
-) -> dict:
+) -> dict | tuple[dict, int]:
     """POST /api/enabled — глобальный тоггл."""
     return await handlers.handle_post_enabled(data, router)
 
@@ -117,7 +118,7 @@ async def _handle_autostart_get(
 async def _handle_autostart_post(
     data: dict, router: MaskRouter, debug: bool, need_update: bool,
     peername: tuple,
-) -> dict:
+) -> dict | tuple[dict, int]:
     """POST /api/autostart-browser — установить автозапуск браузера."""
     return await handlers.handle_post_autostart_browser(data)
 
@@ -133,7 +134,7 @@ async def _handle_system_autostart_get(
 async def _handle_system_autostart_post(
     data: dict, router: MaskRouter, debug: bool, need_update: bool,
     peername: tuple,
-) -> dict:
+) -> dict | tuple[dict, int]:
     """POST /api/system-autostart — установить системный автозапуск."""
     return await handlers.handle_post_system_autostart(data)
 
@@ -601,7 +602,7 @@ class ApiServer(BaseServer):
         supplied = (headers or {}).get('x-auth-token')
         if supplied is None and method == 'GET':
             supplied = _extract_token_from_query(query)
-        return supplied == self._auth_token
+        return hmac.compare_digest(supplied or '', self._auth_token or '')
 
     async def _route_request(  # pylint: disable=too-many-locals  # диспетчер всех маршрутов: контекст запроса + динамические пути
         self, method: str, path: str, body: bytes,
@@ -739,7 +740,7 @@ class ApiServer(BaseServer):
 
             if self._debug and logger.isEnabledFor(logging.DEBUG) and body:
                 body_str = body.decode('utf-8', errors='replace')
-                if path.split('?', 1)[0] == '/api/config' and method == 'POST':
+                if method in ('POST', 'PATCH'):
                     body_str = mask_sensitive(body_str)
                 logger.debug('API >>> %s %s body: %s',
                              method, log_path, body_str)

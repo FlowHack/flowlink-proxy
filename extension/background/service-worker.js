@@ -148,7 +148,8 @@ function connectSSE() {
     const url = token
       ? `${baseUrl}/events?token=${encodeURIComponent(token)}`
       : `${baseUrl}/events`;
-    console.log('[FlowLink Proxy] SSE: подключаюсь к', url);
+    // Логируем URL без токена в query, чтобы не раскрывать секрет в консоли.
+    console.log('[FlowLink Proxy] SSE: подключаюсь к', `${baseUrl}/events`);
     _openEventSource(url);
   }).catch((e) => {
     console.warn('[FlowLink Proxy] SSE: не удалось получить токен:', e);

@@ -8,6 +8,7 @@ SSE-обработчик для realtime-уведомлений расширен
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 
@@ -67,7 +68,7 @@ async def handle_sse(
     peername = writer.get_extra_info('peername', ('?', 0))
     # Проверка токена до отправки каких-либо данных: при несовпадении
     # соединение закрывается без единого байта ответа
-    if auth_token is not None and token != auth_token:
+    if auth_token is not None and not hmac.compare_digest(token or '', auth_token):
         logger.warning(
             'SSE: отказ в доступе (неверный токен) от %s', peername
         )

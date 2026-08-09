@@ -13,6 +13,7 @@ CMD_CONNECT = 0x01
 
 # Типы адресов (ATYP)
 ATYP_IPV4 = 0x01
+ATYP_IPV6 = 0x04
 ATYP_DOMAIN = 0x03
 
 # Методы аутентификации

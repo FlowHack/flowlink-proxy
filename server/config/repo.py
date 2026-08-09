@@ -63,18 +63,20 @@ def save_raw(data: dict, config_path: str | None = None) -> None:
     path = config_path or CONFIG_FILE
     tmp_path = f'{path}.tmp'
     try:
-        with open(tmp_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp_path, path)
-        # Ограничиваем доступ к config.json: только владелец (0600),
-        # т.к. файл содержит расшифрованные пароли прокси
         try:
-            os.chmod(path, 0o600)
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         except NotImplementedError:
-            # На Windows os.chmod для прав доступа не поддерживается — пропускаем
-            logger.debug('save_raw: os.chmod не поддерживается, пропускаю')
+            logger.debug('os.open с 0o600 не поддерживается на этой платформе (Windows)')
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+        else:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+        os.replace(tmp_path, path)
         logger.debug('Конфигурация сохранена в %s', path)
     except OSError as e:
         logger.error('Ошибка записи %s: %s', path, e)

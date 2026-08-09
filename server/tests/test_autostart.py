@@ -227,6 +227,8 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
         result = asyncio.run(
             handle_post_autostart_browser({'autostartBrowser': False}),
         )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertTrue(result['success'])
         self.assertFalse(result['autostartBrowser'])
 
@@ -237,6 +239,8 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
         result = asyncio.run(
             handle_post_autostart_browser({'autostartBrowser': True}),
         )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertTrue(result['success'])
         self.assertTrue(result['autostartBrowser'])
 
@@ -248,6 +252,8 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
         result = asyncio.run(
             handle_post_autostart_browser({}),
         )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)
 
     def test_non_dict_input(self):
@@ -259,4 +265,6 @@ class TestHandlePostAutostartBrowser(_TempSettingsMixin):
         result = asyncio.run(
             handle_post_autostart_browser('not a dict'),  # type: ignore[reportArgumentType]
         )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)

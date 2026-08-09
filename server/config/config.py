@@ -167,15 +167,25 @@ def save_config(data: dict) -> None:
                 proxy_copy.get('proxyId', '?'), 'username',
                 encrypt=True,
             )
-            # При ошибке шифрования не записываем null — оставляем пустую строку
-            proxy_copy['username'] = encrypted_username if encrypted_username is not None else ''
+            # При ошибке шифрования бросаем исключение, чтобы не сохранять повреждённые данные
+            if encrypted_username is None:
+                raise ValueError(
+                    f'Ошибка шифрования имени пользователя для прокси '
+                    f'{proxy_copy.get("proxyId", "?")}'
+                )
+            proxy_copy['username'] = encrypted_username
         if proxy_copy.get('password'):
             encrypted_password = _crypto_field(
                 proxy_copy['password'], 'шифрования пароля',
                 proxy_copy.get('proxyId', '?'), 'password',
                 encrypt=True,
             )
-            proxy_copy['password'] = encrypted_password if encrypted_password is not None else ''
+            # При ошибке шифрования бросаем исключение, чтобы не сохранять повреждённые данные
+            if encrypted_password is None:
+                raise ValueError(
+                    f'Ошибка шифрования пароля для прокси {proxy_copy.get("proxyId", "?")}'
+                )
+            proxy_copy['password'] = encrypted_password
         to_save['proxies'].append(proxy_copy)
 
     proxy_count = len(to_save['proxies'])

@@ -11,6 +11,7 @@ import re
 from typing import Optional
 
 from server.config import config
+from server.utils import redact_url
 
 logger = logging.getLogger('flowlink.router')
 
@@ -174,7 +175,7 @@ class MaskRouter:
                 if rule['regex'].search(url):
                     logger.debug(
                         'Маршрут: %s -> %s:%s (прокси %s)',
-                        url, rule['host'], rule['port'], rule['proxyId'],
+                        redact_url(url), rule['host'], rule['port'], rule['proxyId'],
                     )
                     return {
                         'host': rule['host'],
@@ -184,9 +185,9 @@ class MaskRouter:
                         'proxyId': rule['proxyId'],
                     }
             except re.error as e:
-                logger.warning('Regex ошибка при проверке URL %s: %s', url, e)
+                logger.warning('Regex ошибка при проверке URL %s: %s', redact_url(url), e)
                 continue
-        logger.debug('Маршрут: %s -> напрямую (нет совпадений)', url)
+        logger.debug('Маршрут: %s -> напрямую (нет совпадений)', redact_url(url))
         return None
 
     def refresh(self) -> None:

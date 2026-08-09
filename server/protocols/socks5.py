@@ -11,6 +11,7 @@ SOCKS5 клиент на чистом asyncio + struct (без внешних з
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import socket
 import struct
@@ -19,8 +20,8 @@ from server.protocols.base import ProxyError, ProxyProtocol
 from server.protocols.socks5_constants import (
     ATYP_DOMAIN,
     ATYP_IPV4,
+    ATYP_IPV6,
     CMD_CONNECT,
-    METHOD_NO_ACCEPTABLE,
     METHOD_NO_AUTH,
     METHOD_USERPASS,
     SOCKS5_ERRORS,
@@ -119,7 +120,7 @@ class Socks5Protocol(ProxyProtocol):
             return False, 'network'
 
         try:
-            await self._handshake(reader, writer)
+            await asyncio.wait_for(self._handshake(reader, writer), timeout=timeout)
             return True, None
         except (ProxyError, asyncio.IncompleteReadError,
                 ValueError, asyncio.TimeoutError) as e:
@@ -197,21 +198,29 @@ class Socks5Protocol(ProxyProtocol):
         elif method == METHOD_NO_AUTH:
             pass
 
-        elif method == METHOD_NO_ACCEPTABLE:
-            raise Socks5Error('SOCKS5: нет приемлемого метода аутентификации')
+        else:
+            raise Socks5Error(
+                f'SOCKS5: сервер выбрал недопустимый метод аутентификации: {method}'
+            )
 
     @staticmethod
     def _encode_address(host: str) -> tuple[int, bytes]:
-        """Кодирует адрес в формат SOCKS5 (IPv4 или домен)."""
+        """Кодирует адрес в формат SOCKS5 (IPv4, IPv6 или домен)."""
         try:
-            return ATYP_IPV4, socket.inet_aton(host)
-        except OSError as e:
-            logger.debug(
-                'SOCKS5: адрес %s не является IPv4, использую домен: %s',
-                host, e
+            addr = ipaddress.ip_address(host)
+            if addr.version == 4:
+                return ATYP_IPV4, socket.inet_aton(host)
+            if addr.version == 6:
+                return ATYP_IPV6, addr.packed
+        except ValueError:
+            pass
+
+        host_bytes = host.encode()
+        if len(host_bytes) > 255:
+            raise Socks5Error(
+                f'Доменное имя слишком длинное: {len(host_bytes)} байт (максимум 255)'
             )
-            host_bytes = host.encode()
-            return ATYP_DOMAIN, bytes([len(host_bytes)]) + host_bytes
+        return ATYP_DOMAIN, bytes([len(host_bytes)]) + host_bytes
 
     @staticmethod
     async def _skip_bind_address(

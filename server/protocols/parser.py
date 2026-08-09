@@ -83,10 +83,11 @@ async def skip_headers(reader: asyncio.StreamReader) -> None:
     - Таймаут на общее время чтения заголовков (_HEADER_TIMEOUT).
     - Ограничение на количество заголовков (_MAX_HEADER_LINES).
     """
+    deadline = asyncio.get_running_loop().time() + _HEADER_TIMEOUT
     try:
         for _ in range(_MAX_HEADER_LINES):
             line = await asyncio.wait_for(
-                reader.readline(), timeout=_HEADER_TIMEOUT
+                reader.readline(), timeout=deadline - asyncio.get_running_loop().time()
             )
             if not line or line == b'\r\n':
                 return

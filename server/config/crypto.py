@@ -127,16 +127,17 @@ def load_or_create_key() -> bytes:
             )
 
         key = os.urandom(32)
-        with open(KEY_FILE, 'wb') as f:
-            f.write(key)
+        try:
+            fd = os.open(KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        except NotImplementedError:
+            logger.debug('os.open с 0o600 не поддерживается на этой платформе (Windows)')
+            with open(KEY_FILE, 'wb') as f:
+                f.write(key)
+        else:
+            with os.fdopen(fd, 'wb') as f:
+                f.write(key)
         # Генерируем уникальную соль для нового ключа
         _save_salt(os.urandom(32))
-        try:
-            os.chmod(KEY_FILE, 0o600)
-        except NotImplementedError:
-            logger.debug('chmod не поддерживается на этой платформе (Windows)')
-        except OSError as e:
-            logger.warning('Не удалось установить права на %s: %s', KEY_FILE, e)
         _MASTER_KEY_CACHE = key
         logger.info('Создан новый мастер-ключ шифрования: %s', KEY_FILE)
         return key
@@ -176,12 +177,15 @@ def _save_salt(salt: bytes) -> None:
     Соль изменилась — сбрасываем кэш производного ключа.
     """
     reset_key_cache()
-    with open(SALT_FILE, 'wb') as f:
-        f.write(salt)
     try:
-        os.chmod(SALT_FILE, 0o600)
-    except (NotImplementedError, OSError):
-        logger.debug('Не удалось установить права на %s', SALT_FILE)
+        fd = os.open(SALT_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    except NotImplementedError:
+        logger.debug('os.open с 0o600 не поддерживается на этой платформе (Windows)')
+        with open(SALT_FILE, 'wb') as f:
+            f.write(salt)
+    else:
+        with os.fdopen(fd, 'wb') as f:
+            f.write(salt)
 
 
 def _derive_key(master_key: bytes) -> bytes:

@@ -12,7 +12,7 @@ import logging
 
 from server.protocols.parser import parse_connect, parse_http, skip_headers
 from server.servers.base_server import BaseServer
-from server.utils import safe_close_writer
+from server.utils import redact_url, safe_close_writer
 from server.services.router import MaskRouter
 from server.services.tunnel import tunnel_connect, tunnel_http, validate_target
 
@@ -60,7 +60,7 @@ class ProxyServer(BaseServer):
                 .replace('\n', ' ')
                 .replace('\r', '')[:500]
             )
-            logger.debug('Входящий запрос от %s: %s', peername, line)
+            logger.debug('Входящий запрос от %s: %s', peername, redact_url(line))
 
             if first_line.upper().startswith(b'CONNECT '):
                 await self._handle_connect(reader, writer, first_line)
@@ -154,10 +154,10 @@ class ProxyServer(BaseServer):
 
         if proxy:
             logger.debug('HTTP %s:%s%s через %s:%s',
-                         host, port, path,
+                         host, port, redact_url(path),
                          proxy['host'], proxy['port'])
         else:
             logger.debug('HTTP %s:%s%s напрямую',
-                         host, port, path)
+                         host, port, redact_url(path))
         await tunnel_http((reader, writer), (host, port), full_url,
                           relative_line, proxy)

@@ -352,6 +352,8 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
         result = asyncio.run(
             handle_post_config('not a dict', self.router),  # type: ignore[reportArgumentType]
         )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)
 
     def test_post_config_empty_data(self):
@@ -393,6 +395,8 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
         """POST /api/enabled {enabled: true} → success"""
         cfg.set_enabled(False)
         result = asyncio.run(handle_post_enabled({'enabled': True}, self.router))
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertTrue(result.get('success'))
         self.assertTrue(result.get('enabled'))
         self.assertTrue(cfg.is_enabled())
@@ -401,6 +405,8 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
         """POST /api/enabled {enabled: false} → success"""
         cfg.set_enabled(True)
         result = asyncio.run(handle_post_enabled({'enabled': False}, self.router))
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertTrue(result.get('success'))
         self.assertFalse(result.get('enabled'))
         self.assertFalse(cfg.is_enabled())
@@ -408,6 +414,8 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
     def test_missing_enabled_field_returns_error(self):
         """POST /api/enabled без поля enabled → ошибка"""
         result = asyncio.run(handle_post_enabled({}, self.router))
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)
 
     def test_non_dict_returns_error(self):
@@ -416,4 +424,6 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
             # type: ignore[reportArgumentType] — намеренно передаём строку для проверки ошибки
             handle_post_enabled('invalid', self.router),  # type: ignore[reportArgumentType]
         )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)

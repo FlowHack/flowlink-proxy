@@ -191,6 +191,25 @@ export async function apiPostRaw(endpoint, body) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
     });
+    if (!res.ok && (res.status === 401 || res.status === 403)) {
+      // Токен невалиден (401/403) — бэкенд мог перезапуститься, сбрасываем и пробуем ещё раз
+      console.log('[FlowLink Proxy] api: получен ' + res.status + ', сбрасываю токен и перезапрашиваю');
+      await resetAuthToken();
+      const newToken = await getAuthToken(API_BASE);
+      const retryRes = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: authHeaders(newToken, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10000),
+      });
+      try {
+        const data = await retryRes.json();
+        return { status: retryRes.status, data };
+      } catch (e) {
+        console.warn('[FlowLink Proxy] apiPostRaw: невалидный JSON:', e);
+        return { status: retryRes.status, data: {} };
+      }
+    }
     try {
       const data = await res.json();
       return { status: res.status, data };

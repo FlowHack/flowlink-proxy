@@ -1059,6 +1059,15 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
         logger.info('Прокси-сервер слушает 127.0.0.1:%d', args.proxy_port)
         logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
     except OSError as e:
+        # Останавливаем уже запущенные серверы при ошибке
+        try:
+            await proxy_server.stop()
+        except Exception as exc:  # pylint: disable=broad-exception-caught  # при откате останавливаем серверы при любой ошибке
+            logger.debug('Ошибка остановки прокси-сервера: %s', exc)
+        try:
+            await api_server.stop()
+        except Exception as exc:  # pylint: disable=broad-exception-caught  # при откате останавливаем серверы при любой ошибке
+            logger.debug('Ошибка остановки API-сервера: %s', exc)
         if 'address already in use' in str(e).lower():
             logger.error(
                 'Порт занят: %s. Укажите другие порты через '
