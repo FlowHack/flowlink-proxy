@@ -28,7 +28,8 @@
 ## 📲 Как установить?
 1. Скачайте установщик для вашей платформы внизу этой страницы.
 2. Установите Chrome-расширение из файла `.crx`.
-3. Подробные инструкции: [SETUP.md](https://github.com/FlowHack/flowlink-proxy/blob/develop/SETUP.md)
+
+> ⚠️ **Важно:** пока расширение не опубликовано в Chrome Web Store, его нужно устанавливать вручную из файла `.crx`. Подробная инструкция по установке — в [SETUP.md](https://github.com/FlowHack/flowlink-proxy/blob/develop/SETUP.md).
 
 ---
 
