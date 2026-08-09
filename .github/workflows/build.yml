@@ -72,8 +72,8 @@ jobs:
           cache: pip
           cache-dependency-path: server/requirements.txt
 
-      - name: Установка системных зависимостей
-        run: brew install python-tk@3.12
+      - name: Проверка tkinter
+        run: python3 -c "import tkinter; print('tkinter OK')"
 
       - name: Установка Python-зависимостей
         run: |
@@ -112,8 +112,8 @@ jobs:
           cache: pip
           cache-dependency-path: server/requirements.txt
 
-      - name: Установка системных зависимостей
-        run: brew install python-tk@3.12
+      - name: Проверка tkinter
+        run: python3 -c "import tkinter; print('tkinter OK')"
 
       - name: Установка Python-зависимостей
         run: |
@@ -206,5 +206,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: crx-artifact
-          path: releases/FlowLink-Proxy-*.crx
+          path: |
+            releases/FlowLink-Proxy-*.crx
+            releases/FlowLink-Proxy-*.zip
           retention-days: 7

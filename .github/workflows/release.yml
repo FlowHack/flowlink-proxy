@@ -4,17 +4,11 @@ on:
   workflow_run:
     workflows: [Build]
     types: [completed]
-  workflow_dispatch:
-    inputs:
-      release_notes:
-        description: 'Текст релиза (если пусто — будет использован файл RELEASE_NOTES.md)'
-        required: false
-        type: string
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: write
 
@@ -52,12 +46,6 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source=version.py" >> "$GITHUB_OUTPUT"
 
-      - name: Подготовка текста релиза
-        run: |
-          if [ -n "${{ github.event.inputs.release_notes }}" ]; then
-            echo "${{ github.event.inputs.release_notes }}" > RELEASE_NOTES.md
-          fi
-
       - name: Загрузка всех артефактов
         uses: actions/download-artifact@v4
         with:
@@ -67,7 +55,7 @@ jobs:
       - name: Сборка артефактов
         run: |
           mkdir -p release-files
-          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" -o -name "*.crx" \) \
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" -o -name "*.crx" -o -name "*.zip" \) \
             -exec cp {} release-files/ \;
 
       - name: Удаление существующего релиза (идемпотентность)

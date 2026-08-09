@@ -57,12 +57,19 @@ TMP_DIR=$(mktemp -d)
 # Очистка временных файлов даже при ошибке
 cleanup() {
     rm -rf "$TMP_DIR" /tmp/extension.zip 2>/dev/null || true
+    # Удаляем частично созданные артефакты при ошибке сборки (не при успехе)
+    if [ "${BUILD_SUCCESS:-0}" != "1" ]; then
+        if [ -n "${ZIP_NAME:-}" ] && [ -f "$PROJECT_DIR/releases/$ZIP_NAME" ]; then
+            rm -f "$PROJECT_DIR/releases/$ZIP_NAME"
+        fi
+        if [ -n "${CRX_NAME:-}" ] && [ -f "$PROJECT_DIR/releases/$CRX_NAME" ]; then
+            rm -f "$PROJECT_DIR/releases/$CRX_NAME"
+        fi
+    fi
 }
 trap cleanup EXIT
 
-cp -r "$PROJECT_DIR/extension"/* "$TMP_DIR/"
-
-# Проверка наличия openssl
+# Проверка наличия openssl и npx ДО создания артефактов
 if ! command -v openssl &>/dev/null; then
     echo "[!] openssl не найден. Установите OpenSSL для сборки CRX."
     echo "    Windows: https://slproweb.com/products/Win32OpenSSL.html (скачайте Light версию)"
@@ -70,6 +77,24 @@ if ! command -v openssl &>/dev/null; then
     echo "    macOS:   brew install openssl"
     exit 1
 fi
+if ! command -v npx &>/dev/null; then
+    echo "[!] npx не найден. Установите Node.js (npm) для сборки CRX."
+    echo "    Windows: https://nodejs.org (скачайте LTS, установите)"
+    echo "    Linux:   sudo apt install nodejs npm  (или аналог для вашего пакетного менеджера)"
+    echo "    macOS:   brew install node"
+    exit 1
+fi
+
+# Копирование файлов расширения с исключением тестов, служебных и скрытых файлов
+# (tests/, package.json, node_modules, скрытые файлы не должны попадать в CRX/ZIP)
+cd "$PROJECT_DIR/extension"
+tar cf - \
+    --exclude='tests' \
+    --exclude='package.json' \
+    --exclude='node_modules' \
+    --exclude='./.*' \
+    . | tar xf - -C "$TMP_DIR"
+cd "$PROJECT_DIR"
 
 # Добавление key в manifest.json
 python3 -c "
@@ -107,16 +132,19 @@ with zipfile.ZipFile('/tmp/extension.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
             zf.write(fp, os.path.relpath(fp, '.'))
 "
 
+# Сохранение ZIP-архива расширения (для ручной установки unpacked)
+mkdir -p "$PROJECT_DIR/releases"
+ZIP_NAME="FlowLink-Proxy-v${VERSION}.zip"
+cp /tmp/extension.zip "$PROJECT_DIR/releases/$ZIP_NAME"
+echo "[+] ZIP создан: $PROJECT_DIR/releases/$ZIP_NAME"
+
 # Сборка CRX через crx3-utils
 mkdir -p "$PROJECT_DIR/releases"
-if ! command -v npx &>/dev/null; then
-    echo "[!] npx не найден. Установите Node.js (npm) для сборки CRX."
-    echo "    Windows: https://nodejs.org (скачайте LTS, установите)"
-    echo "    Linux:   sudo apt install nodejs npm  (или аналог для вашего пакетного менеджера)"
-    echo "    macOS:   brew install node"
-    exit 1
-fi
 # --yes нужен, чтобы npx не задавал интерактивный вопрос при первом запуске (зависание в CI)
 npx --yes -p crx3-utils crx3-new "$KEY_FILE" < /tmp/extension.zip > "$PROJECT_DIR/releases/$CRX_NAME"
 
 echo "[+] CRX создан: $PROJECT_DIR/releases/$CRX_NAME"
+echo "[+] ZIP создан: $PROJECT_DIR/releases/$ZIP_NAME"
+
+# Помечаем успешное завершение (cleanup не удалит ZIP)
+BUILD_SUCCESS=1
