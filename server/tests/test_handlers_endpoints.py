@@ -128,6 +128,3 @@ class TestPostValidateBrowser(unittest.TestCase):
         self.assertIn('Путь не существует', result[0]['error'])
         self.assertEqual(result[0]['valid'], False)
         self.assertEqual(result[1], 200)
-
-# Все тесты должны пройти
-print("Все тесты пройдены")
