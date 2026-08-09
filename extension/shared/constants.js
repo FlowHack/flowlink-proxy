@@ -4,6 +4,8 @@
  * Единственная ответственность: хранение констант.
  */
 
+import { isValidPort } from './utils.js';
+
 // Базовый URL API бэкенда. Меняется через setApiPort() при кастомном порте.
 // Используется let, а не const, потому что порт может изменяться через setApiPort.
 let API_BASE = 'http://127.0.0.1:8081/api';
@@ -22,7 +24,7 @@ const EXTENSION_STORE_URL = '';
  * @param {number} port — новый порт (например 9091).
  */
 function setApiPort(port) {
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!isValidPort(port)) {
     console.warn('[FlowLink Proxy] setApiPort: неверный порт:', port);
     return;
   }

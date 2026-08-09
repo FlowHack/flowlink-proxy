@@ -20,7 +20,7 @@ from server.services.tunnel import (close_all_connections,
                                     close_all_proxy_tunnels,
                                     close_tunnels_for_proxy)
 from server.i18n import _
-from server.utils import proxy_addr
+from server.utils import _validate_port, proxy_addr
 from server.version import __version__ as server_version
 
 logger = logging.getLogger('flowlink.api')
@@ -477,7 +477,9 @@ def _validate_proxy_fields(data: dict) -> tuple[dict, int] | None:
 
     if not isinstance(host, str) or not host.strip():
         return {'error': _('Требуется поле "host" (строка)')}, 400
-    if not isinstance(port, int) or not 1 <= port <= 65535:
+    try:
+        _validate_port(port, 'port')
+    except (TypeError, ValueError):
         return {'error': _('Поле "port" должно быть целым числом от 1 до 65535')}, 400
     if username is not None and not isinstance(username, str):
         return {'error': _('Поле "username" должно быть строкой')}, 400
@@ -605,7 +607,9 @@ async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return
         port = data.get('port', current.get('port'))
         if not isinstance(host, str) or not host.strip():
             return {'error': _('Требуется поле "host" (строка)')}, 400
-        if not isinstance(port, int) or not 1 <= port <= 65535:
+        try:
+            _validate_port(port, 'port')
+        except (TypeError, ValueError):
             return {'error': _('Поле "port" должно быть целым числом от 1 до 65535')}, 400
 
         if _find_duplicate_proxy(proxies, host, port, exclude_id=proxy_id):

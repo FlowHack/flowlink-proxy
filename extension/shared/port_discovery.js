@@ -15,6 +15,7 @@
  */
 
 import { API_BASE, setApiPort } from './constants.js';
+import { isValidPort } from './utils.js';
 
 /** Диапазон портов для сканирования (включительно). */
 const SCAN_START = 8080;
@@ -43,7 +44,7 @@ let _isScanning = false;
  */
 async function isPortAlive(port) {
   // Валидация порта — не допускаем некорректные значения
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!isValidPort(port)) {
     return false;
   }
 
@@ -182,7 +183,7 @@ export function extractPortFromBase(baseUrl) {
     const port = parseInt(url.port, 10);
     // url.port — пустая строка для стандартных портов (80/443),
     // поэтому проверяем результат parseInt
-    return (Number.isInteger(port) && port > 0 && port <= 65535) ? port : 8081;
+    return isValidPort(port) ? port : 8081;
   } catch {
     return 8081;
   }
