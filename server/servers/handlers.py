@@ -10,6 +10,7 @@ import uuid
 
 from server.config import autostart, browser_config
 from server.config import config as cfg
+from server.config import crypto as _crypto
 from server.config import system_autostart
 from server.services.debug import log_config_state
 from server.services.events import emit_event
@@ -195,6 +196,9 @@ def handle_get_status(debug: bool, need_update: bool = False) -> dict:
             'status': 'running',
             'debug': debug,
             'needUpdate': need_update,
+            # False, если в текущей сессии повреждён ключ или соль —
+            # зашифрованные пароли могут быть нечитаемы
+            'cryptoHealthy': _crypto.is_crypto_healthy(),
         }
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка получения статуса: %s', e)
@@ -205,6 +209,7 @@ def handle_get_status(debug: bool, need_update: bool = False) -> dict:
             'error': _('Не удалось загрузить конфигурацию'),
             'debug': debug,
             'needUpdate': need_update,
+            'cryptoHealthy': _crypto.is_crypto_healthy(),
         }
 
 
@@ -518,6 +523,69 @@ def _conflict_error(conflicts: list) -> tuple[dict, int]:
     return {'error': message, 'conflict': conflict}, 422
 
 
+async def _apply_config_changes(
+    new_data: dict,
+    old_proxies: dict,
+    old_masks: dict,
+    router: MaskRouter,
+    force_close_all: bool = False,
+) -> None:
+    """
+    Сохраняет конфиг и применяет изменения маршрутизации.
+
+    Единый шаблон послесейвовой обработки для обработчиков, изменяющих
+    конфигурацию (прокси, enabled): сохранить конфиг → обновить активный
+    прокси → закрыть устаревшие туннели → пересобрать маршрутизатор →
+    залогировать изменения → оповестить расширение через SSE.
+
+    Args:
+        new_data: Новый конфиг (собранный словарь с 'proxies' и 'masks').
+        old_proxies: Словарь прокси ДО изменения (для сравнения).
+        old_masks: Словарь масок ДО изменения (для сравнения).
+        router: Маршрутизатор для refresh().
+        force_close_all: Принудительно закрыть ВСЕ соединения (например,
+            при выключении прокси — разрыв клиентских keep-alive туннелей).
+    """
+    cfg.save_config(new_data)
+    _update_last_active_proxy(new_data.get('proxies', []))
+
+    new_proxies_dict = _extract_proxies_dict(new_data)
+    new_masks_dict = _extract_masks_dict(new_data)
+    needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+    # При выключении прокси дополнительно закрываем ВСЕ соединения,
+    # чтобы гарантированно разорвать клиентские keep-alive туннели браузера
+    # и заставить его переподключиться по актуальным правилам маршрутизации.
+    if force_close_all or needs_full_flush or old_masks != new_masks_dict:
+        close_all_connections()
+
+    router.refresh()
+    _log_config_changes(old_proxies, new_proxies_dict, old_masks, new_masks_dict)
+    log_config_state()
+    await emit_event('config_changed', {})
+
+
+async def _handle_save_error(
+    operation: str,
+    user_message: str,
+    exc: Exception,
+) -> tuple[dict, int]:
+    """
+    Логирует ошибку сохранения конфига, уведомляет расширение через SSE
+    (событие backend_error) и формирует HTTP-ответ 500.
+
+    Args:
+        operation: Название операции (для лога и SSE backend_error).
+        user_message: Сообщение об ошибке для пользователя (уже переведено).
+        exc: Пойманное исключение.
+
+    Returns:
+        Кортеж (ответ с ошибкой, код 500).
+    """
+    logger.error('Ошибка %s: %s', operation, exc)
+    await emit_event('backend_error', {'operation': operation})
+    return {'error': user_message}, 500
+
+
 async def handle_post_proxy(  # pylint: disable=too-many-locals  # обработчик точечного добавления прокси: валидация, конфликты, туннели
     data: dict, router: MaskRouter,
 ) -> dict | tuple[dict, int]:
@@ -564,25 +632,12 @@ async def handle_post_proxy(  # pylint: disable=too-many-locals  # обрабо�
         if conflicts:
             return _conflict_error(conflicts)
 
-        cfg.save_config(new_data)
-        _update_last_active_proxy(new_data['proxies'])
-
-        new_proxies_dict = _extract_proxies_dict(new_data)
-        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
-        # При выключении прокси дополнительно закрываем ВСЕ соединения,
-        # чтобы гарантированно разорвать клиентские keep-alive туннели браузера
-        # и заставить его переподключиться по актуальным правилам маршрутизации.
-        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
-            close_all_connections()
-
-        router.refresh()
-        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
-        log_config_state()
-        await emit_event('config_changed', {})
+        await _apply_config_changes(new_data, old_proxies, old_masks, router)
         return {'success': True, 'proxy': new_proxy}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
-        logger.error('Ошибка добавления прокси: %s', e)
-        return {'error': _('Не удалось добавить прокси')}, 500
+        return await _handle_save_error(
+            'добавления прокси', _('Не удалось добавить прокси'), e,
+        )
 
 
 async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return-statements,too-many-branches  # обработчик обновления прокси: валидация, конфликты, туннели
@@ -633,25 +688,12 @@ async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return
         proxies[idx] = updated
 
         new_data = {'proxies': proxies, 'masks': old_data.get('masks', [])}
-        cfg.save_config(new_data)
-        _update_last_active_proxy(proxies)
-
-        new_proxies_dict = _extract_proxies_dict(new_data)
-        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
-        # При выключении прокси дополнительно закрываем ВСЕ соединения,
-        # чтобы гарантированно разорвать клиентские keep-alive туннели браузера
-        # и заставить его переподключиться по актуальным правилам маршрутизации.
-        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
-            close_all_connections()
-
-        router.refresh()
-        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
-        log_config_state()
-        await emit_event('config_changed', {})
+        await _apply_config_changes(new_data, old_proxies, old_masks, router)
         return {'success': True, 'proxy': updated}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
-        logger.error('Ошибка обновления прокси: %s', e)
-        return {'error': _('Не удалось обновить прокси')}, 500
+        return await _handle_save_error(
+            'обновления прокси', _('Не удалось обновить прокси'), e,
+        )
 
 
 async def handle_patch_proxy_enabled(
@@ -683,25 +725,14 @@ async def handle_patch_proxy_enabled(
             if conflicts:
                 return _conflict_error(conflicts)
 
-        cfg.save_config(new_data)
-        _update_last_active_proxy(proxies)
-
-        new_proxies_dict = _extract_proxies_dict(new_data)
-        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
-        # При выключении прокси дополнительно закрываем ВСЕ соединения,
-        # чтобы гарантированно разорвать клиентские keep-alive туннели браузера
-        # и заставить его переподключиться по актуальным правилам маршрутизации.
-        if not enabled or needs_full_flush or old_masks != _extract_masks_dict(new_data):
-            close_all_connections()
-
-        router.refresh()
-        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
-        log_config_state()
-        await emit_event('config_changed', {})
+        await _apply_config_changes(
+            new_data, old_proxies, old_masks, router, force_close_all=not enabled,
+        )
         return {'success': True, 'enabled': enabled}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
-        logger.error('Ошибка переключения прокси: %s', e)
-        return {'error': _('Не удалось переключить прокси')}, 500
+        return await _handle_save_error(
+            'переключения прокси', _('Не удалось переключить прокси'), e,
+        )
 
 
 async def handle_delete_proxy(
@@ -721,22 +752,12 @@ async def handle_delete_proxy(
         masks = [m for m in old_data.get('masks', []) if m.get('proxyId') != proxy_id]
         new_data = {'proxies': proxies, 'masks': masks}
 
-        cfg.save_config(new_data)
-        _update_last_active_proxy(proxies)
-
-        new_proxies_dict = _extract_proxies_dict(new_data)
-        needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
-        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
-            close_all_connections()
-
-        router.refresh()
-        _log_config_changes(old_proxies, new_proxies_dict, old_masks, _extract_masks_dict(new_data))
-        log_config_state()
-        await emit_event('config_changed', {})
+        await _apply_config_changes(new_data, old_proxies, old_masks, router)
         return {'success': True}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
-        logger.error('Ошибка удаления прокси: %s', e)
-        return {'error': _('Не удалось удалить прокси')}, 500
+        return await _handle_save_error(
+            'удаления прокси', _('Не удалось удалить прокси'), e,
+        )
 
 
 async def handle_post_mask(  # pylint: disable=too-many-return-statements  # обработчик добавления маски: валидация, конфликты
