@@ -8,6 +8,7 @@ import logging
 import time
 
 from server.config import config as cfg
+from server.i18n import _
 from server.protocols import get_protocol
 
 logger = logging.getLogger('flowlink.ping')
@@ -28,10 +29,11 @@ async def ping_proxy(proxy_id: str) -> dict:
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка загрузки конфига для пинга: %s', e)
         return {'alive': False, 'latency': None,
-                'error': 'Не удалось загрузить конфигурацию. Проверьте подключение к бэкенду.'}
+                'error': _('Не удалось загрузить конфигурацию. '
+                           'Проверьте подключение к бэкенду.')}
 
     if not proxy:
-        return {'alive': False, 'latency': None, 'error': 'Прокси не найден'}
+        return {'alive': False, 'latency': None, 'error': _('Прокси не найден')}
 
     start = time.monotonic()
     try:

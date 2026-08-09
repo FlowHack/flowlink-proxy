@@ -120,3 +120,87 @@ def set_autostart_browser(value: bool) -> None:
             'Изменение не будет применено при следующем запуске.', path, e,
         )
         raise
+
+
+# --- Язык интерфейса ---
+
+_KEY_LANGUAGE = 'language'
+
+_DEFAULT_LANGUAGE = 'ru'
+
+# Поддерживаемые языки
+SUPPORTED_LANGUAGES = ('ru', 'en', 'sr')
+
+
+def get_language() -> str:
+    """
+    Возвращает текущий язык интерфейса из .flowlink-settings.
+
+    Returns:
+        Код языка ('ru', 'en', 'sr'). По умолчанию 'ru'.
+    """
+    path = SETTINGS_FILE
+    if not os.path.isfile(path):
+        return _DEFAULT_LANGUAGE
+
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        settings = parse_settings(content)
+        raw = settings.get(_KEY_LANGUAGE, '').strip().lower()
+        # Нормализуем: 'ru', 'ru-RU', 'ru_RU' -> 'ru'
+        base = raw.split('-')[0].split('_')[0]
+        return base if base in SUPPORTED_LANGUAGES else _DEFAULT_LANGUAGE
+    except OSError as e:
+        logger.warning(
+            'Не удалось прочитать %s: %s. Используется язык по умолчанию.',
+            path, e,
+        )
+        return _DEFAULT_LANGUAGE
+
+
+def set_language(value: str) -> str:
+    """
+    Устанавливает язык интерфейса и записывает в .flowlink-settings.
+
+    Args:
+        value: код языка ('ru', 'en', 'sr').
+
+    Returns:
+        Нормализованный код установленного языка.
+
+    Raises:
+        ValueError: неподдерживаемый язык.
+        OSError: не удалось записать файл настроек.
+    """
+    normalized = value.strip().lower().split('-')[0].split('_')[0]
+    if normalized not in SUPPORTED_LANGUAGES:
+        raise ValueError(
+            f'Неподдерживаемый язык: {value}. Доступные: {", ".join(SUPPORTED_LANGUAGES)}'
+        )
+
+    path = SETTINGS_FILE
+
+    existing = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                existing = parse_settings(f.read())
+        except OSError as e:
+            logger.warning('Не удалось прочитать %s перед записью: %s', path, e)
+
+    existing[_KEY_LANGUAGE] = normalized
+    content = format_settings(existing)
+
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        logger.info('Язык интерфейса: %s', normalized)
+    except OSError as e:
+        logger.error(
+            'Не удалось записать %s: %s. '
+            'Изменение не будет применено при следующем запуске.', path, e,
+        )
+        raise
+
+    return normalized

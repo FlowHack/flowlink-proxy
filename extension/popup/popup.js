@@ -15,8 +15,9 @@ import { openAddProxyModal, openEditProxyModal, handleSaveProxy, handleDeletePro
 import { openAddMaskModal, openEditMaskModal, handleSaveMask, handleDeleteMask, handleClearMasks } from './crud-mask.js';
 import { renderTabStatus } from './tab-status.js';
 import { checkBackendVersion, checkForUpdates, backendVersion, latestTag } from './updater.js';
-import { handleSettingsSave } from './settings.js';
+import { handleSettingsSave, initLanguageSelect, handleLanguageChange } from './settings.js';
 import { discoverPort, extractPortFromBase } from '../shared/port_discovery.js';
+import { t, applyI18n } from '../shared/i18n.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -183,7 +184,7 @@ function renderBanner(type, message, options = {}) {
     html += `<button class="btn-small banner-help">${escapeHtml(helpText)}</button>`;
   }
   if (dismissable) {
-    html += `<button class="btn-icon banner-dismiss" title="Закрыть">✕</button>`;
+    html += `<button class="btn-icon banner-dismiss" title="${t('close')}">✕</button>`;
   }
   banner.innerHTML = html;
   banner.classList.remove('hidden');
@@ -217,11 +218,11 @@ function showError(visible) {
 
   if (visible) {
     // Показываем баннер ошибки соединения через renderBanner
-    renderBanner('error', 'Нет соединения с бэкендом. Проверьте, запущен ли FlowLink Proxy.', {
+    renderBanner('error', t('noBackendConn'), {
       bannerId: 'banner-connection-error',
-      actionText: 'Повторить',
+      actionText: t('retry'),
       actionCallback: handleRetry,
-      helpText: 'Помощь',
+      helpText: t('help'),
       helpCallback: () => openHelpModal('backend', false, '', 'backend-error'),
     });
     // Скрываем всё, что требует бэкенд (нет данных — нет смысла показывать)
@@ -282,7 +283,7 @@ async function handleGlobalToggle(checkbox) {
     if (tabs[0]?.url) renderTabStatus(tabs[0].url, state);
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения:', e);
-    showNotification('error', 'Не удалось переключить состояние. Проверьте соединение с бэкендом.');
+    showNotification('error', t('toggleFailed'));
     chrome.storage.local.set({ extEnabled: !enabled }).catch(e => console.warn('[FlowLink Proxy] Ошибка записи в storage:', e));
     checkbox.checked = !enabled;
   } finally {
@@ -427,9 +428,9 @@ function renderBrowserWarning() {
     if (banner) banner.classList.add('hidden');
     return;
   }
-  renderBanner('warning', 'Включён автозапуск браузера, но браузер не выбран. Настройте его, чтобы автозапуск работал.', {
+  renderBanner('warning', t('browserAutostartWarning'), {
     bannerId: 'banner-browser-warning',
-    helpText: 'Помощь',
+    helpText: t('help'),
     helpCallback: () => openHelpModal('browser', false, '', 'browser-warning'),
   });
 }
@@ -451,19 +452,19 @@ function render(state) {
   const maskRows = filtered.map(m => {
     const escapedMaskId = escapeHtml(m.maskId);
     return `<div class="mask-row">
-      <button class="btn btn-icon btn-edit-mask" data-mask-id="${escapedMaskId}" title="Редактировать маску">✎</button>
+      <button class="btn btn-icon btn-edit-mask" data-mask-id="${escapedMaskId}" title="${t('editMaskTitle')}">✎</button>
       <span class="mask-pattern">${escapeHtml(m.pattern)}</span>
-      <button class="btn btn-icon btn-danger-mask" data-mask-id="${escapedMaskId}" title="Удалить маску">✕</button>
+      <button class="btn btn-icon btn-danger-mask" data-mask-id="${escapedMaskId}" title="${t('deleteMaskTitle')}">✕</button>
     </div>`;
   }).join('');
-  masksContainer.innerHTML = maskRows || '<div class="mask-row list-empty">Масок нет</div>';
+  masksContainer.innerHTML = maskRows || '<div class="mask-row list-empty">' + t('noMasksAdded') + '</div>';
 }
 
 /** Отрисовывает версию расширения в футере. */
 function renderVersion() {
   const ver = chrome.runtime.getManifest().version;
   const el = document.getElementById('version-text');
-  if (el) el.textContent = `Версия: ${ver}`;
+  if (el) el.textContent = `${t('version')}: ${ver}`;
 }
 
 /** Отрисовывает глобальный тоггл (on/off). */
@@ -485,22 +486,22 @@ function renderProxyList() {
       const ms = ping.latency != null ? `${ping.latency}ms` : '0ms';
       pingHtml = `<span class="proxy-ping ping-ok">${escapeHtml(ms)}</span>`;
     } else {
-      pingHtml = '<span class="proxy-ping ping-fail">н/д</span>';
+      pingHtml = '<span class="proxy-ping ping-fail">' + t('na') + '</span>';
     }
     const label = escapeHtml(p.label || `${p.host}:${p.port}`);
     const escapedProxyId = escapeHtml(p.proxyId);
-    return `<div class="proxy-row ${!p.isEnabled ? 'proxy-disabled' : ''}" title="Клик — маски для ${label}">
+    return `<div class="proxy-row ${!p.isEnabled ? 'proxy-disabled' : ''}" title="${t('clickForMasks', { label })}">
       <label class="switch proxy-toggle-wrap">
         <input type="checkbox" class="proxy-toggle" data-proxy-id="${escapedProxyId}" ${p.isEnabled ? 'checked' : ''}>
         <span class="slider"></span>
       </label>
-      <button class="btn btn-icon btn-edit" data-proxy-id="${escapedProxyId}" title="Редактировать">✎</button>
+      <button class="btn btn-icon btn-edit" data-proxy-id="${escapedProxyId}" title="${t('edit')}">✎</button>
       <span class="proxy-ip">${label}</span>
       ${pingHtml}
-      <button class="btn btn-icon btn-delete" data-proxy-id="${escapedProxyId}" title="Удалить">✕</button>
+      <button class="btn btn-icon btn-delete" data-proxy-id="${escapedProxyId}" title="${t('delete')}">✕</button>
     </div>`;
   }).join('');
-  container.innerHTML = rows || '<div class="proxy-row list-empty">Прокси не добавлены</div>';
+  container.innerHTML = rows || '<div class="proxy-row list-empty">' + t('noProxiesAdded') + '</div>';
 }
 
 /** Привязывает обработчики событий к элементам UI. */
@@ -552,6 +553,10 @@ function attachGlobalListeners() {
     if (e.target.id === 'global-toggle-input') {
       handleGlobalToggle(e.target);
     }
+    // Смена языка
+    if (e.target.id === 'settings-language') {
+      handleLanguageChange(showToast);
+    }
   });
 
   document.addEventListener('submit', (e) => {
@@ -577,13 +582,13 @@ function attachGlobalListeners() {
 
   document.getElementById('btn-ping-all')?.addEventListener('click', () => handlePingAll(state, renderProxyList));
   document.getElementById('btn-add-proxy')?.addEventListener('click', () => {
-    if (!state.connected) { showNotification('error', 'Нет соединения с бэкендом'); return; }
+    if (!state.connected) { showNotification('error', t('noBackendShort')); return; }
     openAddProxyModal();
   });
   document.getElementById('btn-add-mask')?.addEventListener('click', () => openAddMaskModal(state));
   document.getElementById('btn-clear-masks')?.addEventListener('click', () => handleClearMasks(loadAndRender));
   document.getElementById('btn-settings-toggle')?.addEventListener('click', () => {
-    if (!state.connected) { showNotification('error', 'Нет соединения с бэкендом'); return; }
+    if (!state.connected) { showNotification('error', t('noBackendShort')); return; }
     document.getElementById('settings-block').classList.toggle('hidden');
   });
 
@@ -627,7 +632,7 @@ function togglePasswordVisibility() {
   if (!input || !btn) return;
   const isPassword = input.type === 'password';
   input.type = isPassword ? 'text' : 'password';
-  btn.title = isPassword ? 'Скрыть пароль' : 'Показать пароль';
+  btn.title = isPassword ? t('hidePassword') : t('showPassword');
   btn.querySelector('.eye-closed').classList.toggle('hidden', !isPassword);
   btn.querySelector('.eye-open').classList.toggle('hidden', isPassword);
 }
@@ -643,6 +648,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadStoredPort();
     await discoverPort();
     attachGlobalListeners();
+    await applyI18n();
+    await initLanguageSelect();
 
     // Проверяем, не изменился ли конфиг с прошлого открытия popup (SSE-уведомление)
     const storage = await chrome.storage.local.get(['configChanged']);

@@ -19,6 +19,7 @@ from server.services.router import MaskRouter
 from server.services.tunnel import (close_all_connections,
                                     close_all_proxy_tunnels,
                                     close_tunnels_for_proxy)
+from server.i18n import _
 from server.utils import proxy_addr
 from server.version import __version__ as server_version
 
@@ -101,7 +102,7 @@ def handle_get_config() -> dict:
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка загрузки конфига: %s', e)
         return {
-            'error': 'Не удалось загрузить конфигурацию',
+            'error': _('Не удалось загрузить конфигурацию'),
             'isEnabled': cfg.is_enabled(),
         }
 
@@ -119,7 +120,7 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict | tuple[dic
         old_masks = _extract_masks_dict(old_data)
 
         if not isinstance(data, dict):
-            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+            return {'error': _('Тело запроса должно быть JSON-объектом')}, 400
 
         new_proxies = data.get('proxies', [])
         new_masks = data.get('masks', [])
@@ -129,10 +130,12 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict | tuple[dic
         conflicts = validate_config(new_proxies, new_masks)
         if conflicts:
             conflict = conflicts[0]
-            message = (
-                f'Маски прокси "{conflict["proxyLabel"]}" и '
-                f'"{conflict["conflictingProxyLabel"]}" пересекаются. '
-                f'Включён может быть только один из них.'
+            message = _(
+                'Маски прокси "{proxy_label}" и "{conflicting_label}" '
+                'пересекаются. Включён может быть только один из них.'
+            ).format(
+                proxy_label=conflict['proxyLabel'],
+                conflicting_label=conflict['conflictingProxyLabel'],
             )
             logger.warning(
                 'Конфликт масок при сохранении конфига: %s',
@@ -163,7 +166,7 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict | tuple[dic
         return {'success': True}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка сохранения конфига: %s', e)
-        return {'error': 'Не удалось сохранить конфигурацию'}, 500
+        return {'error': _('Не удалось сохранить конфигурацию')}, 500
 
 
 def _update_last_active_proxy(proxies: list) -> None:
@@ -199,7 +202,7 @@ def handle_get_status(debug: bool, need_update: bool = False) -> dict:
             'isEnabled': cfg.is_enabled(),
             'proxiesCount': 0, 'masksCount': 0,
             'status': 'error',
-            'error': 'Не удалось загрузить конфигурацию',
+            'error': _('Не удалось загрузить конфигурацию'),
             'debug': debug,
             'needUpdate': need_update,
         }
@@ -214,9 +217,9 @@ async def handle_post_enabled(data: dict, router: MaskRouter) -> dict | tuple[di
     """POST /api/enabled — устанавливает глобальный флаг включения."""
     try:
         if not isinstance(data, dict) or 'enabled' not in data:
-            return {'error': 'Требуется поле "enabled" (true/false)'}, 400
+            return {'error': _('Требуется поле "enabled" (true/false)')}, 400
         if not isinstance(data['enabled'], bool):
-            return {'error': 'Поле "enabled" должно быть булевым (true/false)'}, 400
+            return {'error': _('Поле "enabled" должно быть булевым (true/false)')}, 400
         enabled = data['enabled']
         cfg.set_enabled(enabled)
         router.refresh()
@@ -233,7 +236,7 @@ async def handle_post_enabled(data: dict, router: MaskRouter) -> dict | tuple[di
     except (OSError, RuntimeError, ValueError) as e:
         logger.error('Ошибка переключения состояния: %s', e)
         return {
-            'error': 'Не удалось переключить состояние',
+            'error': _('Не удалось переключить состояние'),
             'enabled': cfg.is_enabled(),
         }, 500
 
@@ -242,7 +245,7 @@ async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
     """POST /api/ping — пингует прокси."""
     if not proxy_id:
         logger.warning('API: POST /api/ping без proxyId от %s', peername)
-        return {'error': 'Требуется proxyId'}, 400
+        return {'error': _('Требуется proxyId')}, 400
 
     result = await ping_proxy(proxy_id)
     proxy = cfg.get_proxy_by_id(proxy_id)
@@ -273,7 +276,7 @@ def handle_get_autostart_browser() -> dict:
         logger.error('Ошибка чтения autostart_browser: %s', e)
         return {
             'autostartBrowser': autostart.get_autostart_browser(),
-            'error': 'Не удалось прочитать настройку',
+            'error': _('Не удалось прочитать настройку'),
         }
 
 
@@ -281,9 +284,9 @@ async def handle_post_autostart_browser(data: dict) -> dict | tuple[dict, int]:
     """POST /api/autostart-browser — обновляет настройку автозапуска браузера."""
     try:
         if not isinstance(data, dict) or 'autostartBrowser' not in data:
-            return {'error': 'Требуется поле "autostartBrowser" (true/false)'}, 400
+            return {'error': _('Требуется поле "autostartBrowser" (true/false)')}, 400
         if not isinstance(data['autostartBrowser'], bool):
-            return {'error': 'Поле "autostartBrowser" должно быть булевым (true/false)'}, 400
+            return {'error': _('Поле "autostartBrowser" должно быть булевым (true/false)')}, 400
         value = data['autostartBrowser']
         autostart.set_autostart_browser(value)
         await emit_event('autostart_browser_changed', {
@@ -296,10 +299,11 @@ async def handle_post_autostart_browser(data: dict) -> dict | tuple[dict, int]:
     except OSError as e:
         logger.error('Ошибка сохранения autostart_browser: %s', e)
         return {
-            'error': 'Не удалось сохранить настройку. '
-                     'Проверьте права на запись. '
-                     'Если проблема повторяется, обратитесь в поддержку: '
-                     'flowlink.proxy@atomicmail.io',
+            'error': _(
+                'Не удалось сохранить настройку. Проверьте права на запись. '
+                'Если проблема повторяется, обратитесь в поддержку: '
+                'flowlink.proxy@atomicmail.io'
+            ),
             'autostartBrowser': autostart.get_autostart_browser(),
         }, 500
     except (ValueError, TypeError) as e:
@@ -324,7 +328,7 @@ def handle_get_system_autostart() -> dict:
             'platform': 'unknown',
             'method': 'unknown',
             'path': '',
-            'error': 'Не удалось прочитать статус автозапуска',
+            'error': _('Не удалось прочитать статус автозапуска'),
         }
 
 
@@ -332,14 +336,14 @@ async def handle_post_system_autostart(data: dict) -> dict | tuple[dict, int]:
     """POST /api/system-autostart — включает/отключает автозапуск с системой."""
     try:
         if not isinstance(data, dict) or 'enabled' not in data:
-            return {'error': 'Требуется поле "enabled" (true/false)'}, 400
+            return {'error': _('Требуется поле "enabled" (true/false)')}, 400
         if not isinstance(data['enabled'], bool):
-            return {'error': 'Поле "enabled" должно быть булевым (true/false)'}, 400
+            return {'error': _('Поле "enabled" должно быть булевым (true/false)')}, 400
         value = data['enabled']
         result = system_autostart.set_system_autostart_enabled(value)
         if not result:
             return {
-                'error': 'Не удалось изменить настройку автозапуска системы',
+                'error': _('Не удалось изменить настройку автозапуска системы'),
                 'enabled': system_autostart.is_system_autostart_enabled(),
             }, 500
         await emit_event('system_autostart_changed', {
@@ -358,7 +362,7 @@ async def handle_post_system_autostart(data: dict) -> dict | tuple[dict, int]:
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка записи system_autostart: %s', e)
         return {
-            'error': 'Не удалось изменить настройку автозапуска',
+            'error': _('Не удалось изменить настройку автозапуска'),
             'enabled': system_autostart.is_system_autostart_enabled(),
         }, 500
 
@@ -370,7 +374,7 @@ def handle_post_validate_browser(data: dict) -> tuple[dict, int]:
     """POST /api/validate-browser — валидирует путь к браузеру без сохранения."""
     try:
         if not isinstance(data, dict) or 'browserPath' not in data:
-            return {'error': 'Требуется поле "browserPath"'}, 400
+            return {'error': _('Требуется поле "browserPath"')}, 400
         path = str(data['browserPath']).strip()
         result = browser_config.validate_browser_path_detailed(path)
         return result, 200
@@ -389,7 +393,7 @@ def handle_get_browser_path() -> dict:
         logger.error('Ошибка чтения browser_path: %s', e)
         return {
             'browserPath': '',
-            'error': 'Не удалось прочитать путь браузера',
+            'error': _('Не удалось прочитать путь браузера'),
         }
 
 
@@ -397,7 +401,7 @@ async def handle_post_browser_path(data: dict) -> tuple[dict, int]:
     """POST /api/browser-path — сохраняет путь к браузеру (с валидацией)."""
     try:
         if not isinstance(data, dict) or 'browserPath' not in data:
-            raise ValueError('Требуется поле "browserPath"')
+            raise ValueError(_('Требуется поле "browserPath"'))
         path = str(data['browserPath']).strip()
 
         # Расширенная валидация перед сохранением
@@ -427,7 +431,7 @@ async def handle_post_browser_path(data: dict) -> tuple[dict, int]:
     except OSError as e:
         logger.error('Ошибка записи browser_path: %s', e)
         return {
-            'error': 'Не удалось сохранить путь браузера',
+            'error': _('Не удалось сохранить путь браузера'),
             'browserPath': browser_config.get_browser_path(),
         }, 500
 
@@ -439,7 +443,7 @@ def handle_get_detected_browsers() -> dict:
         return {'browsers': browsers}
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка автопоиска браузеров: %s', e)
-        return {'browsers': [], 'error': 'Ошибка автопоиска'}
+        return {'browsers': [], 'error': _('Ошибка автопоиска')}
 
 
 def handle_get_browser_config() -> dict:
@@ -453,7 +457,7 @@ def handle_get_browser_config() -> dict:
             'browserPath': '',
             'autostartBrowser': True,
             'parallelLaunch': False,
-            'error': 'Не удалось прочитать конфигурацию браузера',
+            'error': _('Не удалось прочитать конфигурацию браузера'),
         }
 
 
@@ -472,15 +476,15 @@ def _validate_proxy_fields(data: dict) -> tuple[dict, int] | None:
     label = data.get('label')
 
     if not isinstance(host, str) or not host.strip():
-        return {'error': 'Требуется поле "host" (строка)'}, 400
+        return {'error': _('Требуется поле "host" (строка)')}, 400
     if not isinstance(port, int) or not 1 <= port <= 65535:
-        return {'error': 'Поле "port" должно быть целым числом от 1 до 65535'}, 400
+        return {'error': _('Поле "port" должно быть целым числом от 1 до 65535')}, 400
     if username is not None and not isinstance(username, str):
-        return {'error': 'Поле "username" должно быть строкой'}, 400
+        return {'error': _('Поле "username" должно быть строкой')}, 400
     if password is not None and not isinstance(password, str):
-        return {'error': 'Поле "password" должно быть строкой'}, 400
+        return {'error': _('Поле "password" должно быть строкой')}, 400
     if label is not None and not isinstance(label, str):
-        return {'error': 'Поле "label" должно быть строкой'}, 400
+        return {'error': _('Поле "label" должно быть строкой')}, 400
     return None
 
 
@@ -501,10 +505,12 @@ def _find_duplicate_proxy(
 def _conflict_error(conflicts: list) -> tuple[dict, int]:
     """Формирует ответ 422 при конфликте масок."""
     conflict = conflicts[0]
-    message = (
-        f'Маски прокси "{conflict["proxyLabel"]}" и '
-        f'"{conflict["conflictingProxyLabel"]}" пересекаются. '
-        f'Включён может быть только один из них.'
+    message = _(
+        'Маски прокси "{proxy_label}" и "{conflicting_label}" '
+        'пересекаются. Включён может быть только один из них.'
+    ).format(
+        proxy_label=conflict['proxyLabel'],
+        conflicting_label=conflict['conflictingProxyLabel'],
     )
     logger.warning('Конфликт масок: %s', message)
     return {'error': message, 'conflict': conflict}, 422
@@ -516,7 +522,7 @@ async def handle_post_proxy(  # pylint: disable=too-many-locals  # обрабо�
     """POST /api/proxies — добавляет один прокси."""
     try:
         if not isinstance(data, dict):
-            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+            return {'error': _('Тело запроса должно быть JSON-объектом')}, 400
 
         validation = _validate_proxy_fields(data)
         if validation is not None:
@@ -534,7 +540,7 @@ async def handle_post_proxy(  # pylint: disable=too-many-locals  # обрабо�
 
         proxies = old_data.get('proxies', [])
         if _find_duplicate_proxy(proxies, host, port):
-            return {'error': 'Прокси с таким host:port уже существует'}, 422
+            return {'error': _('Прокси с таким host:port уже существует')}, 422
 
         new_proxy = {
             'proxyId': uuid.uuid4().hex,
@@ -574,7 +580,7 @@ async def handle_post_proxy(  # pylint: disable=too-many-locals  # обрабо�
         return {'success': True, 'proxy': new_proxy}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка добавления прокси: %s', e)
-        return {'error': 'Не удалось добавить прокси'}, 500
+        return {'error': _('Не удалось добавить прокси')}, 500
 
 
 async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return-statements,too-many-branches  # обработчик обновления прокси: валидация, конфликты, туннели
@@ -583,7 +589,7 @@ async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return
     """PATCH /api/proxy/{id} — обновляет поля прокси."""
     try:
         if not isinstance(data, dict):
-            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+            return {'error': _('Тело запроса должно быть JSON-объектом')}, 400
 
         old_data = cfg.load_config()
         old_proxies = _extract_proxies_dict(old_data)
@@ -592,33 +598,33 @@ async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return
         proxies = old_data.get('proxies', [])
         idx = next((i for i, p in enumerate(proxies) if p.get('proxyId') == proxy_id), None)
         if idx is None:
-            return {'error': 'Прокси не найден'}, 404
+            return {'error': _('Прокси не найден')}, 404
 
         current = proxies[idx]
         host = data.get('host', current.get('host'))
         port = data.get('port', current.get('port'))
         if not isinstance(host, str) or not host.strip():
-            return {'error': 'Требуется поле "host" (строка)'}, 400
+            return {'error': _('Требуется поле "host" (строка)')}, 400
         if not isinstance(port, int) or not 1 <= port <= 65535:
-            return {'error': 'Поле "port" должно быть целым числом от 1 до 65535'}, 400
+            return {'error': _('Поле "port" должно быть целым числом от 1 до 65535')}, 400
 
         if _find_duplicate_proxy(proxies, host, port, exclude_id=proxy_id):
-            return {'error': 'Прокси с таким host:port уже существует'}, 422
+            return {'error': _('Прокси с таким host:port уже существует')}, 422
 
         updated = dict(current)
         updated['host'] = host
         updated['port'] = port
         if 'username' in data:
             if not isinstance(data['username'], str):
-                return {'error': 'Поле "username" должно быть строкой'}, 400
+                return {'error': _('Поле "username" должно быть строкой')}, 400
             updated['username'] = data['username']
         if 'password' in data:
             if not isinstance(data['password'], str):
-                return {'error': 'Поле "password" должно быть строкой'}, 400
+                return {'error': _('Поле "password" должно быть строкой')}, 400
             updated['password'] = data['password']
         if 'label' in data:
             if not isinstance(data['label'], str):
-                return {'error': 'Поле "label" должно быть строкой'}, 400
+                return {'error': _('Поле "label" должно быть строкой')}, 400
             updated['label'] = data['label']
         proxies[idx] = updated
 
@@ -641,7 +647,7 @@ async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return
         return {'success': True, 'proxy': updated}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка обновления прокси: %s', e)
-        return {'error': 'Не удалось обновить прокси'}, 500
+        return {'error': _('Не удалось обновить прокси')}, 500
 
 
 async def handle_patch_proxy_enabled(
@@ -650,9 +656,9 @@ async def handle_patch_proxy_enabled(
     """PATCH /api/proxy/{id}/enabled — переключает активность прокси."""
     try:
         if not isinstance(data, dict) or 'enabled' not in data:
-            return {'error': 'Требуется поле "enabled" (true/false)'}, 400
+            return {'error': _('Требуется поле "enabled" (true/false)')}, 400
         if not isinstance(data['enabled'], bool):
-            return {'error': 'Поле "enabled" должно быть булевым (true/false)'}, 400
+            return {'error': _('Поле "enabled" должно быть булевым (true/false)')}, 400
         enabled = data['enabled']
 
         old_data = cfg.load_config()
@@ -662,7 +668,7 @@ async def handle_patch_proxy_enabled(
         proxies = old_data.get('proxies', [])
         idx = next((i for i, p in enumerate(proxies) if p.get('proxyId') == proxy_id), None)
         if idx is None:
-            return {'error': 'Прокси не найден'}, 404
+            return {'error': _('Прокси не найден')}, 404
 
         proxies[idx]['isEnabled'] = enabled
         new_data = {'proxies': proxies, 'masks': old_data.get('masks', [])}
@@ -691,7 +697,7 @@ async def handle_patch_proxy_enabled(
         return {'success': True, 'enabled': enabled}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка переключения прокси: %s', e)
-        return {'error': 'Не удалось переключить прокси'}, 500
+        return {'error': _('Не удалось переключить прокси')}, 500
 
 
 async def handle_delete_proxy(
@@ -705,7 +711,7 @@ async def handle_delete_proxy(
 
         proxies = old_data.get('proxies', [])
         if not any(p.get('proxyId') == proxy_id for p in proxies):
-            return {'error': 'Прокси не найден'}, 404
+            return {'error': _('Прокси не найден')}, 404
 
         proxies = [p for p in proxies if p.get('proxyId') != proxy_id]
         masks = [m for m in old_data.get('masks', []) if m.get('proxyId') != proxy_id]
@@ -726,7 +732,7 @@ async def handle_delete_proxy(
         return {'success': True}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка удаления прокси: %s', e)
-        return {'error': 'Не удалось удалить прокси'}, 500
+        return {'error': _('Не удалось удалить прокси')}, 500
 
 
 async def handle_post_mask(  # pylint: disable=too-many-return-statements  # обработчик добавления маски: валидация, конфликты
@@ -735,14 +741,14 @@ async def handle_post_mask(  # pylint: disable=too-many-return-statements  # о�
     """POST /api/masks — добавляет маску."""
     try:
         if not isinstance(data, dict):
-            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+            return {'error': _('Тело запроса должно быть JSON-объектом')}, 400
 
         pattern = data.get('pattern')
         proxy_id = data.get('proxyId')
         if not isinstance(pattern, str) or not pattern.strip():
-            return {'error': 'Требуется поле "pattern" (строка)'}, 400
+            return {'error': _('Требуется поле "pattern" (строка)')}, 400
         if not isinstance(proxy_id, str) or not proxy_id:
-            return {'error': 'Требуется поле "proxyId"'}, 400
+            return {'error': _('Требуется поле "proxyId"')}, 400
 
         # regexString обязателен для маршрутизации; если не передан —
         # генерируем из wildcard-паттерна на сервере.
@@ -755,7 +761,7 @@ async def handle_post_mask(  # pylint: disable=too-many-return-statements  # о�
 
         proxies = old_data.get('proxies', [])
         if not any(p.get('proxyId') == proxy_id for p in proxies):
-            return {'error': 'Прокси не найден'}, 400
+            return {'error': _('Прокси не найден')}, 400
 
         masks = old_data.get('masks', [])
         new_mask = {
@@ -785,7 +791,7 @@ async def handle_post_mask(  # pylint: disable=too-many-return-statements  # о�
         return {'success': True, 'mask': new_mask}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка добавления маски: %s', e)
-        return {'error': 'Не удалось добавить маску'}, 500
+        return {'error': _('Не удалось добавить маску')}, 500
 
 
 async def handle_patch_mask(
@@ -794,10 +800,10 @@ async def handle_patch_mask(
     """PATCH /api/mask/{id} — обновляет паттерн маски."""
     try:
         if not isinstance(data, dict):
-            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
+            return {'error': _('Тело запроса должно быть JSON-объектом')}, 400
         pattern = data.get('pattern')
         if not isinstance(pattern, str) or not pattern.strip():
-            return {'error': 'Требуется поле "pattern" (строка)'}, 400
+            return {'error': _('Требуется поле "pattern" (строка)')}, 400
 
         old_data = cfg.load_config()
         old_masks = _extract_masks_dict(old_data)
@@ -805,7 +811,7 @@ async def handle_patch_mask(
         masks = old_data.get('masks', [])
         idx = next((i for i, m in enumerate(masks) if m.get('maskId') == mask_id), None)
         if idx is None:
-            return {'error': 'Маска не найдена'}, 404
+            return {'error': _('Маска не найдена')}, 404
 
         masks[idx]['pattern'] = pattern
         # regexString обязателен для маршрутизации; если не передан —
@@ -833,7 +839,7 @@ async def handle_patch_mask(
         return {'success': True, 'mask': masks[idx]}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка обновления маски: %s', e)
-        return {'error': 'Не удалось обновить маску'}, 500
+        return {'error': _('Не удалось обновить маску')}, 500
 
 
 async def handle_delete_mask(
@@ -847,7 +853,7 @@ async def handle_delete_mask(
         masks = old_data.get('masks', [])
         # Проверяем существование маски до удаления
         if not any(m.get('maskId') == mask_id for m in masks):
-            return {'error': 'Маска не найдена'}, 404
+            return {'error': _('Маска не найдена')}, 404
 
         masks = [m for m in masks if m.get('maskId') != mask_id]
         new_data = {'proxies': old_data.get('proxies', []), 'masks': masks}
@@ -865,4 +871,46 @@ async def handle_delete_mask(
         return {'success': True}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка удаления маски: %s', e)
-        return {'error': 'Не удалось удалить маску'}, 500
+        return {'error': _('Не удалось удалить маску')}, 500
+
+
+def handle_get_language() -> dict:
+    """GET /api/language — возвращает текущий язык интерфейса."""
+    return {'language': autostart.get_language()}
+
+
+async def handle_post_language(data: dict) -> dict | tuple[dict, int]:
+    """POST /api/language — устанавливает язык интерфейса бэкенда."""
+    try:
+        if not isinstance(data, dict) or 'language' not in data:
+            return {'error': _('Требуется поле "language"')}, 400
+        if not isinstance(data['language'], str) or not data['language'].strip():
+            return {'error': _('Поле "language" должно быть непустой строкой')}, 400
+
+        value = data['language']
+        normalized = autostart.set_language(value)
+
+        # Применяем язык к gettext-локализации.
+        # Ленивый импорт: избегаем потенциальной циклической зависимости
+        # между handlers и i18n при инициализации.
+        from server.i18n import set_language as i18n_set_language  # pylint: disable=import-outside-toplevel
+        i18n_set_language(normalized)
+
+        await emit_event('language_changed', {
+            'language': normalized,
+        })
+        return {
+            'success': True,
+            'language': normalized,
+        }
+    except ValueError as e:
+        logger.warning('Неверный запрос language: %s', e)
+        return {'error': str(e)}, 400
+    except OSError as e:
+        logger.error('Ошибка сохранения language: %s', e)
+        return {
+            'error': _(
+                'Не удалось сохранить настройку. Проверьте права на запись.'
+            ),
+            'language': autostart.get_language(),
+        }, 500

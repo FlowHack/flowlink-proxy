@@ -13,6 +13,7 @@ import types
 import webbrowser
 from typing import Any, Callable, Dict, List, Optional
 
+from server.i18n import _
 from server.utils import get_data_dir
 
 logger = logging.getLogger('flowlink.tray.menu')
@@ -188,7 +189,7 @@ def _open_logs(
             )
             return
         if log_dir:
-            safe_open_folder(log_dir, 'логи', log)
+            safe_open_folder(log_dir, _('логи'), log)
 
 
 def _clear_logs(
@@ -219,7 +220,7 @@ def _open_data(
             'Tray: get_data_dir() ошибка: %s', exc,
         )
         return
-    safe_open_folder(data_dir, 'данные', log)
+    safe_open_folder(data_dir, _('данные'), log)
 
 
 def _clear_data(
@@ -383,8 +384,8 @@ def _select_browser(
             # через wait_window вместо создания второго tk.Tk() root
             # (два mainloop в одном потоке не поддерживаются Tcl/Tk).
             show_item_picker(
-                title='Выбор браузера',
-                message='Найденные браузеры:',
+                title=_('Выбор браузера'),
+                message=_('Найденные браузеры:'),
                 items=items,
                 on_select=_on_select,
                 allow_manual=True,
@@ -436,10 +437,10 @@ def _open_file_dialog(
             _set_window_icon(root)
 
         path = filedialog.askopenfilename(
-            title='Выберите исполняемый файл браузера',
+            title=_('Выберите исполняемый файл браузера'),
             filetypes=[
-                ('Исполняемые файлы', '*.exe *.app *.AppImage'),
-                ('Все файлы', '*'),
+                (_('Исполняемые файлы'), '*.exe *.app *.AppImage'),
+                (_('Все файлы'), '*'),
             ],
         )
         if owns_root:
@@ -669,7 +670,7 @@ def _show_close_browser_on_exit_dialog(
                 browser_path,
             )
 
-    message = (
+    message = _(
         'Браузер был запущен из FlowLink Proxy. Закрытие браузера '
         'может прервать незавершённые действия (скачивание файлов, '
         'обновления и т.п.). Если идёт важный процесс — дождитесь его '
@@ -679,16 +680,16 @@ def _show_close_browser_on_exit_dialog(
     )
 
     show_info(
-        title='Закрыть браузер?',
+        title=_('Закрыть браузер?'),
         message=message,
         buttons=[
             {
-                'text': 'Не закрывать браузер',
+                'text': _('Не закрывать браузер'),
                 'action': lambda: None,
                 'primary': False,
             },
             {
-                'text': 'Закрыть браузер',
+                'text': _('Закрыть браузер'),
                 'action': _on_close_browser,
                 'primary': True,
             },
@@ -805,50 +806,50 @@ def build_menu_items(
         {
             'type': 'header',
             'text': (
-                'Расширение: подключено' if ext_connected
-                else 'Расширение: не подключено'
+                _('Расширение: подключено') if ext_connected
+                else _('Расширение: не подключено')
             ),
             'icon': '\U0001f517' if ext_connected else '\u26a0\ufe0f',
             'color': '#2ecc71' if ext_connected else '#e74c3c',
             'tooltip': (
-                'Расширение FlowLink Proxy подключено к бэкенду'
+                _('Расширение FlowLink Proxy подключено к бэкенду')
                 if ext_connected
-                else 'Расширение FlowLink Proxy не подключено. '
-                     'Установите и запустите расширение в браузере'
+                else _('Расширение FlowLink Proxy не подключено. '
+                       'Установите и запустите расширение в браузере')
             ),
         },
         {
             'type': 'item',
-            'text': 'Посмотреть логи',
+            'text': _('Посмотреть логи'),
             'icon': '\U0001f4dc',
-            'tooltip': 'Открыть папку с логами FlowLink Proxy',
+            'tooltip': _('Открыть папку с логами FlowLink Proxy'),
             'command': _make_action(
                 _open_logs, callbacks, log,
             ),
         },
         {
             'type': 'item',
-            'text': 'Очистить логи',
+            'text': _('Очистить логи'),
             'icon': '\U0001f5d1',
-            'tooltip': 'Удалить все файлы логов',
+            'tooltip': _('Удалить все файлы логов'),
             'command': _make_action(
                 _clear_logs, callbacks, log,
             ),
         },
         {
             'type': 'item',
-            'text': 'Посмотреть данные',
+            'text': _('Посмотреть данные'),
             'icon': '\U0001f4c2',
-            'tooltip': 'Открыть папку с данными (конфиг, ключи)',
+            'tooltip': _('Открыть папку с данными (конфиг, ключи)'),
             'command': _make_action(
                 _open_data, callbacks, log,
             ),
         },
         {
             'type': 'item',
-            'text': 'Очистить данные',
+            'text': _('Очистить данные'),
             'icon': '\u26a0\ufe0f',
-            'tooltip': 'Удалить конфигурацию и все данные',
+            'tooltip': _('Удалить конфигурацию и все данные'),
             'command': _make_action(
                 _clear_data, callbacks, log,
             ),
@@ -856,10 +857,10 @@ def build_menu_items(
         {'type': 'separator'},
         {
             'type': 'check',
-            'text': 'Автозапуск браузера',
+            'text': _('Автозапуск браузера'),
             'icon': '\U0001f310',
             'checked': autostart,
-            'tooltip': 'Запускать браузер автоматически при старте системы',
+            'tooltip': _('Запускать браузер автоматически при старте системы'),
             'command': _make_action(
                 _toggle_autostart, callbacks, log,
                 current_value=autostart,
@@ -867,10 +868,10 @@ def build_menu_items(
         },
         {
             'type': 'check',
-            'text': 'Автозакрытие браузера',
+            'text': _('Автозакрытие браузера'),
             'icon': '\U0001f6aa',
             'checked': close_browser_with_app,
-            'tooltip': 'Закрывать браузер при выходе из FlowLink Proxy',
+            'tooltip': _('Закрывать браузер при выходе из FlowLink Proxy'),
             'command': _make_action(
                 _toggle_close_browser_with_app,
                 callbacks, log,
@@ -879,10 +880,10 @@ def build_menu_items(
         },
         {
             'type': 'check',
-            'text': 'Запуск с системой',
+            'text': _('Запуск с системой'),
             'icon': '\U0001f50a',
             'checked': sys_autostart,
-            'tooltip': 'Автозапуск FlowLink Proxy вместе с системой',
+            'tooltip': _('Автозапуск FlowLink Proxy вместе с системой'),
             'command': _make_action(
                 _toggle_system_autostart,
                 callbacks, log,
@@ -893,21 +894,21 @@ def build_menu_items(
         {
             'type': 'item',
             'text': (
-                'Выбрать браузер... ✓' if browser_selected
-                else 'Выбрать браузер...'
+                _('Выбрать браузер... ✓') if browser_selected
+                else _('Выбрать браузер...')
             ),
             'icon': '\U0001f4c1',
             'color': '#2ecc71' if browser_selected else None,
-            'tooltip': 'Указать, какой браузер использовать',
+            'tooltip': _('Указать, какой браузер использовать'),
             'command': _make_action(
                 _select_browser, callbacks, log,
             ),
         },
         {
             'type': 'item',
-            'text': 'Запустить браузер',
+            'text': _('Запустить браузер'),
             'icon': '\U0001f310',
-            'tooltip': 'Запустить выбранный браузер сейчас',
+            'tooltip': _('Запустить выбранный браузер сейчас'),
             'command': _make_action(
                 _launch_browser_now, callbacks, log,
             ),
@@ -915,10 +916,10 @@ def build_menu_items(
         {'type': 'separator'},
         {
             'type': 'item',
-            'text': 'Выход',
+            'text': _('Выход'),
             'icon': '\u274c',
             'color': '#e74c3c',
-            'tooltip': 'Завершить работу FlowLink Proxy',
+            'tooltip': _('Завершить работу FlowLink Proxy'),
             'command': lambda: _exit(
                 stop_fn, callbacks, log,
             ),
@@ -931,10 +932,10 @@ def build_menu_items(
     if browser_running_with_proxy:
         items.insert(-2, {
             'type': 'item',
-            'text': 'Закрыть браузер',
+            'text': _('Закрыть браузер'),
             'icon': '\U0001f6d1',
             'color': '#e74c3c',
-            'tooltip': 'Закрыть браузер, запущенный из FlowLink Proxy',
+            'tooltip': _('Закрыть браузер, запущенный из FlowLink Proxy'),
             'command': _make_action(
                 _close_browser_now, callbacks, log,
             ),

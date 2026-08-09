@@ -13,6 +13,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from typing import Any, Callable, Optional
 
+from server.i18n import _
 from server.ui.theme import ThemeColors
 
 logger = logging.getLogger('flowlink.ui.dialogs')
@@ -518,8 +519,8 @@ def show_info(  # pylint: disable=too-many-locals,too-many-statements
 def ask_yes_no(
     title: str,
     message: str,
-    yes_text: str = 'Да',
-    no_text: str = 'Нет',
+    yes_text: str = _('Да'),
+    no_text: str = _('Нет'),
     parent_root: Optional[tk.Tk] = None,
 ) -> bool:
     """Показывает диалог с вопросом (Да/Нет).
@@ -735,7 +736,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
 
         manual_btn = _make_button(
             bottom_frame,
-            text='Указать вручную',
+            text=_('Указать вручную'),
             command=_on_manual,
             primary=False,
         )
@@ -751,7 +752,7 @@ def show_item_picker(  # pylint: disable=too-many-locals,too-many-statements,too
 
     cancel_btn = _make_button(
         bottom_frame,
-        text='Отмена',
+        text=_('Отмена'),
         command=_on_cancel,
         primary=False,
     )

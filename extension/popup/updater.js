@@ -7,6 +7,7 @@
 import { apiGet } from '../shared/api.js';
 import { compareVersions } from '../shared/utils.js';
 import { GITHUB_API_RELEASES, GITHUB_RELEASES_URL } from '../shared/constants.js';
+import { t } from '../shared/i18n.js';
 
 let backendVersion = null;
 
@@ -30,7 +31,7 @@ export async function checkBackendVersion() {
     const extVer = document.getElementById('version-text');
     const extVersion = chrome.runtime.getManifest().version;
     if (extVer && resp.version && resp.version !== extVersion) {
-      extVer.textContent = `Версия: ${chrome.runtime.getManifest().version} (бэкенд: ${resp.version})`;
+      extVer.textContent = t('versionBackend', { ext: chrome.runtime.getManifest().version, be: resp.version });
     }
     return true;
   } catch (e) {
@@ -90,7 +91,7 @@ function _showVpnHint() {
     const showToast = window.__flowlinkShowToast;
     if (typeof showToast === 'function') {
       showToast(
-        'Не удалось проверить обновления. Возможно, GitHub заблокирован — используйте VPN или прокси.',
+        t('updateCheckFailed'),
         'warning',
       );
     }
@@ -110,7 +111,7 @@ function showUpdateBanner(tag, url) {
   const downloadBtn = document.getElementById('btn-update-download');
   if (!banner || !updateText || !downloadBtn) return;
   if (!url || typeof url !== 'string' || !url.startsWith('https://')) return;
-  updateText.textContent = `Доступно обновление ${tag}`;
+  updateText.textContent = t('updateAvailable', { tag });
   downloadBtn.href = url;
   banner.classList.remove('hidden');
 }

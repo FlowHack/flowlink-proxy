@@ -14,6 +14,7 @@ import json
 import logging
 from typing import Awaitable, Callable
 
+from server.i18n import _
 from server.servers import handlers
 from server.servers.base_server import BaseServer
 from server.utils import cors_allow_origin, safe_close_writer
@@ -103,7 +104,7 @@ async def _handle_ping_post(
     """POST /api/ping — пинг прокси по proxyId."""
     proxy_id = data.get('proxyId')
     if not isinstance(proxy_id, str):
-        return {'error': 'Требуется proxyId'}, 400
+        return {'error': _('Требуется proxyId')}, 400
     return await handlers.handle_ping(proxy_id, peername)
 
 
@@ -195,6 +196,22 @@ async def _handle_masks_post(
     return await handlers.handle_post_mask(data, router)
 
 
+async def _handle_language_get(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
+) -> dict:
+    """GET /api/language — текущий язык интерфейса."""
+    return handlers.handle_get_language()
+
+
+async def _handle_language_post(
+    data: dict, router: MaskRouter, debug: bool, need_update: bool,
+    peername: tuple,
+) -> dict | tuple[dict, int]:
+    """POST /api/language — установить язык интерфейса."""
+    return await handlers.handle_post_language(data)
+
+
 # Таблица маршрутов: (method, path) -> обработчик.
 # Единая точка регистрации эндпоинтов (DRY, SOLID).
 _ROUTES: dict[tuple[str, str], _Handler] = {
@@ -215,6 +232,8 @@ _ROUTES: dict[tuple[str, str], _Handler] = {
     ('GET', '/api/browser-config'): _handle_browser_config_get,
     ('POST', '/api/proxies'): _handle_proxies_post,
     ('POST', '/api/masks'): _handle_masks_post,
+    ('GET', '/api/language'): _handle_language_get,
+    ('POST', '/api/language'): _handle_language_post,
 }
 
 
@@ -315,7 +334,7 @@ def _extract_token_from_query(query: str) -> str | None:
 
 def _mask_token_in_path(path: str) -> str:
     """Маскирует значение query-параметра token в path для логов."""
-    route_path, _, query = path.partition('?')
+    route_path, _sep, query = path.partition('?')
     if not query:
         return path
     masked = []
@@ -336,7 +355,7 @@ def _parse_header_line(line: bytes) -> tuple[str, str] | None:
     text = line.decode(errors='replace').strip()
     if ':' not in text:
         return None
-    key, _, value = text.partition(':')
+    key, _sep, value = text.partition(':')
     return key.strip().lower(), value.strip()
 
 
@@ -480,7 +499,7 @@ async def _build_response(
     except TypeError:
         logger.error('API: не удалось сериализовать ответ')
         response_json = json.dumps(
-            {'error': 'Внутренняя ошибка сервера'},
+            {'error': _('Внутренняя ошибка сервера')},
             ensure_ascii=False
         )
     reason = {
@@ -628,7 +647,7 @@ class ApiServer(BaseServer):
         # pylint: disable=too-many-return-statements
         # Отделяем путь от query-строки: маршрутизация по чистому пути,
         # а токен в GET-запросах может передаваться в query-параметре token
-        route_path, _, query = path.partition('?')
+        route_path, _sep, query = path.partition('?')
         try:
             # Аутентификация: закрытые маршруты требуют валидный токен
             if not self._is_authenticated(method, route_path, query, headers):
@@ -636,7 +655,7 @@ class ApiServer(BaseServer):
                     'API: отказ в доступе (неверный токен) %s %s от %s',
                     method, route_path, peername,
                 )
-                return 403, {'error': 'Не авторизован'}
+                return 403, {'error': _('Не авторизован')}
 
             if route_path == '/api/bootstrap' and method == 'GET':
                 # Открытый маршрут: расширение получает токен и порт API
@@ -691,7 +710,7 @@ class ApiServer(BaseServer):
             return status_code, response_body
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning('API: неверный запрос от %s: %s', peername, e)
-            return 400, {'error': 'Неверный запрос'}
+            return 400, {'error': _('Неверный запрос')}
         except (OSError, RuntimeError) as e:
             logger.error(
                 'API: ошибка сервера от %s: %s', peername, e, exc_info=True
@@ -765,20 +784,25 @@ class ApiServer(BaseServer):
         except _RequestTooLarge:
             await _build_response(
                 writer, 413,
-                {'error': f'Тело запроса слишком большое '
-                          f'(максимум {MAX_POST_BODY} байт)'},
+                {'error': _('Тело запроса слишком большое '
+                            '(максимум {max_body} байт)').format(
+                                max_body=MAX_POST_BODY,
+                            )},
             )
         except _RequestHeaderLimit:
             await _build_response(
                 writer, 400,
-                {'error': 'Слишком много заголовков или превышен их суммарный'
-                          f' размер (максимум {MAX_HEADERS} шт / '
-                          f'{MAX_HEADER_SIZE} байт)'},
+                {'error': _('Слишком много заголовков или превышен их '
+                            'суммарный размер (максимум {max_headers} шт / '
+                            '{max_header_size} байт)').format(
+                                max_headers=MAX_HEADERS,
+                                max_header_size=MAX_HEADER_SIZE,
+                            )},
             )
         except _RequestTimeout:
             await _build_response(
                 writer, 408,
-                {'error': 'Таймаут ожидания запроса'},
+                {'error': _('Таймаут ожидания запроса')},
             )
         except asyncio.TimeoutError:
             logger.debug('API: таймаут ожидания запроса')
@@ -794,7 +818,7 @@ class ApiServer(BaseServer):
             try:
                 await _build_response(
                     writer, 500,
-                    {'error': 'Внутренняя ошибка сервера'},
+                    {'error': _('Внутренняя ошибка сервера')},
                 )
             except (ConnectionError, OSError):
                 logger.debug('API: клиент отключился при отправке 500')

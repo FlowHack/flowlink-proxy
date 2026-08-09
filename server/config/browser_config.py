@@ -15,6 +15,7 @@ from server.config.browser_process import (
     is_browser_running,
     is_browser_running_with_proxy,
 )
+from server.i18n import _
 
 logger = logging.getLogger('flowlink.browser')
 
@@ -207,7 +208,7 @@ def validate_browser_path_detailed(path: str) -> dict:
     warnings: list[str] = []
 
     if not path or not path.strip():
-        return {'valid': False, 'error': 'Путь не может быть пустым', 'warnings': []}
+        return {'valid': False, 'error': _('Путь не может быть пустым'), 'warnings': []}
 
     path = path.strip()
     error = _check_path_exists(path)
@@ -215,12 +216,13 @@ def validate_browser_path_detailed(path: str) -> dict:
         return {'valid': False, 'error': error, 'warnings': []}
 
     # Проверка расширения — не похоже на браузер (до X_OK, т.к. быстрее)
-    _, ext = os.path.splitext(path)
+    _base, ext = os.path.splitext(path)
     ext = ext.lower()
     if ext in _NON_EXECUTABLE_EXTENSIONS:
         return {
             'valid': False,
-            'error': f'Файл с расширением «{ext}» не является исполняемым файлом браузера',
+            'error': _('Файл с расширением «{ext}» не является исполняемым '
+                       'файлом браузера').format(ext=ext),
             'warnings': [],
         }
 
@@ -228,15 +230,15 @@ def validate_browser_path_detailed(path: str) -> dict:
     if sys.platform != 'win32' and not os.access(path, os.X_OK):
         return {
             'valid': False,
-            'error': 'Файл не является исполняемым',
+            'error': _('Файл не является исполняемым'),
             'warnings': [],
         }
 
     # Предупреждение для .desktop файлов (Linux)
     if path.endswith('.desktop'):
         warnings.append(
-            'Файл .desktop является ярлыком. '
-            'Укажите путь к исполняемому файлу напрямую.',
+            _('Файл .desktop является ярлыком. '
+              'Укажите путь к исполняемому файлу напрямую.'),
         )
 
     return {'valid': True, 'error': None, 'warnings': warnings}

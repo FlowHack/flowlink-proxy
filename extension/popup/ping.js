@@ -6,6 +6,7 @@
 
 import { apiPost } from '../shared/api.js';
 import { setLoading } from '../shared/utils.js';
+import { t } from '../shared/i18n.js';
 
 /** Флаг: подсказка про блокировку прокси уже показана (не спамим). */
 let _blockHintShown = false;
@@ -20,7 +21,7 @@ export async function handlePingAll(state, renderProxyList) {
   const btn = document.getElementById('btn-ping-all');
   if (!btn) return;
   setLoading(btn, true);
-  btn.textContent = 'Проверка...';
+  btn.textContent = t('checking');
   state.pingResults.clear();
 
   const results = await Promise.allSettled(
@@ -47,7 +48,7 @@ export async function handlePingAll(state, renderProxyList) {
 
   renderProxyList();
   setLoading(btn, false);
-  btn.textContent = 'Пинг';
+  btn.textContent = t('ping');
 
   // При массовом отказе с признаками блокировки — подсказываем про VPN/прокси
   if (totalCount > 0 && blockedCount > 0 && blockedCount / totalCount >= 0.5) {
@@ -66,7 +67,7 @@ function _showBlockHint() {
     const showToast = window.__flowlinkShowToast;
     if (typeof showToast === 'function') {
       showToast(
-        'Прокси не отвечают (таймаут/сброс). Возможно, соединение блокируется провайдером — используйте VPN или другой прокси.',
+        t('proxyBlockedHint'),
         'warning',
       );
     }

@@ -6,6 +6,7 @@
 
 import { API_BASE } from './constants.js';
 import { getAuthToken, authHeaders, resetAuthToken } from './auth.js';
+import { t } from './i18n.js';
 
 /**
  * Типизированная ошибка API.
@@ -138,7 +139,7 @@ async function _parseJsonResponse(res) {
     return await res.json();
   } catch (e) {
     console.warn('[FlowLink Proxy] api: невалидный JSON:', e);
-    throw new ApiError('Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд.', 'json');
+    throw new ApiError(t('invalidJson'), 'json');
   }
 }
 

@@ -8,13 +8,14 @@ import { apiPatch, apiPost, apiDelete } from '../shared/api.js';
 import { isValidHost, isValidPort, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
 import { showToast } from './popup.js';
+import { t } from '../shared/i18n.js';
 
 /**
  * Открывает модальное окно добавления нового прокси.
  */
 export function openAddProxyModal() {
   clearProxyForm();
-  document.getElementById('modal-proxy-title').textContent = 'Добавить прокси';
+  document.getElementById('modal-proxy-title').textContent = t('addProxyTitle');
   document.getElementById('proxy-id').value = '';
   showModal('modal-proxy');
 }
@@ -30,13 +31,13 @@ export function openEditProxyModal(proxy) {
   const pwdBtn = document.getElementById('btn-password-toggle');
   if (pwdInput) pwdInput.type = 'password';
   if (pwdBtn) {
-    pwdBtn.title = 'Показать пароль';
+    pwdBtn.title = t('showPassword');
     const closed = pwdBtn.querySelector('.eye-closed');
     const open = pwdBtn.querySelector('.eye-open');
     if (closed) closed.classList.remove('hidden');
     if (open) open.classList.add('hidden');
   }
-  document.getElementById('modal-proxy-title').textContent = 'Редактировать прокси';
+  document.getElementById('modal-proxy-title').textContent = t('editProxyTitle');
   document.getElementById('proxy-id').value = proxy.proxyId;
   document.getElementById('proxy-host').value = proxy.host;
   document.getElementById('proxy-port').value = proxy.port;
@@ -59,7 +60,7 @@ function clearProxyForm() {
   const pwdBtn = document.getElementById('btn-password-toggle');
   if (pwdInput) pwdInput.type = 'password';
   if (pwdBtn) {
-    pwdBtn.title = 'Показать пароль';
+    pwdBtn.title = t('showPassword');
     const closed = pwdBtn.querySelector('.eye-closed');
     const open = pwdBtn.querySelector('.eye-open');
     if (closed) closed.classList.remove('hidden');
@@ -103,13 +104,13 @@ export async function handleSaveProxy(loadAndRender) {
 
   hideFieldErrors();
   let hasError = false;
-  if (!host) { showFieldError('proxy-host', 'Введите хост'); hasError = true; }
+  if (!host) { showFieldError('proxy-host', t('enterHost')); hasError = true; }
   if (!port || !isValidPort(port)) {
-    showFieldError('proxy-port', port ? 'Порт от 1 до 65535' : 'Введите порт');
+    showFieldError('proxy-port', port ? t('portRange') : t('enterPort'));
     hasError = true;
   }
   if (hasError) return;
-  if (!isValidHost(host)) { showFieldError('proxy-host', 'Неверный формат хоста (IP или домен)'); return; }
+  if (!isValidHost(host)) { showFieldError('proxy-host', t('invalidHost')); return; }
 
   const saveBtn = document.getElementById('btn-proxy-save');
   setLoading(saveBtn, true);
@@ -134,7 +135,7 @@ export async function handleSaveProxy(loadAndRender) {
       || e.message.startsWith('NETWORK:') || e.message.startsWith('TIMEOUT:')
       || e.message.includes('Failed to fetch');
     const msg = isNetworkError
-      ? 'Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy.'
+      ? t('backendUnreachable')
       : e.message;
     showFieldError('proxy-host', msg);
   } finally {
@@ -155,7 +156,7 @@ export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления прокси:', e);
-    showToast('Не удалось удалить прокси. Проверьте соединение с бэкендом.', 'error');
+    showToast(t('deleteProxyFailed'), 'error');
   } finally {
     setLoading(btn, false);
   }
@@ -185,7 +186,7 @@ export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
       || e.message.startsWith('NETWORK:') || e.message.startsWith('TIMEOUT:')
       || e.message.includes('Failed to fetch');
     const msg = isNetworkError
-      ? 'Не удалось переключить прокси. Проверьте соединение с бэкендом.'
+      ? t('toggleProxyFailed')
       : e.message;
     showToast(msg, 'error');
   } finally {

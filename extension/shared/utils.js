@@ -4,6 +4,8 @@
  * Единственная ответственность: вспомогательные функции без состояния.
  */
 
+import { t } from './i18n.js';
+
 // Regex для проверки IPv4-адреса (четыре октета 0-255)
 const IP_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1?\d{1,2})\.){3}(?:25[0-5]|2[0-4]\d|1?\d{1,2})$/;
 
@@ -126,12 +128,12 @@ export function convertWildcardToRegex(pattern) {
 export function copyEmailToClipboard(email, showToastFn) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(email)
-      .then(() => { if (showToastFn) showToastFn('Email скопирован: ' + email); })
+      .then(() => { if (showToastFn) showToastFn(t('emailCopied', { email })); })
       .catch((err) => {
         console.warn('[FlowLink Proxy] Ошибка копирования в буфер обмена:', err);
-        if (showToastFn) showToastFn('Не удалось скопировать. Выделите вручную: ' + email);
+        if (showToastFn) showToastFn(t('copyFailed', { email }));
       });
   } else if (showToastFn) {
-    showToastFn('Выделите вручную: ' + email);
+    showToastFn(t('selectManually', { email }));
   }
 }

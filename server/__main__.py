@@ -33,6 +33,7 @@ import webbrowser
 from server.config import browser_config as _browser_config
 from server.config import config as cfg
 from server.config import system_autostart as _system_autostart
+from server.i18n import _, init_i18n
 from server.logging_config import setup_logging
 from server.protocols.mock_socks5 import MockSocks5Server
 from server.servers.api import ApiServer
@@ -61,7 +62,7 @@ logger = logging.getLogger('flowlink')
 def _find_py_files(root: str) -> list[str]:
     """Собирает все .py файлы в директории рекурсивно."""
     files = []
-    for dirpath, _, filenames in os.walk(root):
+    for dirpath, _dirs, filenames in os.walk(root):
         for fn in filenames:
             if fn.endswith('.py'):
                 files.append(os.path.join(dirpath, fn))
@@ -175,29 +176,29 @@ def _show_browser_already_running_dialog(
         """Фиксирует выбор пользователя: перезапустить браузер."""
         choice['value'] = True
 
-    message = (
+    message = _(
         'Для работы через прокси браузер необходимо закрыть и запустить '
         'через FlowLink Proxy. Закрытие браузера может прервать '
         'незавершённые действия (скачивание файлов, обновления и т.п.). '
         'Если идёт важный процесс — дождитесь его завершения и повторите '
         'попытку.\n\n'
         'Как завершить процесс вручную:\n'
-        f'{instructions}\n\n'
+        '{instructions}\n\n'
         'Внимание: будут закрыты все процессы выбранного браузера. '
         'Если запущено несколько профилей или окон — все они будут закрыты.'
-    )
+    ).format(instructions=instructions)
 
     show_info(
-        title='Браузер уже запущен',
+        title=_('Браузер уже запущен'),
         message=message,
         buttons=[
             {
-                'text': 'Отмена',
+                'text': _('Отмена'),
                 'action': lambda: None,
                 'primary': False,
             },
             {
-                'text': 'Закрыть браузер и запустить через FlowLink Proxy',
+                'text': _('Закрыть браузер и запустить через FlowLink Proxy'),
                 'action': _on_choose_restart,
                 'primary': True,
             },
@@ -253,7 +254,7 @@ def _show_browser_already_running_with_proxy_dialog(
         """Фиксирует выбор пользователя: перезапустить браузер."""
         choice['value'] = True
 
-    message = (
+    message = _(
         'Браузер уже запущен через FlowLink Proxy и работает через прокси. '
         'Повторный запуск не требуется.\n\n'
         'Если вы хотите перезапустить браузер (например, после изменения '
@@ -265,16 +266,16 @@ def _show_browser_already_running_with_proxy_dialog(
     )
 
     show_info(
-        title='Браузер уже запущен',
+        title=_('Браузер уже запущен'),
         message=message,
         buttons=[
             {
-                'text': 'Не перезапускать',
+                'text': _('Не перезапускать'),
                 'action': lambda: None,
                 'primary': False,
             },
             {
-                'text': 'Перезапустить браузер',
+                'text': _('Перезапустить браузер'),
                 'action': _on_choose_restart,
                 'primary': True,
             },
@@ -1200,6 +1201,7 @@ async def main() -> None:
         logger.info('Путь к браузеру сохранён: %s', args.browser_path)
 
     setup_logging(args.debug)
+    init_i18n()
     logger.info('FlowLink Proxy v%s запуск...', __version__)
     logger.info('Прокси-сервер: порт %d', args.proxy_port)
     logger.info('API-сервер: порт %d', args.api_port)
