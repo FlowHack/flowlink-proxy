@@ -20,12 +20,15 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from server.services.tunnel import (
     _active_tunnels,
     _all_writers,
+    _client_writers,
     close_all_connections,
     close_all_proxy_tunnels,
     close_tunnels_for_proxy,
+    register_client_writer,
     register_tunnel,
     tunnel_connect,
     tunnel_http,
+    unregister_client_writer,
     unregister_tunnel,
     validate_target,
 )
@@ -96,6 +99,30 @@ class TestValidateTarget(unittest.TestCase):
         """255.255.255.255 → блокируется (ограниченный broadcast)"""
         with self.assertRaises(ValueError) as ctx:
             self._run(validate_target('255.255.255.255', 80))
+        self.assertIn('SSRF', str(ctx.exception))
+
+    def test_ipv4_mapped_ipv6_loopback(self):
+        """::ffff:127.0.0.1 → блокируется (IPv4-mapped IPv6 loopback)"""
+        with self.assertRaises(ValueError) as ctx:
+            self._run(validate_target('::ffff:127.0.0.1', 80))
+        self.assertIn('SSRF', str(ctx.exception))
+
+    def test_ipv4_mapped_ipv6_private(self):
+        """::ffff:10.0.0.1 → блокируется (IPv4-mapped IPv6 private)"""
+        with self.assertRaises(ValueError) as ctx:
+            self._run(validate_target('::ffff:10.0.0.1', 80))
+        self.assertIn('SSRF', str(ctx.exception))
+
+    def test_multicast_ipv4(self):
+        """224.0.0.1 → блокируется (multicast)"""
+        with self.assertRaises(ValueError) as ctx:
+            self._run(validate_target('224.0.0.1', 80))
+        self.assertIn('SSRF', str(ctx.exception))
+
+    def test_reserved_ipv4(self):
+        """240.0.0.1 → блокируется (reserved 240.0.0.0/4)"""
+        with self.assertRaises(ValueError) as ctx:
+            self._run(validate_target('240.0.0.1', 80))
         self.assertIn('SSRF', str(ctx.exception))
 
     def test_public_domain_allowed(self):
@@ -262,7 +289,7 @@ class TestTunnelConnectHttp(unittest.TestCase):
         mock_pipe.assert_not_awaited()
 
 
-class TestTunnelTracking(unittest.TestCase):
+class TestTunnelTracking(unittest.TestCase):  # pylint: disable=too-many-public-methods  # тестовый класс: много мелких проверок трекинга
     """Тесты функций трекинга туннелей (белый ящик).
 
     Покрывают register_tunnel, unregister_tunnel, close_tunnels_for_proxy,
@@ -275,11 +302,13 @@ class TestTunnelTracking(unittest.TestCase):
         """Сбрасывает глобальные трекеры перед каждым тестом."""
         _active_tunnels.clear()
         _all_writers.clear()
+        _client_writers.clear()
 
     def tearDown(self):
         """Очищает трекеры после теста — защита от межтестового загрязнения."""
         _active_tunnels.clear()
         _all_writers.clear()
+        _client_writers.clear()
 
     def test_register_tunnel_adds_to_tracking(self):
         """register_tunnel добавляет writer в _active_tunnels по proxy_id."""
@@ -399,6 +428,93 @@ class TestTunnelTracking(unittest.TestCase):
         w_ok.close.assert_called_once()
         self.assertEqual(_all_writers, set())
         self.assertEqual(_active_tunnels, {})
+
+    def test_register_client_writer_adds_to_tracking(self):
+        """register_client_writer добавляет writer в _client_writers по proxy_id."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_client_writer('proxy-1', w1)
+        register_client_writer('proxy-1', w2)
+        self.assertEqual(_client_writers['proxy-1'], {w1, w2})
+
+    def test_register_client_writer_multiple_proxies(self):
+        """Разные proxy_id ведут к отдельным множествам в _client_writers."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_client_writer('proxy-a', w1)
+        register_client_writer('proxy-b', w2)
+        self.assertEqual(_client_writers['proxy-a'], {w1})
+        self.assertEqual(_client_writers['proxy-b'], {w2})
+
+    def test_unregister_client_writer_removes_writer(self):
+        """unregister_client_writer удаляет writer из множества клиентских туннелей."""
+        w1 = MagicMock()
+        w2 = MagicMock()
+        register_client_writer('proxy-1', w1)
+        register_client_writer('proxy-1', w2)
+        unregister_client_writer('proxy-1', w1)
+        self.assertEqual(_client_writers['proxy-1'], {w2})
+
+    def test_unregister_client_writer_removes_empty_key(self):
+        """После удаления последнего writer ключ прокси исчезает из словаря."""
+        w = MagicMock()
+        register_client_writer('proxy-1', w)
+        unregister_client_writer('proxy-1', w)
+        self.assertNotIn('proxy-1', _client_writers)
+
+    def test_unregister_client_writer_absent_writer_no_error(self):
+        """unregister_client_writer с незарегистрированным writer не падает."""
+        w = MagicMock()
+        register_client_writer('proxy-1', MagicMock())
+        unregister_client_writer('proxy-1', w)
+        self.assertEqual(len(_client_writers['proxy-1']), 1)
+
+    def test_close_tunnels_for_proxy_closes_client_writers(self):
+        """close_tunnels_for_proxy закрывает и клиентские keep-alive туннели."""
+        remote_w = MagicMock()
+        client_w = MagicMock()
+        register_tunnel('proxy-1', remote_w)
+        register_client_writer('proxy-1', client_w)
+        _all_writers.add(remote_w)
+        close_tunnels_for_proxy('proxy-1')
+        remote_w.close.assert_called_once()
+        client_w.close.assert_called_once()
+        self.assertNotIn('proxy-1', _active_tunnels)
+        self.assertNotIn('proxy-1', _client_writers)
+
+    def test_close_tunnels_for_proxy_ignores_other_proxy_client_writers(self):
+        """close_tunnels_for_proxy('proxy-1') не трогает клиентские туннели proxy-2."""
+        client_w1 = MagicMock()
+        client_w2 = MagicMock()
+        register_client_writer('proxy-1', client_w1)
+        register_client_writer('proxy-2', client_w2)
+        close_tunnels_for_proxy('proxy-1')
+        client_w1.close.assert_called_once()
+        client_w2.close.assert_not_called()
+        self.assertNotIn('proxy-1', _client_writers)
+        self.assertEqual(_client_writers['proxy-2'], {client_w2})
+
+    def test_close_all_connections_closes_client_writers(self):
+        """close_all_connections закрывает все клиентские keep-alive туннели."""
+        client_w1 = MagicMock()
+        client_w2 = MagicMock()
+        register_client_writer('proxy-1', client_w1)
+        register_client_writer('proxy-2', client_w2)
+        close_all_connections()
+        client_w1.close.assert_called_once()
+        client_w2.close.assert_called_once()
+        self.assertEqual(_client_writers, {})
+
+    def test_close_all_connections_oserror_client_writer_does_not_break_others(self):
+        """OSError при close() клиентского writer не прерывает закрытие остальных."""
+        bad_w = MagicMock()
+        bad_w.close = Mock(side_effect=OSError('already closed'))
+        ok_w = MagicMock()
+        register_client_writer('proxy-1', bad_w)
+        register_client_writer('proxy-1', ok_w)
+        close_all_connections()
+        ok_w.close.assert_called_once()
+        self.assertEqual(_client_writers, {})
 
 
 if __name__ == '__main__':

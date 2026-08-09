@@ -119,7 +119,7 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict | tuple[dic
         old_masks = _extract_masks_dict(old_data)
 
         if not isinstance(data, dict):
-            raise ValueError('Тело запроса должно быть JSON-объектом')
+            return {'error': 'Тело запроса должно быть JSON-объектом'}, 400
 
         new_proxies = data.get('proxies', [])
         new_masks = data.get('masks', [])
@@ -163,7 +163,7 @@ async def handle_post_config(data: dict, router: MaskRouter) -> dict | tuple[dic
         return {'success': True}
     except (OSError, RuntimeError, ImportError, ValueError) as e:
         logger.error('Ошибка сохранения конфига: %s', e)
-        return {'error': 'Не удалось сохранить конфигурацию'}
+        return {'error': 'Не удалось сохранить конфигурацию'}, 500
 
 
 def _update_last_active_proxy(proxies: list) -> None:
@@ -210,12 +210,14 @@ def handle_get_version() -> dict:
     return {'version': server_version}
 
 
-async def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
+async def handle_post_enabled(data: dict, router: MaskRouter) -> dict | tuple[dict, int]:
     """POST /api/enabled — устанавливает глобальный флаг включения."""
     try:
         if not isinstance(data, dict) or 'enabled' not in data:
-            raise ValueError('Требуется поле "enabled" (true/false)')
-        enabled = bool(data['enabled'])
+            return {'error': 'Требуется поле "enabled" (true/false)'}, 400
+        if not isinstance(data['enabled'], bool):
+            return {'error': 'Поле "enabled" должно быть булевым (true/false)'}, 400
+        enabled = data['enabled']
         cfg.set_enabled(enabled)
         router.refresh()
         if enabled:
@@ -233,7 +235,7 @@ async def handle_post_enabled(data: dict, router: MaskRouter) -> dict:
         return {
             'error': 'Не удалось переключить состояние',
             'enabled': cfg.is_enabled(),
-        }
+        }, 500
 
 
 async def handle_ping(proxy_id: str, peername: tuple) -> tuple[dict, int]:
@@ -275,12 +277,14 @@ def handle_get_autostart_browser() -> dict:
         }
 
 
-async def handle_post_autostart_browser(data: dict) -> dict:
+async def handle_post_autostart_browser(data: dict) -> dict | tuple[dict, int]:
     """POST /api/autostart-browser — обновляет настройку автозапуска браузера."""
     try:
         if not isinstance(data, dict) or 'autostartBrowser' not in data:
-            raise ValueError('Требуется поле "autostartBrowser" (true/false)')
-        value = bool(data['autostartBrowser'])
+            return {'error': 'Требуется поле "autostartBrowser" (true/false)'}, 400
+        if not isinstance(data['autostartBrowser'], bool):
+            return {'error': 'Поле "autostartBrowser" должно быть булевым (true/false)'}, 400
+        value = data['autostartBrowser']
         autostart.set_autostart_browser(value)
         await emit_event('autostart_browser_changed', {
             'autostartBrowser': value,
@@ -297,13 +301,13 @@ async def handle_post_autostart_browser(data: dict) -> dict:
                      'Если проблема повторяется, обратитесь в поддержку: '
                      'flowlink.proxy@atomicmail.io',
             'autostartBrowser': autostart.get_autostart_browser(),
-        }
+        }, 500
     except (ValueError, TypeError) as e:
         logger.warning('Неверный запрос autostart_browser: %s', e)
         return {
             'error': str(e),
             'autostartBrowser': autostart.get_autostart_browser(),
-        }
+        }, 400
 
 
 # --- Эндпоинты системного автозапуска ---
@@ -324,18 +328,20 @@ def handle_get_system_autostart() -> dict:
         }
 
 
-async def handle_post_system_autostart(data: dict) -> dict:
+async def handle_post_system_autostart(data: dict) -> dict | tuple[dict, int]:
     """POST /api/system-autostart — включает/отключает автозапуск с системой."""
     try:
         if not isinstance(data, dict) or 'enabled' not in data:
-            raise ValueError('Требуется поле "enabled" (true/false)')
-        value = bool(data['enabled'])
+            return {'error': 'Требуется поле "enabled" (true/false)'}, 400
+        if not isinstance(data['enabled'], bool):
+            return {'error': 'Поле "enabled" должно быть булевым (true/false)'}, 400
+        value = data['enabled']
         result = system_autostart.set_system_autostart_enabled(value)
         if not result:
             return {
                 'error': 'Не удалось изменить настройку автозапуска системы',
                 'enabled': system_autostart.is_system_autostart_enabled(),
-            }
+            }, 500
         await emit_event('system_autostart_changed', {
             'enabled': value,
         })
@@ -348,13 +354,13 @@ async def handle_post_system_autostart(data: dict) -> dict:
         return {
             'error': str(e),
             'enabled': system_autostart.is_system_autostart_enabled(),
-        }
+        }, 400
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка записи system_autostart: %s', e)
         return {
             'error': 'Не удалось изменить настройку автозапуска',
             'enabled': system_autostart.is_system_autostart_enabled(),
-        }
+        }, 500
 
 
 # --- Эндпоинты браузера ---
@@ -461,10 +467,20 @@ def _validate_proxy_fields(data: dict) -> tuple[dict, int] | None:
     """
     host = data.get('host')
     port = data.get('port')
+    username = data.get('username')
+    password = data.get('password')
+    label = data.get('label')
+
     if not isinstance(host, str) or not host.strip():
         return {'error': 'Требуется поле "host" (строка)'}, 400
     if not isinstance(port, int) or not 1 <= port <= 65535:
         return {'error': 'Поле "port" должно быть целым числом от 1 до 65535'}, 400
+    if username is not None and not isinstance(username, str):
+        return {'error': 'Поле "username" должно быть строкой'}, 400
+    if password is not None and not isinstance(password, str):
+        return {'error': 'Поле "password" должно быть строкой'}, 400
+    if label is not None and not isinstance(label, str):
+        return {'error': 'Поле "label" должно быть строкой'}, 400
     return None
 
 
@@ -545,6 +561,9 @@ async def handle_post_proxy(  # pylint: disable=too-many-locals  # обрабо�
 
         new_proxies_dict = _extract_proxies_dict(new_data)
         needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+        # При выключении прокси дополнительно закрываем ВСЕ соединения,
+        # чтобы гарантированно разорвать клиентские keep-alive туннели браузера
+        # и заставить его переподключиться по актуальным правилам маршрутизации.
         if needs_full_flush or old_masks != _extract_masks_dict(new_data):
             close_all_connections()
 
@@ -558,7 +577,7 @@ async def handle_post_proxy(  # pylint: disable=too-many-locals  # обрабо�
         return {'error': 'Не удалось добавить прокси'}, 500
 
 
-async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return-statements  # обработчик обновления прокси: валидация, конфликты, туннели
+async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return-statements,too-many-branches  # обработчик обновления прокси: валидация, конфликты, туннели
     proxy_id: str, data: dict, router: MaskRouter,
 ) -> dict | tuple[dict, int]:
     """PATCH /api/proxy/{id} — обновляет поля прокси."""
@@ -590,10 +609,16 @@ async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return
         updated['host'] = host
         updated['port'] = port
         if 'username' in data:
+            if not isinstance(data['username'], str):
+                return {'error': 'Поле "username" должно быть строкой'}, 400
             updated['username'] = data['username']
         if 'password' in data:
+            if not isinstance(data['password'], str):
+                return {'error': 'Поле "password" должно быть строкой'}, 400
             updated['password'] = data['password']
         if 'label' in data:
+            if not isinstance(data['label'], str):
+                return {'error': 'Поле "label" должно быть строкой'}, 400
             updated['label'] = data['label']
         proxies[idx] = updated
 
@@ -603,6 +628,9 @@ async def handle_patch_proxy(  # pylint: disable=too-many-locals,too-many-return
 
         new_proxies_dict = _extract_proxies_dict(new_data)
         needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
+        # При выключении прокси дополнительно закрываем ВСЕ соединения,
+        # чтобы гарантированно разорвать клиентские keep-alive туннели браузера
+        # и заставить его переподключиться по актуальным правилам маршрутизации.
         if needs_full_flush or old_masks != _extract_masks_dict(new_data):
             close_all_connections()
 
@@ -650,7 +678,10 @@ async def handle_patch_proxy_enabled(
 
         new_proxies_dict = _extract_proxies_dict(new_data)
         needs_full_flush = _close_tunnels_on_config_change(old_proxies, new_proxies_dict)
-        if needs_full_flush or old_masks != _extract_masks_dict(new_data):
+        # При выключении прокси дополнительно закрываем ВСЕ соединения,
+        # чтобы гарантированно разорвать клиентские keep-alive туннели браузера
+        # и заставить его переподключиться по актуальным правилам маршрутизации.
+        if not enabled or needs_full_flush or old_masks != _extract_masks_dict(new_data):
             close_all_connections()
 
         router.refresh()
