@@ -470,6 +470,34 @@ class TestRedactUrl(unittest.TestCase):
             'http://example.com/path',
         )
 
+    def test_redacts_userinfo_password(self):
+        """URL с user:pass@host → пароль маскируется (***:***@host)."""
+        self.assertEqual(
+            redact_url('http://user:secret@example.com:8080/path'),
+            'http://***:***@example.com:8080/path',
+        )
+
+    def test_redacts_userinfo_without_password(self):
+        """URL с user@host → user маскируется (***@host)."""
+        self.assertEqual(
+            redact_url('http://user@example.com/path'),
+            'http://***@example.com/path',
+        )
+
+    def test_redacts_userinfo_keeps_ipv6_host(self):
+        """IPv6-хост с userinfo → скобки и порт сохраняются."""
+        self.assertEqual(
+            redact_url('http://user:pass@[::1]:8080/path'),
+            'http://***:***@[::1]:8080/path',
+        )
+
+    def test_redacts_userinfo_with_query(self):
+        """URL с userinfo и query → маскируется userinfo и убирается query."""
+        self.assertEqual(
+            redact_url('http://user:pass@example.com/path?token=abc'),
+            'http://***:***@example.com/path',
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

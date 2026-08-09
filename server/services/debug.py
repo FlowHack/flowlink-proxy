@@ -17,10 +17,10 @@ logger = logging.getLogger('flowlink.debug')
 # Регулярка для маскировки паролей в JSON-строках.
 # Ищет "password":"значение" и заменяет значение на "***".
 # Учитывает экранированные кавычки внутри значения (\").
-_PASSWORD_RE = re.compile(r'"password"\s*:\s*"(?:[^"\\]|\\.)*"')
+_PASSWORD_RE = re.compile(r'"password"\s*:\s*"(?:[^"\\]|\\.)*"', re.IGNORECASE)
 
 
-_USERNAME_RE = re.compile(r'"username"\s*:\s*"(?:[^"\\]|\\.)*"')
+_USERNAME_RE = re.compile(r'"username"\s*:\s*"(?:[^"\\]|\\.)*"', re.IGNORECASE)
 
 
 # Дополнительные чувствительные поля, которые маскируются в логах.

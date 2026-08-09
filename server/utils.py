@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import sys
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger('flowlink.utils')
 
@@ -367,26 +368,36 @@ def proxy_addr(proxy: dict | None, default: str = 'direct') -> str:
 
 
 def redact_url(url: str | None) -> str | None:
-    """Убирает query-параметры из URL для безопасного логирования.
+    """Убирает query-параметры и маскирует userinfo в URL для безопасного логирования.
 
-    В query-строке могут содержаться секреты (токены, api_key, access_token),
-    которые не должны попадать в файл лога. Функция возвращает URL без
-    query-части (схема + хост + порт + путь).
+    В query-строке и userinfo (user:password@host) могут содержаться секреты
+    (токены, api_key, пароли прокси), которые не должны попадать в файл лога.
+    Функция возвращает URL без query-части (схема + хост + порт + путь),
+    а userinfo заменяет на '***' или '***:***'.
 
     Args:
         url: Исходный URL (может содержать query-строку). None допустим —
             функция отказоустойчива и вернёт None.
 
     Returns:
-        URL без query-параметров. При ошибке парсинга — исходный URL.
-        Для None — None.
+        URL без query-параметров и с замаскированным userinfo.
+        При ошибке парсинга — исходный URL. Для None — None.
     """
     if not url:
         return url
     try:
         # Отрезаем query-часть по первому '?' (без полного URL-парсинга,
         # т.к. url может быть относительным или содержать нестандартные схемы)
-        return url.split('?', 1)[0]
+        base = url.split('?', 1)[0]
+        # Маскируем userinfo (user:password@host) — пароль в URL не должен
+        # попадать в логи туннелей и прокси (например, при указании прокси
+        # с credentials прямо в адресе)
+        parts = urlsplit(base)
+        if '@' in parts.netloc:
+            userinfo, _, host = parts.netloc.rpartition('@')
+            masked = '***:***' if ':' in userinfo else '***'
+            base = urlunsplit((parts.scheme, f'{masked}@{host}', parts.path, '', ''))
+        return base
     except (ValueError, AttributeError):
         # Некорректный URL — возвращаем как есть (не падаем)
         logger.debug('redact_url: не удалось обработать URL %r', url)

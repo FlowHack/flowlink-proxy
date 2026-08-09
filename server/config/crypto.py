@@ -86,8 +86,17 @@ def _quarantine_corrupt_key(corrupt_key: bytes) -> None:
     reset_key_cache()
     try:
         quarantine_path = f'{KEY_FILE}.corrupt'
-        with open(quarantine_path, 'wb') as f:
-            f.write(corrupt_key)
+        # Права 0600, как у основного файла ключа — карантинный файл
+        # может содержать фрагменты ключа и не должен быть доступен другим
+        try:
+            fd = os.open(quarantine_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, 'wb') as f:
+                f.write(corrupt_key)
+        except NotImplementedError:
+            # Платформа без поддержки mode в os.open (Windows) — fallback
+            # на обычное открытие, как в load_or_create_key и _save_salt
+            with open(quarantine_path, 'wb') as f:
+                f.write(corrupt_key)
         logger.warning('Повреждённый ключ сохранён в карантин: %s', quarantine_path)
     except OSError as e:
         logger.error('Не удалось сохранить повреждённый ключ в карантин: %s', e)

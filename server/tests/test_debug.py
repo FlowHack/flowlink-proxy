@@ -105,6 +105,27 @@ class TestMaskSensitive(unittest.TestCase):
             '{"token":"***"}',
         )
 
+    def test_masks_capitalized_password(self):
+        """Поле Password (заглавная P) → маскируется (IGNORECASE)."""
+        self.assertEqual(
+            mask_sensitive('{"Password":"secret123"}'),
+            '{"password":"***"}',
+        )
+
+    def test_masks_uppercase_password(self):
+        """Поле PASSWORD (верхний регистр) → маскируется (IGNORECASE)."""
+        self.assertEqual(
+            mask_sensitive('{"PASSWORD":"secret123"}'),
+            '{"password":"***"}',
+        )
+
+    def test_masks_capitalized_username(self):
+        """Поле Username (заглавная U) → маскируется (IGNORECASE)."""
+        self.assertEqual(
+            mask_sensitive('{"Username":"admin"}'),
+            '{"username":"***"}',
+        )
+
 
 class TestTruncate(unittest.TestCase):
     """Тесты truncate — ограничение размера строки для логов."""
