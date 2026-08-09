@@ -4,6 +4,8 @@
  * Единственная ответственность: show/hide модалок.
  */
 
+import { clearDraft } from './draft.js';
+
 /**
  * Показывает модальное окно по его ID, скрывая все остальные.
  * @param {string} id — ID элемента модалки.
@@ -21,6 +23,8 @@ export function showModal(id) {
 /** Скрывает все модальные окна. */
 export function closeModal() {
   document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden'));
+  // Закрытие модалки = осознанное завершение редактирования, черновик стираем
+  clearDraft().catch(e => console.warn('[FlowLink Proxy] modal: ошибка очистки черновика:', e));
 }
 
 /**

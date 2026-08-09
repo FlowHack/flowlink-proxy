@@ -18,6 +18,7 @@ import { checkBackendVersion, checkForUpdates, backendVersion, latestTag } from 
 import { handleSettingsSave, initLanguageSelect, handleLanguageChange } from './settings.js';
 import { discoverPort, extractPortFromBase } from '../shared/port_discovery.js';
 import { t, applyI18n } from '../shared/i18n.js';
+import { initDraftAutoSave, restoreUiDraft } from './draft.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -697,6 +698,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Первая загрузка — один раз, без поллинга
     await loadAndRender();
+    await restoreUiDraft(state);
+    initDraftAutoSave(state);
     // Если бэкенд ответил — проверяем версию и обновления
     const backendOk = await checkBackendVersion();
     if (backendOk) {

@@ -137,3 +137,20 @@ export function copyEmailToClipboard(email, showToastFn) {
     showToastFn(t('selectManually', { email }));
   }
 }
+
+/**
+ * Возвращает функцию, которая будет вызвана не чаще чем раз в `ms` миллисекунд.
+ * Вызов на trailing edge (после паузы).
+ * @param {Function} fn — функция для отложенного вызова.
+ * @param {number} ms — задержка в миллисекундах.
+ * @returns {Function} — обёрнутая функция.
+ */
+export function debounce(fn, ms) {
+  let timerId;
+  return function (...args) {
+    clearTimeout(timerId);
+    timerId = setTimeout(() => {
+      fn.apply(this, args);
+    }, ms);
+  };
+}

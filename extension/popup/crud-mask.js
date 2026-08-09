@@ -4,11 +4,12 @@
  * Использует config-based API: GET /api/config → modify → POST /api/config.
  */
 
-import { apiPatch, apiPost, apiDelete } from '../shared/api.js';
+import { apiPatch, apiPost, apiDelete, apiGet } from '../shared/api.js';
 import { convertWildcardToRegex, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
 import { showToast } from './popup.js';
 import { t } from '../shared/i18n.js';
+import { clearDraft } from './draft.js';
 
 /**
  * Открывает модальное окно добавления маски.
@@ -33,6 +34,7 @@ export function openEditMaskModal(state, mask) {
  * @param {object|null} [existingMask=null] — если задан, режим редактирования.
  */
 function openMaskModal(state, existingMask) {
+  clearDraft().catch(e => console.warn('[FlowLink Proxy] crud-mask: ошибка очистки черновика:', e));
   const title = document.getElementById('modal-mask-title');
   title.textContent = existingMask ? t('editMaskTitle') : t('addMaskTitle');
   document.getElementById('mask-pattern').value = existingMask ? existingMask.pattern : '';
@@ -84,6 +86,7 @@ export async function handleSaveMask(state, loadAndRender) {
     // до переключения на список масок.
     await loadAndRender();
     showModal('modal-masks');
+    await clearDraft();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка сохранения маски:', e);
     // Типизированная ошибка (ApiError.kind) или обратная совместимость

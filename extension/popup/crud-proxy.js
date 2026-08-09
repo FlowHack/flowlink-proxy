@@ -9,12 +9,14 @@ import { isValidHost, isValidPort, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
 import { showToast } from './popup.js';
 import { t } from '../shared/i18n.js';
+import { clearDraft } from './draft.js';
 
 /**
  * Открывает модальное окно добавления нового прокси.
  */
 export function openAddProxyModal() {
   clearProxyForm();
+  clearDraft().catch(e => console.warn('[FlowLink Proxy] crud-proxy: ошибка очистки черновика:', e));
   document.getElementById('modal-proxy-title').textContent = t('addProxyTitle');
   document.getElementById('proxy-id').value = '';
   showModal('modal-proxy');
@@ -26,6 +28,7 @@ export function openAddProxyModal() {
  */
 export function openEditProxyModal(proxy) {
   if (!proxy) return;
+  clearDraft().catch(e => console.warn('[FlowLink Proxy] crud-proxy: ошибка очистки черновика:', e));
   // Сброс видимости пароля при открытии редактирования
   const pwdInput = document.getElementById('proxy-password');
   const pwdBtn = document.getElementById('btn-password-toggle');
@@ -128,6 +131,7 @@ export async function handleSaveProxy(loadAndRender) {
     }
     closeModal();
     await loadAndRender();
+    await clearDraft();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка сохранения прокси:', e);
     // Типизированная ошибка (ApiError.kind) или обратная совместимость
