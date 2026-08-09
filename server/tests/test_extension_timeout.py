@@ -173,3 +173,49 @@ class TestWatchApiConnectionConnected(unittest.IsolatedAsyncioTestCase):
 
         # Уведомление не должно показываться
         self.assertEqual(len(messages), 0)
+
+    async def test_notifies_on_sse_drop_after_connect(self):
+        """При обрыве SSE после подключения watcher показывает уведомление повторно."""
+        notification_shown = asyncio.Event()
+
+        def _fake_ask_yes_no(_title, _message, **_kwargs):
+            notification_shown.set()
+            return False
+
+        # Первые проверки — подключено, затем обрыв и удержание в отключённом
+        connected_states = iter([True, True, False, False, False])
+
+        def _fake_connected():
+            return next(connected_states)
+
+        with (
+            patch('server.__main__._EXTENSION_CONNECT_TIMEOUT', 120),
+            patch('server.__main__._EXTENSION_CHECK_INTERVAL', 1),
+            patch('server.__main__._EXTENSION_NOTIFY_INTERVAL', 0),
+            patch(
+                'server.__main__.is_extension_connected',
+                side_effect=_fake_connected,
+            ),
+            patch(
+                'server.ui.dialogs.ask_yes_no',
+                side_effect=_fake_ask_yes_no,
+            ),
+            patch('server.__main__.threading.Thread', new=_SyncThread),
+        ):
+            task = asyncio.create_task(
+                _watch_api_connection(
+                    server_dir='server', callbacks={},
+                    monitor_after_connect=True,
+                ),
+            )
+            # Детерминированно ждём именно уведомление (без гонки таймеров:
+            # ждём asyncio.Event, выставленный диалогом, а не sleep+cancel)
+            await asyncio.wait_for(notification_shown.wait(), timeout=5)
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        # Обрыв после подключения — уведомление показано
+        self.assertTrue(notification_shown.is_set())

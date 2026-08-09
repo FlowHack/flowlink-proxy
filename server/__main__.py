@@ -112,6 +112,73 @@ def _handle_tray_error(
     )
 
 
+def _show_browser_choice_dialog(
+    callbacks: dict,
+    title: str,
+    message: str,
+    primary_text: str,
+    secondary_text: str,
+) -> bool:
+    """
+    Показывает диалог выбора с двумя кнопками (вторичная — отмена).
+
+    Единый шаблон для диалогов о запущенном браузере: проверка tk_root,
+    ленивый импорт show_info, фиксация выбора primary-кнопки через
+    вложенный коллбэк. Диалог привязан к tk_root трея (parent_root),
+    чтобы не создавать второй tk.Tk() в потоке, где уже работает mainloop.
+
+    Args:
+        callbacks: Словарь коллбэков трея (используется tk_root).
+        title: Заголовок диалога.
+        message: Текст сообщения.
+        primary_text: Текст основной (подтверждающей) кнопки.
+        secondary_text: Текст вторичной (отменяющей) кнопки.
+
+    Returns:
+        True если пользователь выбрал primary-кнопку, False при отмене,
+        ошибке или недоступности tkinter.
+    """
+    tk_root = callbacks.get('tk_root')
+    if tk_root is None:
+        logger.warning(
+            'Диалог «%s» не показан: tk_root недоступен', title,
+        )
+        return False
+
+    try:
+        # Ленивый импорт: tkinter-диалог нужен только при работе с треем
+        from server.ui.dialogs import \
+            show_info  # pylint: disable=import-outside-toplevel
+    except ImportError:
+        logger.info('tkinter недоступен — диалог «%s» не показан', title)
+        return False
+
+    choice = {'value': False}
+
+    def _on_choose_primary() -> None:
+        """Фиксирует выбор пользователя: primary-кнопка."""
+        choice['value'] = True
+
+    show_info(
+        title=title,
+        message=message,
+        buttons=[
+            {
+                'text': secondary_text,
+                'action': lambda: None,
+                'primary': False,
+            },
+            {
+                'text': primary_text,
+                'action': _on_choose_primary,
+                'primary': True,
+            },
+        ],
+        parent_root=tk_root,
+    )
+    return choice['value']
+
+
 def _show_browser_already_running_dialog(
     callbacks: dict,
     browser_path: str,
@@ -125,17 +192,10 @@ def _show_browser_already_running_dialog(
     через FlowLink Proxy, либо закрыть диалог (отмена). В сообщение
     включается инструкция по ручному завершению процесса.
 
-    Диалог привязан к tk_root трея (parent_root), чтобы не создавать
-    второй tk.Tk() в потоке, где уже работает mainloop. Корректно
-    вызывается и из _on_done (mainloop-поток через after(0, ...)):
-    show_info с parent_root использует wait_window — вложенный цикл
-    событий, безопасный в этом потоке.
-
-    Важно: функция возвращает только ВЫБОР пользователя, а не результат
+    Диалог возвращает только ВЫБОР пользователя, а не результат
     перезапуска. Само завершение процессов и запуск браузера выполняются
     вызывающим кодом в фоновом потоке — иначе блокирующие вызовы
-    (taskkill, time.sleep) заморозили бы mainloop tkinter, и окно
-    перешло бы в состояние «Не отвечает».
+    (taskkill, time.sleep) заморозили бы mainloop tkinter.
 
     Args:
         callbacks: Словарь коллбэков трея (используется tk_root).
@@ -147,35 +207,12 @@ def _show_browser_already_running_dialog(
         True если пользователь выбрал «Закрыть браузер и запустить через
         FlowLink Proxy», False при отмене, ошибке или недоступности tkinter.
     """
-    tk_root = callbacks.get('tk_root')
-    if tk_root is None:
-        logger.warning(
-            'Браузер уже запущен (%s), но tk_root недоступен — '
-            'диалог предупреждения не показан',
-            browser_path,
-        )
-        return False
-
-    try:
-        # Ленивый импорт: tkinter-диалог нужен только при работе с треем
-        from server.ui.dialogs import \
-            show_info  # pylint: disable=import-outside-toplevel
-    except ImportError:
-        logger.info('tkinter недоступен — диалог предупреждения не показан')
-        return False
-
     # Ленивый импорт: модуль browser_process подключается только при
     # необходимости показа диалога
     from server.config import \
         browser_process as _browser_process  # pylint: disable=import-outside-toplevel
 
     instructions = _browser_process.get_manual_kill_instructions(browser_path)
-    choice = {'value': False}
-
-    def _on_choose_restart() -> None:
-        """Фиксирует выбор пользователя: перезапустить браузер."""
-        choice['value'] = True
-
     message = _(
         'Для работы через прокси браузер необходимо закрыть и запустить '
         'через FlowLink Proxy. Закрытие браузера может прервать '
@@ -188,26 +225,16 @@ def _show_browser_already_running_dialog(
         'Если запущено несколько профилей или окон — все они будут закрыты.'
     ).format(instructions=instructions)
 
-    show_info(
+    return _show_browser_choice_dialog(
+        callbacks,
         title=_('Браузер уже запущен'),
         message=message,
-        buttons=[
-            {
-                'text': _('Отмена'),
-                'action': lambda: None,
-                'primary': False,
-            },
-            {
-                'text': _('Закрыть браузер и запустить через FlowLink Proxy'),
-                'action': _on_choose_restart,
-                'primary': True,
-            },
-        ],
-        parent_root=tk_root,
+        primary_text=_('Закрыть браузер и запустить через FlowLink Proxy'),
+        secondary_text=_('Отмена'),
     )
-    return choice['value']
 
 
+# pylint: disable=unused-argument  # browser_path сохранён для симметрии сигнатуры диалогов
 def _show_browser_already_running_with_proxy_dialog(
     callbacks: dict,
     browser_path: str,
@@ -231,29 +258,6 @@ def _show_browser_already_running_with_proxy_dialog(
         True если пользователь выбрал «Перезапустить браузер»,
         False при отмене, ошибке или недоступности tkinter.
     """
-    tk_root = callbacks.get('tk_root')
-    if tk_root is None:
-        logger.warning(
-            'Браузер уже запущен через прокси (%s), но tk_root '
-            'недоступен — диалог уведомления не показан',
-            browser_path,
-        )
-        return False
-
-    try:
-        # Ленивый импорт: tkinter-диалог нужен только при работе с треем
-        from server.ui.dialogs import \
-            show_info  # pylint: disable=import-outside-toplevel
-    except ImportError:
-        logger.info('tkinter недоступен — диалог уведомления не показан')
-        return False
-
-    choice = {'value': False}
-
-    def _on_choose_restart() -> None:
-        """Фиксирует выбор пользователя: перезапустить браузер."""
-        choice['value'] = True
-
     message = _(
         'Браузер уже запущен через FlowLink Proxy и работает через прокси. '
         'Повторный запуск не требуется.\n\n'
@@ -265,24 +269,13 @@ def _show_browser_already_running_with_proxy_dialog(
         'Если запущено несколько профилей или окон — все они будут закрыты.'
     )
 
-    show_info(
+    return _show_browser_choice_dialog(
+        callbacks,
         title=_('Браузер уже запущен'),
         message=message,
-        buttons=[
-            {
-                'text': _('Не перезапускать'),
-                'action': lambda: None,
-                'primary': False,
-            },
-            {
-                'text': _('Перезапустить браузер'),
-                'action': _on_choose_restart,
-                'primary': True,
-            },
-        ],
-        parent_root=tk_root,
+        primary_text=_('Перезапустить браузер'),
+        secondary_text=_('Не перезапускать'),
     )
-    return choice['value']
 
 
 def _show_browser_not_selected_dialog(callbacks: dict) -> None:
@@ -371,13 +364,15 @@ def _launch_browser_sync(
     return bool(result)
 
 
-def _restart_browser_sync(browser_path: str, proxy_port: int) -> bool:
+def _restart_browser_kill_launch(browser_path: str, proxy_port: int) -> bool:
     """
-    Синхронно перезапускает браузер через FlowLink Proxy.
+    Завершает процессы браузера и запускает его заново через FlowLink Proxy.
 
-    Завершает процессы браузера и запускает его заново с флагом
-    --proxy-server. Используется в fallback-ветке без трея, где нет
-    фонового потока. Блокирует вызывающий поток на время перезапуска.
+    Единый блок «kill → пауза → launch → проверка already_running»,
+    используемый и синхронным _restart_browser_sync, и фоновым
+    перезапуском (_browser_worker с restart=True). Возвращает True при
+    успешном перезапуске, False при ошибке или если браузер всё ещё
+    запущен после завершения процессов.
 
     Args:
         browser_path: Путь к исполняемому файлу браузера.
@@ -386,7 +381,8 @@ def _restart_browser_sync(browser_path: str, proxy_port: int) -> bool:
     Returns:
         True если браузер успешно перезапущен, False при ошибке.
     """
-    # Ленивый импорт: модуль browser_process подключается только при необходимости
+    # Ленивый импорт: модуль browser_process подключается только
+    # при необходимости перезапуска браузера
     from server.config import \
         browser_process as _browser_process  # pylint: disable=import-outside-toplevel
 
@@ -409,6 +405,23 @@ def _restart_browser_sync(browser_path: str, proxy_port: int) -> bool:
         )
         return False
     return bool(second_result)
+
+
+def _restart_browser_sync(browser_path: str, proxy_port: int) -> bool:
+    """
+    Синхронно перезапускает браузер через FlowLink Proxy.
+
+    Используется в fallback-ветке без трея, где нет фонового потока.
+    Блокирует вызывающий поток на время перезапуска.
+
+    Args:
+        browser_path: Путь к исполняемому файлу браузера.
+        proxy_port: Порт HTTP-прокси.
+
+    Returns:
+        True если браузер успешно перезапущен, False при ошибке.
+    """
+    return _restart_browser_kill_launch(browser_path, proxy_port)
 
 
 def _launch_browser_callback(  # pylint: disable=too-many-statements  # запуск браузера + диалог + фоновый перезапуск
@@ -474,7 +487,7 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
                 # show_info запускает вложенный цикл событий, что безопасно.
                 # Функция возвращает только выбор пользователя; сам
                 # перезапуск (kill + launch) выполняется в фоновом потоке
-                # _restart_worker, чтобы не блокировать mainloop.
+                # _browser_worker(restart=True), чтобы не блокировать mainloop.
                 if _show_browser_already_running_dialog(
                     callbacks, browser_path, proxy_port,
                 ):
@@ -495,7 +508,7 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
         finally:
             # Если запущен фоновый перезапуск — не закрываем wait_variable
             # и не прячем статусбар: done_var будет выставлен вторым
-            # _on_done после завершения _restart_worker.
+            # _on_done после завершения _browser_worker.
             if not started_restart:
                 try:
                     popup.hide_loading()
@@ -509,6 +522,26 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
                     logger.debug(
                         'Не удалось разблокировать wait_variable',
                     )
+
+    def _schedule_on_done() -> None:
+        """Планирует _on_done в mainloop-потоке из фонового потока.
+
+        При недоступности tk (окно закрыто) разблокирует wait_variable
+        напрямую, чтобы вызывающий код не завис навсегда.
+        """
+        try:
+            tk_root.after(0, _on_done)
+        except (tk.TclError, RuntimeError) as e:
+            logger.error(
+                'Не удалось запланировать обработку результата: %s', e,
+            )
+            try:
+                done_var.set(True)
+            except tk.TclError:
+                logger.debug(
+                    'Не удалось разблокировать wait_variable после '
+                    'ошибки планирования',
+                )
 
     def _start_restart_worker() -> None:
         """
@@ -525,100 +558,46 @@ def _launch_browser_callback(  # pylint: disable=too-many-statements  # запу
         except (tk.TclError, RuntimeError) as e:
             logger.debug('Не удалось показать статусбар загрузки: %s', e)
 
-        def _restart_worker() -> None:
-            """
-            Фоновый поток: завершает процессы браузера и запускает заново.
-            """
-            # Ленивый импорт: модуль browser_process подключается только
-            # при необходимости перезапуска браузера.
-            from server.config import \
-                browser_process as _bp  # pylint: disable=import-outside-toplevel
-            try:
-                if not _bp.kill_browser_processes(browser_path):
-                    logger.error(
-                        'Не удалось завершить процессы браузера: %s',
-                        browser_path,
-                    )
-                    result['value'] = False
-                    return
-                # Небольшая пауза, чтобы ОС освободила ресурсы завершённых
-                # процессов (особенно актуально для Windows taskkill)
-                time.sleep(0.5)
-                second_result = _browser_config.launch_browser(
-                    browser_path, proxy_port=proxy_port,
-                )
-                if second_result == 'already_running':
-                    logger.warning(
-                        'После завершения процессов браузер всё ещё '
-                        'запущен: %s', browser_path,
-                    )
-                    result['value'] = False
-                    return
-                result['value'] = bool(second_result)
-            except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
-                # Логируем в файл — иначе ошибка видна только в диалоге
-                logger.error(
-                    'Ошибка перезапуска браузера %s: %s',
-                    browser_path, e, exc_info=True,
-                )
-                result['error'] = e
-            finally:
-                try:
-                    tk_root.after(0, _on_done)
-                except (tk.TclError, RuntimeError) as e:
-                    logger.error(
-                        'Не удалось запланировать обработку результата: %s',
-                        e,
-                    )
-                    try:
-                        done_var.set(True)
-                    except tk.TclError:
-                        logger.debug(
-                            'Не удалось разблокировать wait_variable '
-                            'после ошибки планирования',
-                        )
-
-        thread = threading.Thread(target=_restart_worker, daemon=True)
+        thread = threading.Thread(
+            target=_browser_worker, args=(True,), daemon=True,
+        )
         thread.start()
 
-    def _worker() -> None:
+    def _browser_worker(restart: bool = False) -> None:
         """
-        Фоновый поток: запускает браузер, не трогая tkinter.
+        Фоновый поток: запускает или перезапускает браузер.
 
+        При restart=True сначала завершает процессы браузера (kill) и
+        запускает заново (общий блок _restart_browser_kill_launch).
         Результат сохраняется в общий словарь, а завершение планируется
-        через tk_root.after(0, ...) — потокобезопасно в tkinter.
+        через tk_root.after(0, _on_done) — потокобезопасно в tkinter.
         """
         try:
-            result['value'] = _browser_config.launch_browser(
-                browser_path, proxy_port=proxy_port,
-            )
+            if restart:
+                result['value'] = _restart_browser_kill_launch(
+                    browser_path, proxy_port,
+                )
+            else:
+                result['value'] = _browser_config.launch_browser(
+                    browser_path, proxy_port=proxy_port,
+                )
         except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
             # Логируем в файл — иначе ошибка видна только в диалоге
             logger.error(
-                'Ошибка запуска браузера %s: %s',
+                'Ошибка %s браузера %s: %s',
+                'перезапуска' if restart else 'запуска',
                 browser_path, e, exc_info=True,
             )
             result['error'] = e
         finally:
-            try:
-                tk_root.after(0, _on_done)
-            except (tk.TclError, RuntimeError) as e:
-                logger.error(
-                    'Не удалось запланировать обработку результата: %s', e,
-                )
-                try:
-                    done_var.set(True)
-                except tk.TclError as exc:
-                    logger.debug(
-                        'Не удалось разблокировать wait_variable: %s', exc,
-                    )
+            _schedule_on_done()
 
     try:
         popup.show_loading('Запуск браузера...')
     except (tk.TclError, RuntimeError) as e:
         logger.debug('Не удалось показать статусбар загрузки: %s', e)
 
-    thread = threading.Thread(target=_worker, daemon=True)
+    thread = threading.Thread(target=_browser_worker, daemon=True)
     thread.start()
 
     # Вложенный event loop: mainloop продолжает обрабатывать события
@@ -881,50 +860,41 @@ def _on_signal(sig: signal.Signals, stop_event: asyncio.Event) -> None:
 # Таймаут ожидания подключения расширения (секунды)
 _EXTENSION_CONNECT_TIMEOUT = 120
 _EXTENSION_CHECK_INTERVAL = 10
+# Минимальный интервал между повторными уведомлениями об обрыве SSE
+_EXTENSION_NOTIFY_INTERVAL = 600
 
 
-async def _watch_api_connection(server_dir: str, callbacks: dict) -> None:
+def _show_extension_notification(server_dir: str, callbacks: dict) -> None:
     """
-    Следит за подключением расширения к API-серверу.
+    Показывает уведомление о неподключённом расширении в отдельном потоке.
 
-    Если за 2 минуты расширение не установило SSE-соединение —
-    показывает пользователю уведомление с инструкцией по установке.
-    Состояние подключения отслеживается через extension_connection
-    (активные SSE-соединения от расширения к /api/events).
+    Если трей запущен и tk_root доступен — диалог привязывается к нему
+    (не создаётся второй Tk() в потоке). Иначе создаётся отдельный root.
+    При отказе tkinter открывает инструкцию в браузере: локальный help.html
+    или .md-инструкцию на GitHub (для пользователей в РФ — предупреждение
+    о необходимости VPN/прокси для доступа к GitHub).
 
     Args:
         server_dir: Директория server/ (для поиска help.html).
+        callbacks: Словарь коллбэков трея (tk_root для привязки диалога).
     """
-    logger.debug('Ожидание подключения расширения (%d сек)...',
-                 _EXTENSION_CONNECT_TIMEOUT)
-
-    for elapsed in range(0, _EXTENSION_CONNECT_TIMEOUT, _EXTENSION_CHECK_INTERVAL):
-        await asyncio.sleep(_EXTENSION_CHECK_INTERVAL)
-        if is_extension_connected():
-            # Расширение установило SSE-соединение
-            logger.debug(
-                'Расширение подключено (прошло %d сек)',
-                elapsed + _EXTENSION_CHECK_INTERVAL,
-            )
-            return
-
-    # 2 минуты прошли, расширение не подключилось
-    logger.warning('Расширение не подключено к API-серверу за %d секунд',
-                   _EXTENSION_CONNECT_TIMEOUT)
-
     help_path = os.path.join(server_dir, '..', 'extension', 'popup', 'help.html')
     help_path = os.path.normpath(help_path)
 
-    def _show_notification():
-        """Показывает уведомление в отдельном потоке (tkinter или webbrowser).
+    # Ссылка на .md файл с инструкцией на GitHub (для РФ — предупреждение о VPN)
+    github_md_url = (
+        'https://github.com/FlowHack/flowlink-proxy/blob/main/SETUP.md'
+    )
 
-        Если трей запущен и tk_root доступен — диалог привязывается к нему
-        (не создаётся второй Tk() в потоке). Иначе создаётся отдельный root.
-        """
-        # Ссылка на .md файл с инструкцией на GitHub (для РФ — предупреждение о VPN)
-        github_md_url = (
-            'https://github.com/FlowHack/flowlink-proxy/blob/main/SETUP.md'
-        )
+    def _open_help() -> None:
+        """Открывает локальную справку или GitHub-инструкцию в браузере."""
+        if os.path.isfile(help_path):
+            webbrowser.open(f'file://{os.path.abspath(help_path)}')
+        else:
+            webbrowser.open(github_md_url)
+
+    def _show_notification() -> None:
+        """Показывает уведомление в отдельном потоке (tkinter или webbrowser)."""
         try:
             # Ленивый импорт: диалог подключения расширения показывается редко
             from server.ui.dialogs import \
@@ -955,22 +925,90 @@ async def _watch_api_connection(server_dir: str, callbacks: dict) -> None:
                     'Возможно, потребуется VPN или прокси для доступа '
                     'к GitHub (для пользователей в России)',
                 )
-                if os.path.isfile(help_path):
-                    webbrowser.open(f'file://{os.path.abspath(help_path)}')
-                else:
-                    webbrowser.open(github_md_url)
+                _open_help()
         except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
             # tkinter может упасть (TclError, RuntimeError) в потоке —
             # не роняем daemon-поток, а открываем инструкцию в браузере.
             logger.warning('Не удалось показать диалог уведомления (%s), '
                            'открываю инструкцию в браузере', e)
-            if os.path.isfile(help_path):
-                webbrowser.open(f'file://{os.path.abspath(help_path)}')
-            else:
-                webbrowser.open(github_md_url)
+            _open_help()
 
     thread = threading.Thread(target=_show_notification, daemon=True)
     thread.start()
+
+
+async def _watch_api_connection(
+    server_dir: str,
+    callbacks: dict,
+    monitor_after_connect: bool = False,
+) -> None:
+    """
+    Следит за подключением расширения к API-серверу.
+
+    Если за 2 минуты расширение не установило SSE-соединение —
+    показывает пользователю уведомление с инструкцией по установке.
+    Состояние подключения отслеживается через extension_connection
+    (активные SSE-соединения от расширения к /api/events).
+
+    При monitor_after_connect=True продолжает мониторинг после первого
+    подключения: при обрыве SSE (бэкенд жив, расширение отключилось)
+    уведомление показывается повторно, но не чаще одного раза в
+    _EXTENSION_NOTIFY_INTERVAL секунд.
+
+    Args:
+        server_dir: Директория server/ (для поиска help.html).
+        callbacks: Словарь коллбэков трея (tk_root для привязки диалога).
+        monitor_after_connect: Если True — не завершаться после первого
+            подключения, а продолжать следить за обрывами соединения.
+    """
+    logger.debug('Ожидание подключения расширения (%d сек)...',
+                 _EXTENSION_CONNECT_TIMEOUT)
+
+    # None — уведомление ещё не показывалось (первый обрыв срабатывает сразу)
+    notified_at: float | None = None
+    connected_ever = False
+
+    # Первичное ожидание: даём расширению время на подключение при старте
+    for elapsed in range(0, _EXTENSION_CONNECT_TIMEOUT, _EXTENSION_CHECK_INTERVAL):
+        await asyncio.sleep(_EXTENSION_CHECK_INTERVAL)
+        if is_extension_connected():
+            connected_ever = True
+            logger.debug(
+                'Расширение подключено (прошло %d сек)',
+                elapsed + _EXTENSION_CHECK_INTERVAL,
+            )
+            break
+    else:
+        # 2 минуты прошли, расширение не подключилось
+        logger.warning('Расширение не подключено к API-серверу за %d секунд',
+                       _EXTENSION_CONNECT_TIMEOUT)
+        _show_extension_notification(server_dir, callbacks)
+        notified_at = asyncio.get_running_loop().time()
+
+    # Без мониторинга завершаемся после первичной проверки
+    if not monitor_after_connect:
+        return
+
+    # Дальнейший мониторинг: уведомляем при обрыве SSE-соединения,
+    # но не чаще одного раза в _EXTENSION_NOTIFY_INTERVAL секунд
+    while True:
+        await asyncio.sleep(_EXTENSION_CHECK_INTERVAL)
+        if is_extension_connected():
+            connected_ever = True
+            # Сбрасываем троттлинг: первый обрыв после (повторного)
+            # подключения должен уведомить сразу
+            notified_at = None
+            continue
+        if not connected_ever:
+            # Расширение так и не подключалось — начальное уведомление
+            # уже показано, повторно не спамим
+            continue
+        # Был обрыв после успешного подключения
+        now = asyncio.get_running_loop().time()
+        if notified_at is None or now - notified_at >= _EXTENSION_NOTIFY_INTERVAL:
+            logger.warning('Обнаружен обрыв SSE-соединения расширения')
+            _show_extension_notification(server_dir, callbacks)
+            notified_at = now
 
 
 def _autostart_browser_on_startup(
@@ -1097,6 +1135,9 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
     asyncio.create_task(_watch_api_connection(
         os.path.dirname(os.path.abspath(__file__)),
         callbacks,
+        # Мониторинг продолжается и после подключения: при обрыве SSE
+        # расширения пользователь получает повторное уведомление
+        monitor_after_connect=True,
     ))
 
     logger.info('FlowLink Proxy запущен. Нажмите Ctrl+C для остановки.')
