@@ -692,6 +692,18 @@ def _start_tray_icon(  # pylint: disable=too-many-locals
     5. AttributeError — отсутствующие атрибуты
     6. Exception — последний рубец
     """
+    # Трей намеренно отключается в dev-режиме и при запуске из исходников.
+    # Это осознанное решение — НЕ менять его без отдельного обсуждения:
+    # - dev-режим (--dev) используется для отладки и авто-reload: при
+    #   перезапусках внешней обёрткой не должны плодиться дубликаты иконок
+    #   с одинаковым uID, а жёсткий os._exit(0) в stop() (и в _file_watcher
+    #   при авто-reload) убил бы перезапускаемый инстанс, не давая ему
+    #   корректно завершиться;
+    # - из исходников (не frozen) трей и так не запускается — условие
+    #   sys.frozen первично, args.dev лишь дополняет его для exe-сборок;
+    # - если трей всё же понадобится в dev для exe-сборки, потребуется
+    #   уникальный uID на инстанс и ожидание завершения старого потока —
+    #   это вне скоупа текущего изменения.
     if not getattr(sys, 'frozen', False) or not _HAS_TRAY or args.dev:
         if not _HAS_TRAY:
             logger.info('Трей-иконка недоступна: tray модуль не найден')
@@ -871,14 +883,101 @@ _EXTENSION_CONNECT_TIMEOUT = 120
 _EXTENSION_CHECK_INTERVAL = 10
 # Минимальный интервал между повторными уведомлениями об обрыве SSE
 _EXTENSION_NOTIFY_INTERVAL = 600
+# Таймаут ожидания результата диалога уведомления, запланированного через
+# tk_root.after(0, ...). Если mainloop трея занят (открыто popup-меню или
+# другой модальный диалог), коллбэк может не выполниться — ждём ограниченное
+# время, чтобы поток уведомления не висел вечно и не блокировал _watch_api_connection.
+_NOTIFICATION_DIALOG_TIMEOUT = 10
+
+
+def _ask_in_tray_thread(
+    parent_root,
+    ask_yes_no,
+    message: str,
+) -> bool:
+    """
+    Выполняет ask_yes_no в mainloop-потоке трея и ожидает результат.
+
+    tkinter НЕ потокобезопасен: прямое обращение к tk_root из потока
+    уведомления — это неопределённое поведение (на Windows возможны
+    TclError/RuntimeError, зависание wait_window, искажение mainloop трея,
+    из-за чего иконка может пропадать или глючить). Поэтому сам диалог
+    планируется через parent_root.after(0, ...) и выполняется в потоке
+    трея, а текущий поток лишь ожидает результат через threading.Event
+    с таймаутом.
+
+    Args:
+        parent_root: Tk()-root трея (принадлежит mainloop-потоку).
+        ask_yes_no: Функция диалога (ленивый импорт выполнен вызывающим).
+        message: Текст уведомления.
+
+    Returns:
+        True если пользователь выбрал «Открыть инструкцию», False —
+        при «Закрыть», ошибке диалога или истечении таймаута ожидания.
+    """
+    result_event = threading.Event()
+    answer: dict[str, bool] = {'value': False}
+
+    def _show_dialog() -> None:
+        """Выполняется в mainloop-потоке трея: показывает диалог."""
+        try:
+            answer['value'] = ask_yes_no(
+                'FlowLink Proxy',
+                message,
+                yes_text='Открыть инструкцию',
+                no_text='Закрыть',
+                parent_root=parent_root,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: не роняем mainloop трея
+            # Ошибка tkinter в потоке трея: mainloop не должен падать,
+            # фиксируем факт и продолжаем без диалога
+            logger.warning(
+                'Не удалось показать диалог уведомления в потоке трея: %s',
+                e,
+            )
+            answer['value'] = False
+        finally:
+            result_event.set()
+
+    try:
+        import tkinter as tk  # pylint: disable=import-outside-toplevel
+    except ImportError:
+        logger.warning('tkinter недоступен — диалог уведомления не показан')
+        return False
+
+    try:
+        # Планируем показ диалога в mainloop-потоке трея
+        parent_root.after(0, _show_dialog)
+    except (tk.TclError, RuntimeError) as e:
+        # Root уже закрыт или mainloop недоступен — не крашимся,
+        # а просто не показываем диалог
+        logger.warning(
+            'Не удалось запланировать диалог уведомления в потоке трея '
+            '(root закрыт или mainloop недоступен): %s', e,
+        )
+        return False
+
+    # Ожидаем результат ограниченное время: если mainloop трея занят
+    # popup-меню, диалог может не выполниться — не блокируем поток
+    # уведомления вечно (иначе завис бы и _watch_api_connection)
+    if not result_event.wait(timeout=_NOTIFICATION_DIALOG_TIMEOUT):
+        logger.warning(
+            'Таймаут ожидания диалога уведомления (%d сек): mainloop трея '
+            'занят или диалог не был показан — продолжаем без диалога',
+            _NOTIFICATION_DIALOG_TIMEOUT,
+        )
+        return False
+
+    return answer['value']
 
 
 def _show_extension_notification(server_dir: str, callbacks: dict) -> None:
     """
     Показывает уведомление о неподключённом расширении в отдельном потоке.
 
-    Если трей запущен и tk_root доступен — диалог привязывается к нему
-    (не создаётся второй Tk() в потоке). Иначе создаётся отдельный root.
+    Если трей запущен и tk_root доступен — диалог выполняется в mainloop-
+    потоке трея через tk_root.after(0, ...) (см. _ask_in_tray_thread),
+    иначе создаётся отдельный root в потоке уведомления (там это безопасно).
     При отказе tkinter открывает инструкцию в браузере: локальный help.html
     или .md-инструкцию на GitHub (для пользователей в РФ — предупреждение
     о необходимости VPN/прокси для доступа к GitHub).
@@ -921,13 +1020,20 @@ def _show_extension_notification(server_dir: str, callbacks: dict) -> None:
             )
             # Привязываем диалог к существующему tk_root трея, если он доступен
             parent_root = callbacks.get('tk_root')
-            answer = ask_yes_no(
-                'FlowLink Proxy',
-                message,
-                yes_text='Открыть инструкцию',
-                no_text='Закрыть',
-                parent_root=parent_root,
-            )
+            if parent_root is not None:
+                # tkinter не потокобезопасен: диалог выполняется в потоке
+                # трея через after(0, ...), здесь только ожидание результата
+                answer = _ask_in_tray_thread(parent_root, ask_yes_no, message)
+            else:
+                # Трея нет — создаём собственный root в этом же потоке
+                # уведомления (создание Tk() здесь безопасно)
+                answer = ask_yes_no(
+                    'FlowLink Proxy',
+                    message,
+                    yes_text='Открыть инструкцию',
+                    no_text='Закрыть',
+                    parent_root=None,
+                )
 
             if answer:
                 logger.warning(

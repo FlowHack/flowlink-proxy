@@ -57,6 +57,37 @@ NIM_SETVERSION = 0x00000004
 NOTIFYICON_VERSION_4 = 4
 TRAY_CALLBACK = WM_APP + 1
 
+# Ошибка RegisterClassW при повторной регистрации уже существующего
+# класса окна (0x582). Возникает при пересоздании окна после WM_DESTROY —
+# класс 'FlowLinkTrayMsg' регистрируется один раз, повторно создаётся
+# только само окно.
+ERROR_CLASS_ALREADY_EXISTS = 1410
+
+
+def _win_error(err: int | None = None) -> OSError:
+    """
+    Создаёт OSError с текстом Windows-ошибки (кроссплатформенно).
+
+    ctypes.WinError существует только на Windows: тесты на других
+    платформах (с заглушками ctypes) падали бы с AttributeError вместо
+    ожидаемого OSError. На Windows поведение идентично ctypes.WinError
+    (текст ошибки из FormatMessage), на остальных платформах — обычный
+    OSError с кодом ошибки в сообщении.
+
+    Args:
+        err: Код ошибки Windows (например, GetLastError). None — на
+            Windows берётся текущий код последней ошибки потока.
+
+    Returns:
+        OSError с текстом и кодом Windows-ошибки.
+    """
+    if os.name == 'nt':
+        return ctypes.WinError(err)
+    if err is None:
+        return OSError('Ошибка Windows (код неизвестен)')
+    return OSError(err, f'Ошибка Windows (код {err})')
+
+
 # ───── Win32 API ─────
 # type: ignore[reportAttributeAccessIssue] — pyright не знает runtime-атрибуты
 # ctypes.windll (модули user32/kernel32/shell32 доступны только на Windows).
@@ -486,8 +517,18 @@ class Win32Tray:
 
         atom = _user32.RegisterClassW(ctypes.byref(wc))
         if not atom:
-            # ctypes.WinError — Win32 ctypes API (см. шапку файла)
-            raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
+            # Класс может быть уже зарегистрирован при повторном
+            # создании окна (например, после внешнего WM_DESTROY) —
+            # это не ошибка: используем существующий класс, у которого
+            # lpfnWndProc уже указывает на наш WNDPROC-колбэк.
+            err = int(_kernel32.GetLastError())
+            if err == ERROR_CLASS_ALREADY_EXISTS:
+                logger.debug(
+                    'Tray Win32: класс окна %s уже зарегистрирован, '
+                    'используем существующий', wc.lpszClassName,
+                )
+            else:
+                raise _win_error(err)
 
         hwnd = _user32.CreateWindowExW(
             0, wc.lpszClassName, 'FlowLink Tray',
@@ -498,8 +539,7 @@ class Win32Tray:
             None,
         )
         if not hwnd:
-            # ctypes.WinError — Win32 ctypes API (см. шапку файла)
-            raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
+            raise _win_error()
 
         # Регистрируем WM_TASKBAR_CREATED для пересоздания иконки
         self._taskbar_msg_id = _user32.RegisterWindowMessageW(
@@ -561,8 +601,7 @@ class Win32Tray:
             NIM_ADD, ctypes.byref(nid),
         )
         if not ok:
-            # ctypes.WinError — Win32 ctypes API (см. шапку файла)
-            raise ctypes.WinError()  # type: ignore[reportAttributeAccessIssue]
+            raise _win_error()
 
         nid.uVersion = NOTIFYICON_VERSION_4
         ok = _shell32.Shell_NotifyIconW(
@@ -848,6 +887,26 @@ class Win32Tray:
         self._pending_popup = True
         return 0
 
+    def _remove_orphan_icon(self):
+        """
+        Удаляет «висячую» иконку, привязанную к уничтоженному окну.
+
+        Вызывается перед пересозданием окна после WM_DESTROY.
+        В отличие от _remove_icon() НЕ трогает _KEEP_ALIVE_WNDPROCS
+        (колбэк ещё нужен для нового окна) и НЕ удаляет temp-файл
+        дефолтной иконки. Если иконки нет — Shell_NotifyIconW просто
+        вернёт FALSE, ошибкой это не является.
+        """
+        if not self._hwnd:
+            return
+        nid = _NOTIFYICONDATAW()
+        nid.cbSize = ctypes.sizeof(_NOTIFYICONDATAW)
+        nid.hWnd = self._hwnd
+        nid.uID = self._UID
+        _shell32.Shell_NotifyIconW(
+            NIM_DELETE, ctypes.byref(nid),
+        )
+
     def _handle_wm_destroy(self):
         """Обрабатывает WM_DESTROY."""
         if self._shutting_down:
@@ -861,15 +920,39 @@ class Win32Tray:
             return 0
         logger.warning(
             'Tray Win32: WM_DESTROY получен без shutdown-флага, '
-            'пересоздаю иконку',
+            'пересоздаю окно трея и иконку',
         )
-        # Пересоздаём иконку — окно было уничтожено внешне
+        # Проверка живости контекста: если поток трея уже умирает
+        # (mainloop разрушен, tk_root невалиден), пересоздание окна
+        # в мёртвом контексте бессмысленно — просто выходим.
+        if (self._shutting_down or not self._tk_root_valid
+                or self._tk_root is None):
+            logger.warning(
+                'Tray Win32: контекст трея невалиден '
+                '(shutting_down=%s, tk_root_valid=%s), '
+                'пересоздание окна пропущено',
+                self._shutting_down, self._tk_root_valid,
+            )
+            return 0
         try:
+            # Удаляем «висячую» иконку, привязанную к уже
+            # уничтоженному окну, чтобы не осталось дубля в трее
+            self._remove_orphan_icon()
+            # Пересоздаём окно: класс регистрируется повторно безопасно —
+            # ERROR_CLASS_ALREADY_EXISTS обрабатывается внутри
+            # _create_message_window (класс уже зарегистрирован один раз).
+            # _hwnd обновляется на handle нового окна.
+            self._hwnd = self._create_message_window()
+            # Иконку добавляем уже для нового окна
             self._add_icon()
-        except (OSError, RuntimeError) as e:
+            logger.info(
+                'Tray Win32: окно трея пересоздано, иконка восстановлена',
+            )
+        except (OSError, RuntimeError, ValueError, TypeError,
+                AttributeError) as e:
             logger.error(
-                'Tray Win32: не удалось пересоздать иконку: %s',
-                e, exc_info=True,
+                'Tray Win32: не удалось пересоздать окно трея и иконку: '
+                '%s: %s', type(e).__name__, e, exc_info=True,
             )
         return 0
 

@@ -1,3 +1,4 @@
+# pylint: disable=too-few-public-methods  # классы-заглушки (моки tk_root/Thread) для тестов
 """
 Тесты таймаута ожидания подключения расширения.
 
@@ -12,7 +13,13 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from server.__main__ import _watch_api_connection
+from server.__main__ import _show_extension_notification, _watch_api_connection
+
+try:
+    import tkinter  # pylint: disable=unused-import  # проверка доступности tkinter (нужен для тестов трея)
+    _HAS_TKINTER = True
+except ImportError:
+    _HAS_TKINTER = False
 
 
 # too-few-public-methods — тестовая заглушка threading.Thread,
@@ -219,3 +226,145 @@ class TestWatchApiConnectionConnected(unittest.IsolatedAsyncioTestCase):
 
         # Обрыв после подключения — уведомление показано
         self.assertTrue(notification_shown.is_set())
+
+
+class _FakeTkRoot:
+    """Заглушка tk_root трея для проверки планирования диалога через after(0, ...).
+
+    run_callbacks=False имитирует занятый mainloop: коллбэк after не
+    выполняется, и поток уведомления должен дождаться таймаута и
+    продолжить без диалога.
+    """
+
+    def __init__(self, run_callbacks: bool = True):
+        self.run_callbacks = run_callbacks
+        self.after_calls: list = []
+
+    def after(self, delay_ms: int, callback) -> None:
+        """Записывает планирование и при необходимости выполняет коллбэк."""
+        self.after_calls.append((delay_ms, callback))
+        if self.run_callbacks and delay_ms == 0:
+            callback()
+
+
+class TestExtensionNotificationWithTrayRoot(unittest.TestCase):
+    """Поведение уведомления при доступном tk_root трея (кросс-потоковый tkinter).
+
+    tkinter не потокобезопасен: ask_yes_no должен выполняться в mainloop-
+    потоке трея через after(0, ...), а поток уведомления — лишь ожидать
+    результат (или таймаут), не блокируя _watch_api_connection.
+    """
+
+    @unittest.skipUnless(_HAS_TKINTER, 'tkinter недоступен')
+    def test_dialog_runs_via_after_in_tray_root(self):
+        """ask_yes_no вызывается через after(0, ...) в потоке трея, результат дожидается."""
+        root = _FakeTkRoot()
+        ask_kwargs: list = []
+
+        def _fake_ask_yes_no(_title, _message, **_kwargs):
+            ask_kwargs.append(_kwargs)
+            return True
+
+        browser_calls = []
+
+        def _fake_open(url, *_args, **_kwargs):
+            browser_calls.append(url)
+            return True
+
+        with (
+            patch('server.ui.dialogs.ask_yes_no', side_effect=_fake_ask_yes_no),
+            patch('os.path.isfile', return_value=True),
+            patch('server.__main__.webbrowser.open', side_effect=_fake_open),
+            patch('server.__main__.threading.Thread', new=_SyncThread),
+        ):
+            _show_extension_notification('server', {'tk_root': root})
+
+        # Диалог запланирован через after(0, ...) в потоке трея
+        self.assertEqual(len(root.after_calls), 1)
+        self.assertEqual(root.after_calls[0][0], 0)
+        # ask_yes_no выполнен ровно один раз и привязан к tk_root трея
+        self.assertEqual(len(ask_kwargs), 1)
+        self.assertIs(ask_kwargs[0]['parent_root'], root)
+        # Ответ «Да» → открыта локальная инструкция
+        expected = f'file://{os.path.abspath("extension/popup/help.html")}'
+        self.assertEqual(browser_calls, [expected])
+
+    @unittest.skipUnless(_HAS_TKINTER, 'tkinter недоступен')
+    def test_dialog_exception_in_tray_thread_graceful(self):
+        """Исключение в ask_yes_no в потоке трея → без падения и без браузера."""
+        root = _FakeTkRoot()
+        browser_calls = []
+
+        def _fake_open(url, *_args, **_kwargs):
+            browser_calls.append(url)
+            return True
+
+        with (
+            patch(
+                'server.ui.dialogs.ask_yes_no',
+                side_effect=RuntimeError('tkinter crashed'),
+            ),
+            patch('os.path.isfile', return_value=True),
+            patch('server.__main__.webbrowser.open', side_effect=_fake_open),
+            patch('server.__main__.threading.Thread', new=_SyncThread),
+        ):
+            # Не должно быть исключений: диалог пропускается, mainloop трея цел
+            _show_extension_notification('server', {'tk_root': root})
+
+        # Исключение перехвачено в коллбэке потока трея: инструкция не открывается
+        self.assertEqual(browser_calls, [])
+
+    @unittest.skipUnless(_HAS_TKINTER, 'tkinter недоступен')
+    def test_timeout_when_tray_mainloop_busy(self):
+        """Занятый mainloop трея (коллбэк after не выполняется) → таймаут без диалога."""
+        root = _FakeTkRoot(run_callbacks=False)
+        ask_calls: list = []
+
+        def _fake_ask_yes_no(*_args, **_kwargs):
+            ask_calls.append(True)
+            return True
+
+        browser_calls = []
+
+        def _fake_open(url, *_args, **_kwargs):
+            browser_calls.append(url)
+            return True
+
+        with (
+            patch('server.__main__._NOTIFICATION_DIALOG_TIMEOUT', 0.2),
+            patch('server.ui.dialogs.ask_yes_no', side_effect=_fake_ask_yes_no),
+            patch('os.path.isfile', return_value=True),
+            patch('server.__main__.webbrowser.open', side_effect=_fake_open),
+            patch('server.__main__.threading.Thread', new=_SyncThread),
+        ):
+            # Не должно быть исключений: уведомление просто пропускается
+            _show_extension_notification('server', {'tk_root': root})
+
+        # Коллбэк запланирован, но не выполнен (mainloop занят)
+        self.assertEqual(len(root.after_calls), 1)
+        # Диалог не показывался, браузер не открывался
+        self.assertEqual(ask_calls, [])
+        self.assertEqual(browser_calls, [])
+
+    @unittest.skipUnless(_HAS_TKINTER, 'tkinter недоступен')
+    def test_after_raises_when_root_closed(self):
+        """after() бросает RuntimeError (root закрыт) → уведомление пропускается без падения."""
+
+        class _BrokenRoot:
+            """Заглушка root с закрытым Tcl-интерпретатором."""
+
+            def after(self, _delay_ms, _callback):
+                """Заглушка after(): имитирует закрытый/нерабочий root трея."""
+                raise RuntimeError('invalid command name "after"')
+
+        with (
+            patch('server.ui.dialogs.ask_yes_no') as ask_mock,
+            patch('os.path.isfile', return_value=True),
+            patch('server.__main__.webbrowser.open') as open_mock,
+            patch('server.__main__.threading.Thread', new=_SyncThread),
+        ):
+            # Не должно быть исключений: root закрыт — диалог просто не показывается
+            _show_extension_notification('server', {'tk_root': _BrokenRoot()})
+
+        ask_mock.assert_not_called()
+        open_mock.assert_not_called()
