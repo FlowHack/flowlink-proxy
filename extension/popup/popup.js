@@ -538,7 +538,7 @@ function attachGlobalListeners() {
   attachModalOverlayClose();
   document.addEventListener('click', (e) => {
     // Открыть модалку помощи
-    if (e.target.id === 'btn-help') openHelpModal('port', false, '', 'general');
+    if (e.target.id === 'btn-help') openHelpModal('', false, '', 'general');
     // Удаление прокси
     if (e.target.classList.contains('btn-delete')) {
       const proxyId = e.target.dataset.proxyId;

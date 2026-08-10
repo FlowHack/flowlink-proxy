@@ -396,6 +396,9 @@ body {
 
 .modal-wide {
   width: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -467,8 +470,13 @@ body {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-primary);
-  max-height: 65vh;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+}
+
+.help-content ul {
+  padding-left: 20px;
 }
 
 .help-content h3 {

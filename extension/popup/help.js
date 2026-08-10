@@ -573,9 +573,7 @@ const HELP_TEXTS = {
   license: (lang = 'ru') => {
     const texts = {
       ru: `
-    <h3>Лицензия</h3>
-    <p>FlowLink Proxy распространяется под лицензией <strong>GNU AGPL v3</strong>.</p>
-    <p>Используя программу, вы соглашаетесь с условиями:</p>
+    <p class="help-intro">Используя FlowLink Proxy, вы соглашаетесь с условиями:</p>
     <ul>
       <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">Лицензионное соглашение (EULA)</a></li>
       <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">Полный текст AGPL-3.0 (LICENSE.txt)</a></li>
@@ -592,9 +590,7 @@ const HELP_TEXTS = {
     ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    <h3>License</h3>
-    <p>FlowLink Proxy is distributed under the <strong>GNU AGPL v3</strong> license.</p>
-    <p>By using the program, you agree to the terms of:</p>
+    <p class="help-intro">By using FlowLink Proxy, you agree to the terms of:</p>
     <ul>
       <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">License Agreement (EULA)</a></li>
       <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">Full AGPL-3.0 text (LICENSE.txt)</a></li>
@@ -611,9 +607,7 @@ const HELP_TEXTS = {
     ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    <h3>Licenca</h3>
-    <p>FlowLink Proxy se distribuira pod <strong>GNU AGPL v3</strong> licencom.</p>
-    <p>Korišćenjem programa, slažete se sa uslovima:</p>
+    <p class="help-intro">Korišćenjem FlowLink Proxy, slažete se sa uslovima:</p>
     <ul>
       <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">Licencni ugovor (EULA)</a></li>
       <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">Puni tekst AGPL-3.0 (LICENSE.txt)</a></li>
