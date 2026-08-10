@@ -27,7 +27,7 @@
 
 Рекомендуемый способ. Не требует Python.
 
-1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
 2. Скачайте файл `FlowLink-Proxy-vX.X.X-Setup.exe` (нажмите «Assets» → `.exe`)
 3. Запустите скачанный файл
 4. Следуйте инструкциям установщика:
@@ -48,7 +48,7 @@
 
 Без установщика, без Python. Подходит если не хотите устанавливать программу.
 
-1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
 2. Скачайте установщик `FlowLink-Proxy-v<версия>-Setup.exe` — отдельный `.zip`-архив в релизах не публикуется
 3. Запустите установщик и следуйте инструкциям
 4. После установки бэкенд `FlowLink Proxy.exe` будет доступен в `C:\Program Files\FlowLink Proxy\`
@@ -58,7 +58,7 @@
 
 ### Linux (standalone)
 
-1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
 2. Скачайте архив для Linux: `.tar.gz`
 3. Распакуйте архив в удобную папку
 4. В папке будут файлы:
@@ -78,12 +78,12 @@ chmod +x "FlowLink Proxy-linux.sh"
 
 Установка через `dpkg` — самый удобный способ для Debian/Ubuntu.
 
-1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
-2. Скачайте `.deb`-пакет: `flowlink-proxy_<версия>_amd64.deb`
+1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
+2. Скачайте `.deb`-пакет: `FlowLink-Proxy_<версия>_amd64.deb`
 3. Установите:
 
 ```bash
-sudo dpkg -i flowlink-proxy_*.deb
+sudo dpkg -i FlowLink-Proxy_*.deb
 ```
 
 4. Если есть проблемы с зависимостями:
@@ -94,7 +94,7 @@ sudo apt-get install -f
 
 **Что создаёт пакет:**
 - Бинарник: `/usr/local/bin/FlowLink Proxy` (имя с пробелом)
-- Документация: `/usr/local/share/flowlink-proxy/` (EULA.rtf, LICENSE.txt)
+- Документация: `/usr/local/share/FlowLink-Proxy/` (EULA.rtf, LICENSE.txt)
 - Ярлык меню: `flowlink.desktop` в `/usr/share/applications/` (НЕ автозапуск)
 
 Лаунчер и шаблоны автозапуска пакет НЕ устанавливает.
@@ -106,19 +106,19 @@ sudo apt-get install -f
 
 **Удаление:**
 ```bash
-sudo dpkg -r flowlink-proxy
+sudo dpkg -r FlowLink-Proxy
 ```
 
 ### Linux (.rpm)
 
 Установка через `rpm` — для Fedora/RHEL/CentOS.
 
-1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
-2. Скачайте `.rpm`-пакет: `flowlink-proxy-<версия>-1.x86_64.rpm`
+1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
+2. Скачайте `.rpm`-пакет: `FlowLink-Proxy-<версия>-1.x86_64.rpm`
 3. Установите:
 
 ```bash
-sudo rpm -i flowlink-proxy-*.rpm
+sudo rpm -i FlowLink-Proxy-*.rpm
 ```
 
 Или обновите (если уже установлен):
@@ -131,7 +131,7 @@ sudo rpm -U FlowLink-Proxy-*.rpm
 
 **Удаление:**
 ```bash
-sudo rpm -e flowlink-proxy
+sudo rpm -e FlowLink-Proxy
 ```
 
 ### Linux (установщик install.sh)
@@ -141,7 +141,7 @@ sudo rpm -e flowlink-proxy
 > **Важно:** `install.sh` и папка `scripts/autostart/` ВХОДЯТ в релизный `.tar.gz` (см. раздел «Linux (standalone)»). В архиве — бинарник `FlowLink Proxy`, лаунчер `FlowLink Proxy-linux.sh`, установщик `install.sh`, шаблоны автозапуска и документация (`EULA.rtf`, `LICENSE.txt`, `README.md`). Установщик также можно скачать отдельно:
 
 ```bash
-curl -sL https://github.com/FlowHack/flowlink-proxy/releases/latest/download/install.sh -o install.sh
+curl -sL https://flowlink-proxy/releases/latest/download/install.sh -o install.sh
 chmod +x install.sh
 sudo ./install.sh
 ```
@@ -156,30 +156,30 @@ sudo ./install.sh
 
 Автоматическая установка через стандартный установщик macOS.
 
-1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
 2. Скачайте `.pkg`-пакет для вашей архитектуры:
-   - `flowlink-proxy-<версия>-macos-x64.pkg` — Intel
-   - `flowlink-proxy-<версия>-macos-arm64.pkg` — Apple Silicon (M1/M2/M3)
+   - `FlowLink-Proxy-<версия>-macos-x64.pkg` — Intel
+   - `FlowLink-Proxy-<версия>-macos-arm64.pkg` — Apple Silicon (M1/M2/M3)
 3. Дважды кликните по скачанному файлу
 4. Следуйте инструкциям установщика
 
 **Что создаёт пакет:**
 - Бинарник: `/usr/local/bin/FlowLink Proxy` (имя с пробелом)
-- Документация: `/usr/local/share/flowlink-proxy/` (EULA.rtf, LICENSE.txt)
+- Документация: `/usr/local/share/FlowLink-Proxy/` (EULA.rtf, LICENSE.txt)
 
 > Пакет НЕ устанавливает лаунчер и НЕ создаёт LaunchAgent `~/Library/LaunchAgents/com.flowlink.proxy.plist` — это делает `install.sh`.
 
 **Удаление:**
 ```bash
 sudo rm "/usr/local/bin/FlowLink Proxy"
-sudo rm -rf /usr/local/share/flowlink-proxy
+sudo rm -rf /usr/local/share/FlowLink-Proxy
 ```
 
 > Строка `rm ~/Library/LaunchAgents/com.flowlink.proxy.plist` не нужна — `.pkg` не создаёт LaunchAgent. Она актуальна только для `install.sh`, где LaunchAgent создаётся при установке (см. раздел «macOS (standalone)» → «Автозапуск»).
 
 ### macOS (standalone)
 
-1. Перейдите на [страницу релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
 2. Скачайте архив для macOS: `.tar.gz` (Intel `.x64` или Apple Silicon `.arm64`)
 3. Распакуйте архив в удобную папку
 4. В папке будут файлы:
@@ -196,7 +196,7 @@ chmod +x "FlowLink Proxy-macos.sh"
 **Или используйте исходный код напрямую:**
 
 ```bash
-git clone https://github.com/FlowHack/flowlink-proxy.git
+git clone https://flowlink-proxy.git
 cd flowlink-proxy
 ./scripts/setup/setup-and-run-macos.sh
 ```
@@ -206,8 +206,8 @@ cd flowlink-proxy
 Требуется Python 3.10+.
 
 ```bash
-git clone https://github.com/FlowHack/flowlink-proxy.git
-cd flowlink-proxy
+git clone https://flowlink-proxy.git
+cd FlowLink-Proxy
 ./scripts/setup/setup-and-run-linux.sh    # Linux
 ./scripts/setup/setup-and-run-macos.sh    # macOS
 scripts\setup\setup-and-run.bat           # Windows (CMD)
@@ -300,7 +300,7 @@ scripts\build\build.bat
 ./scripts/build/build-deb.sh
 ```
 
-Результат: `releases/flowlink-proxy_<версия>_<арх>.deb`
+Результат: `releases/FlowLink-Proxy_<версия>_<арх>.deb`
 
 ### Сборка .rpm-пакета (Linux)
 
@@ -309,7 +309,7 @@ scripts\build\build.bat
 ./scripts/build/build-rpm.sh
 ```
 
-Результат: `~/rpmbuild/RPMS/x86_64/flowlink-proxy-<версия>-1.x86_64.rpm`
+Результат: `~/rpmbuild/RPMS/x86_64/FlowLink-Proxy-<версия>-1.x86_64.rpm`
 
 ### Сборка .pkg-пакета (macOS)
 
@@ -318,7 +318,7 @@ scripts\build\build.bat
 ./scripts/build/build-pkg.sh
 ```
 
-Результат: `releases/flowlink-proxy-<версия>-macos-<арх>.pkg`
+Результат: `releases/FlowLink-Proxy-<версия>-macos-<арх>.pkg`
 
 ### Сборка установщика Windows
 
@@ -488,8 +488,8 @@ FlowLink Proxy поддерживает запуск нескольких экз
 
 1. Скопируйте бинарник:
    ```bash
-   mkdir -p ~/.local/share/flowlink-proxy
-   cp "FlowLink Proxy" ~/.local/share/flowlink-proxy/
+   mkdir -p ~/.local/share/FlowLink-Proxy
+   cp "FlowLink Proxy" ~/.local/share/FlowLink-Proxy/
    ```
 2. Отредактируйте `scripts/autostart/flowlink.service` — укажите правильный путь в `ExecStart`
 3. Установите и запустите:
@@ -522,7 +522,7 @@ FlowLink Proxy поддерживает запуск нескольких экз
 
 ### Standalone-бинарник
 
-1. Скачайте новый архив со [страницы релизов](https://github.com/FlowHack/flowlink-proxy/releases/latest)
+1. Скачайте новый архив со [страницы релизов](https://flowlink-proxy/releases/latest)
 2. Остановите старый процесс (Диспетчер задач / `pkill`)
 3. Замените файлы и запустите новый
 
@@ -585,7 +585,7 @@ python -m server
 
 | Проблема | Причина | Решение |
 |----------|---------|---------|
-| Расширение пишет «Нет связи с бэкендом» | Бэкенд не запущен | Запустите `flowlink-proxy` (standalone) или `./scripts/setup/setup-and-run-linux.sh` (исходники) |
+| Расширение пишет «Нет связи с бэкендом» | Бэкенд не запущен | Запустите `FlowLink Proxy` (standalone) или `./scripts/setup/setup-and-run-linux.sh` (исходники) |
 | `ERR_PROXY_CONNECTION_FAILED` | Браузер настроен на SOCKS5 вместо HTTP-прокси | Флаг должен быть `--proxy-server=127.0.0.1:8080` (HTTP, не SOCKS5) |
 | Браузер не использует прокси | Браузер запущен без флага `--proxy-server` | Запускайте браузер **только** через лаунчер или ярлык |
 | Порт 8080 уже занят | Другой процесс использует порт | Linux: `lsof -i :8080` → завершите старый процесс. Windows: Диспетчер задач |

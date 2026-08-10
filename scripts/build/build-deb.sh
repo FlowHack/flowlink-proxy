@@ -16,7 +16,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Чтение версии из server/version.py
 VERSION=$(PROJECT_DIR="$PROJECT_DIR" python3 -c "import os, sys; sys.path.insert(0, os.environ['PROJECT_DIR']); from server.version import __version__; print(__version__)" 2>/dev/null || exit 1)
-PKG_NAME="flowlink-proxy"
+PKG_NAME="FlowLink-Proxy"
 ARCH="$(dpkg --print-architecture 2>/dev/null || echo "amd64")"
 BUILD_DIR="$PROJECT_DIR/releases/deb-build"
 

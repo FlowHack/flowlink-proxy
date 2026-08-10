@@ -1,4 +1,4 @@
-Name:           flowlink-proxy
+Name:           FlowLink-Proxy
 Version:        %{?version}%{!?version:0.1.0}
 Release:        1%{?dist}
 Summary:        FlowLink Proxy — шлюз для маршрутизации трафика

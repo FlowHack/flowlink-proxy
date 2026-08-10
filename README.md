@@ -87,12 +87,14 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 | Платформа | Файл | Установка |
 |-----------|------|-----------|
 | **Windows x64** | `FlowLink-Proxy-v*-Setup.exe` | Запустите установщик → следуйте инструкциям |
+
+> **Внимание:** при первом запуске установщика Windows SmartScreen может показать предупреждение «Windows защитил ваш компьютер». Нажмите **«Подробнее»** → **«Выполнить в любом случае»**. Это стандартное поведение для новых программ без платной цифровой подписи — предупреждение исчезнет после набора репутации.
 | **Linux x64** | `FlowLink-Proxy-v*-linux-x64.tar.gz` | Распакуйте → запустите лаунчер `FlowLink Proxy-linux.sh` (или бинарник `FlowLink Proxy`) |
-| **Linux x64** | `flowlink-proxy_<версия>_amd64.deb` | `sudo dpkg -i flowlink-proxy_*.deb` |
-| **Linux x64** | `flowlink-proxy-<версия>-1.x86_64.rpm` | `sudo rpm -i flowlink-proxy-*.rpm` |
+| **Linux x64** | `FlowLink-Proxy_<версия>_amd64.deb` | `sudo dpkg -i FlowLink-Proxy_*.deb` |
+| **Linux x64** | `FlowLink-Proxy-<версия>-1.x86_64.rpm` | `sudo rpm -i FlowLink-Proxy-*.rpm` |
 | **macOS Intel** | `FlowLink-Proxy-v*-macos-x64.tar.gz` | Распакуйте → запустите |
 | **macOS Apple Silicon** | `FlowLink-Proxy-v*-macos-arm64.tar.gz` | Распакуйте → запустите |
-| **macOS** | `flowlink-proxy-<версия>-macos-<арх>.pkg` | Дважды кликните по `.pkg` |
+| **macOS** | `FlowLink-Proxy-<версия>-macos-<арх>.pkg` | Дважды кликните по `.pkg` |
 | **Все платформы** | `FlowLink-Proxy-v*-extension.zip` / `.crx` | Расширение Chrome: распакуйте ZIP и загрузите как распакованное (или установите `.crx`) |
 
 > Подробные инструкции по каждому способу: **[SETUP.md](SETUP.md)**
@@ -436,10 +438,10 @@ flowlink-proxy/
 | Способ установки | Команда / действие |
 |------------------|--------------------|
 | **Windows (установщик)** | «Установка и удаление программ» → FlowLink Proxy → «Удалить» |
-| **Linux (.deb)** | `sudo dpkg -r flowlink-proxy` |
-| **Linux (.rpm)** | `sudo rpm -e flowlink-proxy` |
+| **Linux (.deb)** | `sudo dpkg -r FlowLink-Proxy` |
+| **Linux (.rpm)** | `sudo rpm -e FlowLink-Proxy` |
 | **Linux (.tar.gz)** | Удалите папку с бинарником и лаунчером |
-| **macOS (.pkg)** | `sudo rm "/usr/local/bin/FlowLink Proxy" && sudo rm -rf /usr/local/share/flowlink-proxy` (LaunchAgent пакет не ставит) |
+| **macOS (.pkg)** | `sudo rm "/usr/local/bin/FlowLink Proxy" && sudo rm -rf "/usr/local/share/FlowLink-Proxy"` (LaunchAgent пакет не ставит) |
 | **macOS (.tar.gz)** | Удалите папку с бинарником и лаунчером |
 | **Исходники** | Удалите `venv/` и папку данных (см. [SETUP.md](SETUP.md)) |
 

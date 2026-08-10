@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 VERSION=$(PROJECT_DIR="$PROJECT_DIR" python3 -c "import os, sys; sys.path.insert(0, os.environ['PROJECT_DIR']); from server.version import __version__; print(__version__)" 2>/dev/null) || { echo "[!] Не удалось определить версию из server/version.py"; exit 1; }
-PKG_NAME="flowlink-proxy"
+PKG_NAME="FlowLink-Proxy"
 IDENTIFIER="com.flowlink.proxy"
 INSTALL_DIR="/usr/local"
 
