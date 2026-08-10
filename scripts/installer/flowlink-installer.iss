@@ -31,7 +31,6 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
-ForceCloseApplications=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
 DisableReadyPage=no

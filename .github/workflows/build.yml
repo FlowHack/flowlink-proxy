@@ -24,12 +24,15 @@ jobs:
       - name: Установка системных зависимостей
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk rpm-build
+          sudo apt-get install -y python3-tk rpm
 
       - name: Установка Python-зависимостей
         run: |
           pip install --upgrade pip
           pip install -r server/requirements.txt pyinstaller
+
+      - name: Разрешить выполнение скриптов сборки
+        run: chmod +x scripts/build/build.sh scripts/build/create-release.sh scripts/build/build-pkg.sh
 
       - name: Сборка standalone-бинарника
         run: ./scripts/build/build.sh
@@ -80,6 +83,9 @@ jobs:
           pip install --upgrade pip
           pip install -r server/requirements.txt pyinstaller
 
+      - name: Разрешить выполнение скриптов сборки
+        run: chmod +x scripts/build/build.sh scripts/build/create-release.sh scripts/build/build-pkg.sh
+
       - name: Сборка standalone-бинарника
         run: ./scripts/build/build.sh
 
@@ -119,6 +125,9 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r server/requirements.txt pyinstaller
+
+      - name: Разрешить выполнение скриптов сборки
+        run: chmod +x scripts/build/build.sh scripts/build/create-release.sh scripts/build/build-pkg.sh
 
       - name: Сборка standalone-бинарника
         run: ./scripts/build/build.sh
