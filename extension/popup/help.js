@@ -605,6 +605,68 @@ const HELP_TEXTS = {
     };
     return texts[lang] || texts.ru;
   },
+  license: (lang = 'ru') => {
+    const texts = {
+      ru: `
+    <h3>Лицензия</h3>
+    <p>FlowLink Proxy распространяется под лицензией <strong>GNU AGPL v3</strong>.</p>
+    <p>Используя программу, вы соглашаетесь с условиями:</p>
+    <ul>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">Лицензионное соглашение (EULA)</a></li>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">Полный текст AGPL-3.0 (LICENSE.txt)</a></li>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/PRIVACY_POLICY.md" target="_blank" rel="noopener">Политика конфиденциальности</a></li>
+    </ul>
+    <h4>Кратко об AGPL-3.0</h4>
+    <ul>
+      <li>Вы можете использовать, изучать, изменять и распространять программу</li>
+      <li>При распространении (в том числе через сеть) необходимо предоставить исходный код</li>
+      <li>Производные работы должны лицензироваться под AGPL-3.0</li>
+      <li>Программа предоставляется «как есть», без каких-либо гарантий</li>
+      <li>Автор не несёт ответственности за любые убытки от использования программы</li>
+    </ul>
+    ${_EMAIL_FOOTER(lang)}
+  `,
+      en: `
+    <h3>License</h3>
+    <p>FlowLink Proxy is distributed under the <strong>GNU AGPL v3</strong> license.</p>
+    <p>By using the program, you agree to the terms of:</p>
+    <ul>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">License Agreement (EULA)</a></li>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">Full AGPL-3.0 text (LICENSE.txt)</a></li>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/PRIVACY_POLICY.md" target="_blank" rel="noopener">Privacy Policy</a></li>
+    </ul>
+    <h4>AGPL-3.0 Summary</h4>
+    <ul>
+      <li>You may use, study, modify, and distribute the program</li>
+      <li>When distributing (including over a network), you must provide the source code</li>
+      <li>Derivative works must be licensed under AGPL-3.0</li>
+      <li>The program is provided "as is", without any warranty</li>
+      <li>The author is not liable for any damages arising from use</li>
+    </ul>
+    ${_EMAIL_FOOTER(lang)}
+  `,
+      sr: `
+    <h3>Licenca</h3>
+    <p>FlowLink Proxy se distribuira pod <strong>GNU AGPL v3</strong> licencom.</p>
+    <p>Korišćenjem programa, slažete se sa uslovima:</p>
+    <ul>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">Licencni ugovor (EULA)</a></li>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">Puni tekst AGPL-3.0 (LICENSE.txt)</a></li>
+      <li><a href="https://github.com/FlowHack/flowlink-proxy/blob/master/PRIVACY_POLICY.md" target="_blank" rel="noopener">Politika privatnosti</a></li>
+    </ul>
+    <h4>Kratko o AGPL-3.0</h4>
+    <ul>
+      <li>Možete koristiti, proučavati, menjati i distribuirati program</li>
+      <li>Pri distribuciji (uključujući preko mreže) morate obezbediti izvorni kod</li>
+      <li>Izvodi moraju biti licencirani pod AGPL-3.0</li>
+      <li>Program se pruža "kao što jeste", bez ikakvih garancija</li>
+      <li>Autor ne snosi odgovornost za bilo kakvu štetu od korišćenja</li>
+    </ul>
+    ${_EMAIL_FOOTER(lang)}
+  `,
+    };
+    return texts[lang] || texts.ru;
+  },
 };
 
 /**
@@ -1592,7 +1654,7 @@ let _updateTag = '';
 let _currentHelpLang = 'ru';
 
 /** Список вкладок help-модалки (порядок отображения). */
-const _TABS = ['backend', 'browser', 'port', 'faq'];
+const _TABS = ['backend', 'browser', 'port', 'faq', 'license'];
 
 /**
  * Контексты открытия помощи и соответствующие им вкладки.
@@ -1600,9 +1662,9 @@ const _TABS = ['backend', 'browser', 'port', 'faq'];
  */
 const _CONTEXT_TABS = {
   // Общая помощь (кнопка «Помощь» в popup) — все вкладки.
-  general: ['backend', 'browser', 'port', 'faq'],
+  general: ['backend', 'browser', 'port', 'faq', 'license'],
   // Помощь при невозможности подключения к бэкенду — без вкладки «Браузер».
-  'backend-error': ['backend', 'port', 'faq'],
+  'backend-error': ['backend', 'port', 'faq', 'license'],
   // Помощь при неуказанном браузере — только содержимое вкладки «Браузер».
   'browser-warning': ['browser'],
   // Помощь при обновлении — своя помощь по обновлению.

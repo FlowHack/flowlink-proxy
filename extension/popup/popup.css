@@ -504,6 +504,16 @@ body {
   padding: 0 4px;
 }
 
+.help-tabs-row2 {
+  justify-content: center;
+  margin-top: 0;
+}
+
+.help-tabs-row2 .help-tab {
+  flex: 0 1 auto;
+  min-width: 140px;
+}
+
 .help-tab {
   flex: 1;
   padding: 6px 12px;
@@ -563,37 +573,6 @@ body {
 
 .help-sub-content {
   padding: 4px 0;
-}
-
-/* ───── Футер помощи: EULA / Privacy ───── */
-.help-footer {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-.help-consent {
-  width: 100%;
-  margin: 0 0 2px;
-}
-
-.help-footer a {
-  color: var(--accent-red);
-  text-decoration: none;
-}
-
-.help-footer a:hover {
-  text-decoration: underline;
-}
-
-.help-sep {
-  color: var(--text-muted);
 }
 
 /* ───── Контент вкладок помощи ───── */
