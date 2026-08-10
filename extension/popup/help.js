@@ -622,7 +622,7 @@ const _BACKEND_SUB_TEXTS = {
       <li>Запустите установщик</li>
       <li>Установщик создаст:
         <ul>
-          <li>Программу в <code>C:\Program Files\FlowLink Proxy\</code></li>
+          <li>Программу в <code>C:\Program Files\FlowHack\FlowLink Proxy\</code></li>
           <li>Ярлык в меню «Пуск» и на рабочем столе</li>
           <li>Автозапуск бэкенда при входе в Windows</li>
           <li>Ярлык для запуска бэкенда</li>
@@ -646,7 +646,7 @@ const _BACKEND_SUB_TEXTS = {
       <li>Run the installer</li>
       <li>The installer will create:
         <ul>
-          <li>The program in <code>C:\Program Files\FlowLink Proxy\</code></li>
+          <li>The program in <code>C:\Program Files\FlowHack\FlowLink Proxy\</code></li>
           <li>A shortcut in the Start menu and on the desktop</li>
           <li>Backend autostart on Windows login</li>
           <li>A shortcut to launch the backend</li>
@@ -670,7 +670,7 @@ const _BACKEND_SUB_TEXTS = {
       <li>Pokrenite instalater</li>
       <li>Instalater će kreirati:
         <ul>
-          <li>Program u <code>C:\Program Files\FlowLink Proxy\</code></li>
+          <li>Program u <code>C:\Program Files\FlowHack\FlowLink Proxy\</code></li>
           <li>Prečicu u Start meniju i na radnoj površini</li>
           <li>Automatsko pokretanje backend-a pri prijavi u Windows</li>
           <li>Prečicu za pokretanje backend-a</li>

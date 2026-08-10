@@ -61,6 +61,8 @@ jobs:
             releases/*.rpm
           retention-days: 7
 
+
+
   build-macos-intel:
     runs-on: macos-15
 
@@ -219,3 +221,76 @@ jobs:
             releases/FlowLink-Proxy-*.crx
             releases/FlowLink-Proxy-*.zip
           retention-days: 7
+
+  create-release:
+    needs: [build-linux, build-macos-intel, build-macos-arm, build-windows, build-crx]
+    runs-on: ubuntu-latest
+    if: always() && !cancelled()
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Проверка статуса всех джоб
+        run: |
+          if [ "${{ needs.build-linux.result }}" != "success" ] || \
+             [ "${{ needs.build-macos-intel.result }}" != "success" ] || \
+             [ "${{ needs.build-macos-arm.result }}" != "success" ] || \
+             [ "${{ needs.build-windows.result }}" != "success" ] || \
+             [ "${{ needs.build-crx.result }}" != "success" ]; then
+            echo "::warning::Одна или несколько сборочных джоб завершились с ошибкой — релиз не создаётся"
+            exit 0
+          fi
+          echo "RELEASE_READY=true" >> "$GITHUB_ENV"
+
+      - name: Определение версии из тега
+        if: env.RELEASE_READY == 'true'
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          VERSION=$(python3 -c "import sys; sys.path.insert(0,'server'); from server.version import __version__; print(__version__)" 2>/dev/null || echo "0.0.0")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Загрузка всех артефактов
+        if: env.RELEASE_READY == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          github-token: ${{ github.token }}
+
+      - name: Сборка артефактов
+        if: env.RELEASE_READY == 'true'
+        run: |
+          mkdir -p release-files
+          if [ -d artifacts ]; then
+            find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" -o -name "*.crx" -o -name "*.zip" \) \
+              -exec cp {} release-files/ \;
+          else
+            echo "::warning::Директория artifacts/ не найдена"
+          fi
+
+      - name: Удаление существующего релиза
+        if: env.RELEASE_READY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "v${{ steps.version.outputs.version }}" --yes --cleanup-tag 2>/dev/null || true
+
+      - name: Создание Release
+        if: env.RELEASE_READY == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          body_path: RELEASE_NOTES.md
+          tag_name: v${{ steps.version.outputs.version }}
+          name: FlowLink Proxy v${{ steps.version.outputs.version }}
+          files: release-files/*

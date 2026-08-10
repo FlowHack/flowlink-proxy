@@ -24,14 +24,14 @@ FlowLink Proxy — Python proxy-gateway с Chrome-расширением
 
 %install
 mkdir -p %{buildroot}/usr/local/bin
-mkdir -p %{buildroot}/usr/local/share/%{name}
+mkdir -p %{buildroot}/usr/local/share/FlowHack/%{name}
 mkdir -p %{buildroot}%{_datadir}/applications
 
 install -m 755 "FlowLink Proxy" "%{buildroot}/usr/local/bin/FlowLink Proxy"
 
 for doc in EULA.rtf LICENSE.txt; do
     if [ -f "$doc" ]; then
-        install -m 644 "$doc" %{buildroot}/usr/local/share/%{name}/"$doc"
+        install -m 644 "$doc" %{buildroot}/usr/local/share/FlowHack/%{name}/"$doc"
     fi
 done
 
@@ -43,7 +43,7 @@ fi
 %license LICENSE.txt
 %doc EULA.rtf
 "/usr/local/bin/FlowLink Proxy"
-/usr/local/share/%{name}
+/usr/local/share/FlowHack/%{name}
 %{_datadir}/applications/flowlink-proxy.desktop
 
 %changelog

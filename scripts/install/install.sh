@@ -22,7 +22,7 @@ warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 error() { echo -e "${RED}[X]${NC} $1"; exit 1; }
 
 INSTALL_DIR="/usr/local/bin"
-SHARE_DIR="/usr/local/share/FlowLink-Proxy"
+SHARE_DIR="/usr/local/share/FlowHack/FlowLink-Proxy"
 
 # --- Определение платформы ---
 OS="$(uname -s)"

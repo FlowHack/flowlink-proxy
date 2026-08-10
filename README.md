@@ -441,11 +441,11 @@ flowlink-proxy/
 | **Linux (.deb)** | `sudo dpkg -r FlowLink-Proxy` |
 | **Linux (.rpm)** | `sudo rpm -e FlowLink-Proxy` |
 | **Linux (.tar.gz)** | Удалите папку с бинарником и лаунчером |
-| **macOS (.pkg)** | `sudo rm "/usr/local/bin/FlowLink Proxy" && sudo rm -rf "/usr/local/share/FlowLink-Proxy"` (LaunchAgent пакет не ставит) |
+| **macOS (.pkg)** | `sudo rm "/usr/local/bin/FlowLink Proxy" && sudo rm -rf "/usr/local/share/FlowHack/FlowLink-Proxy"` |
 | **macOS (.tar.gz)** | Удалите папку с бинарником и лаунчером |
 | **Исходники** | Удалите `venv/` и папку данных (см. [SETUP.md](SETUP.md)) |
 
-Директория данных содержит зашифрованные пароли прокси. Удалите её отдельно, если нужно полностью очистить FlowLink Proxy:
+Директория данных содержит зашифрованные пароли прокси. Она **не удаляется** при деинсталляции программы — это позволяет сохранить настройки при обновлении. Удалите её отдельно, если нужно полностью очистить FlowLink Proxy:
 
 | ОС | Путь |
 |---|---|

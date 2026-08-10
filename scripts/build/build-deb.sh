@@ -29,7 +29,7 @@ echo "[+] Сборка $PKG_NAME v$VERSION (.deb)"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/DEBIAN"
 mkdir -p "$BUILD_DIR/usr/local/bin"
-mkdir -p "$BUILD_DIR/usr/local/share/$PKG_NAME"
+mkdir -p "$BUILD_DIR/usr/local/share/FlowHack/$PKG_NAME"
 mkdir -p "$BUILD_DIR/usr/share/applications"
 
 # --- Поиск бинарника ---
@@ -51,7 +51,7 @@ install -m 755 "$BINARY" "$BUILD_DIR/usr/local/bin/FlowLink Proxy"
 # --- Копирование EULA и LICENSE ---
 for doc in EULA.rtf LICENSE.txt; do
     if [ -f "$PROJECT_DIR/$doc" ]; then
-        install -m 644 "$PROJECT_DIR/$doc" "$BUILD_DIR/usr/local/share/$PKG_NAME/$doc"
+        install -m 644 "$PROJECT_DIR/$doc" "$BUILD_DIR/usr/local/share/FlowHack/$PKG_NAME/$doc"
     fi
 done
 

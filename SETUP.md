@@ -32,14 +32,14 @@
 3. Запустите скачанный файл
 4. Следуйте инструкциям установщика:
    - Примите лицензионное соглашение
-   - Выберите папку установки (по умолчанию `C:\Program Files\FlowLink Proxy\`)
+   - Выберите папку установки (по умолчанию `C:\Program Files\FlowHack\FlowLink Proxy\`)
    - Выберите, создать ли ярлык на рабочем столе
    - Отметьте флажок автозапуска бэкенда (по умолчанию выключен)
 5. Нажмите «Установить»
 6. Готово! В меню «Пуск» появится ярлык «FlowLink Proxy»
 
 **Что создаёт установщик:**
-- Программа в `C:\Program Files\FlowLink Proxy\`
+- Программа в `C:\Program Files\FlowHack\FlowLink Proxy\`
 - Ярлык в меню «Пуск» (и на рабочем столе, если выбрано)
 - Автозапуск бэкенда при входе в Windows (через реестр `HKCU\...\Run`; опциональный флажок в установщике, по умолчанию выключен)
 - Бинарник `FlowLink Proxy.exe` — бэкенд
@@ -51,7 +51,7 @@
 1. Перейдите на [страницу релизов](https://flowlink-proxy/releases/latest)
 2. Скачайте установщик `FlowLink-Proxy-v<версия>-Setup.exe` — отдельный `.zip`-архив в релизах не публикуется
 3. Запустите установщик и следуйте инструкциям
-4. После установки бэкенд `FlowLink Proxy.exe` будет доступен в `C:\Program Files\FlowLink Proxy\`
+4. После установки бэкенд `FlowLink Proxy.exe` будет доступен в `C:\Program Files\FlowHack\FlowLink Proxy\`
 5. Запустите `FlowLink Proxy.exe` двойным кликом
 
 > Бэкенд запускается напрямую. Браузер выбирается через трей-меню («Выбрать браузер...») или через расширение. При повторном запуске процессы не дублируются.
@@ -94,7 +94,7 @@ sudo apt-get install -f
 
 **Что создаёт пакет:**
 - Бинарник: `/usr/local/bin/FlowLink Proxy` (имя с пробелом)
-- Документация: `/usr/local/share/FlowLink-Proxy/` (EULA.rtf, LICENSE.txt)
+- Документация: `/usr/local/share/FlowHack/FlowLink-Proxy/` (EULA.rtf, LICENSE.txt)
 - Ярлык меню: `flowlink.desktop` в `/usr/share/applications/` (НЕ автозапуск)
 
 Лаунчер и шаблоны автозапуска пакет НЕ устанавливает.
@@ -165,14 +165,14 @@ sudo ./install.sh
 
 **Что создаёт пакет:**
 - Бинарник: `/usr/local/bin/FlowLink Proxy` (имя с пробелом)
-- Документация: `/usr/local/share/FlowLink-Proxy/` (EULA.rtf, LICENSE.txt)
+- Документация: `/usr/local/share/FlowHack/FlowLink-Proxy/` (EULA.rtf, LICENSE.txt)
 
 > Пакет НЕ устанавливает лаунчер и НЕ создаёт LaunchAgent `~/Library/LaunchAgents/com.flowlink.proxy.plist` — это делает `install.sh`.
 
 **Удаление:**
 ```bash
 sudo rm "/usr/local/bin/FlowLink Proxy"
-sudo rm -rf /usr/local/share/FlowLink-Proxy
+sudo rm -rf /usr/local/share/FlowHack/FlowLink-Proxy
 ```
 
 > Строка `rm ~/Library/LaunchAgents/com.flowlink.proxy.plist` не нужна — `.pkg` не создаёт LaunchAgent. Она актуальна только для `install.sh`, где LaunchAgent создаётся при установке (см. раздел «macOS (standalone)» → «Автозапуск»).
