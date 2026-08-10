@@ -34,6 +34,14 @@ const LOG_PREFIX = '[FlowLink Proxy]';
 let _isScanning = false;
 
 /**
+ * Promise текущего сканирования: при повторном вызове discoverPort во время
+ * активного сканирования возвращается он же (дедупликация), а не старый порт,
+ * который ещё не прошёл проверку.
+ * @type {Promise<number>|null}
+ */
+let _scanPromise = null;
+
+/**
  * Проверяет, отвечает ли бэкенд на данном порту.
  *
  * Использует GET /api/version — лёгкий запрос, не нагружающий сервер.
@@ -104,68 +112,76 @@ async function scanPorts(skipPort) {
  * @returns {Promise<number>} — обнаруженный порт (сохранённый или новый).
  */
 export async function discoverPort() {
-  // Guard: если сканирование уже выполняется — не запускаем повторно
-  if (_isScanning) {
-    const currentPort = extractPortFromBase(API_BASE);
+  // Guard: если сканирование уже выполняется — возвращаем его Promise,
+  // чтобы повторный вызов не получил устаревший порт до завершения поиска.
+  if (_scanPromise) {
     console.log(
-      `${LOG_PREFIX} Сканирование уже выполняется, повторный вызов пропущен`,
+      `${LOG_PREFIX} Сканирование уже выполняется, повторный вызов вернёт тот же результат`,
     );
-    return currentPort;
+    return _scanPromise;
   }
 
   _isScanning = true;
   const currentPort = extractPortFromBase(API_BASE);
 
-  try {
-    // Шаг 1: проверяем текущий порт — быстрая проверка (< 1с)
-    if (await isPortAlive(currentPort)) {
+  // Оборачиваем сканирование в async-функцию: _scanPromise присваивается
+  // ДО завершения, чтобы повторные вызовы получили его, а не старый порт.
+  const scanPromise = (async () => {
+    try {
+      // Шаг 1: проверяем текущий порт — быстрая проверка (< 1с)
+      if (await isPortAlive(currentPort)) {
+        console.log(
+          `${LOG_PREFIX} Текущий порт ${currentPort} доступен`,
+        );
+        return currentPort;
+      }
+
       console.log(
-        `${LOG_PREFIX} Текущий порт ${currentPort} доступен`,
+        `${LOG_PREFIX} Порт ${currentPort} недоступен, сканирую порты ${SCAN_START}–${SCAN_END}...`,
+      );
+
+      // Шаг 2: сканируем диапазон параллельно
+      const foundPort = await scanPorts(currentPort);
+      if (foundPort !== null) {
+        console.log(
+          `${LOG_PREFIX} Найден бэкенд на порту ${foundPort}, подключаюсь`,
+        );
+        // setApiPort — безопасная операция (присваивание модуля), но на всякий случай
+        try {
+          setApiPort(foundPort);
+        } catch (e) {
+          console.error(
+            `${LOG_PREFIX} Ошибка обновления порта API:`,
+            e,
+          );
+        }
+        // Сохраняем порт для будущих запусков popup
+        try {
+          await chrome.storage.local.set({ apiPort: foundPort });
+        } catch (e) {
+          // storage.local может быть недоступен в edge-кейсах — не критично
+          console.warn(
+            `${LOG_PREFIX} Не удалось сохранить порт ${foundPort} в storage:`,
+            e,
+          );
+        }
+        return foundPort;
+      }
+
+      // Ничего не найдено — логируем для отладки
+      console.warn(
+        `${LOG_PREFIX} Бэкенд не найден в диапазоне ${SCAN_START}–${SCAN_END}. ` +
+        `Убедитесь, что бэкенд запущен.`,
       );
       return currentPort;
+    } finally {
+      _isScanning = false;
+      // Сбрасываем Promise только после полного завершения сканирования
+      _scanPromise = null;
     }
-
-    console.log(
-      `${LOG_PREFIX} Порт ${currentPort} недоступен, сканирую порты ${SCAN_START}–${SCAN_END}...`,
-    );
-
-    // Шаг 2: сканируем диапазон параллельно
-    const foundPort = await scanPorts(currentPort);
-    if (foundPort !== null) {
-      console.log(
-        `${LOG_PREFIX} Найден бэкенд на порту ${foundPort}, подключаюсь`,
-      );
-      // setApiPort — безопасная операция (присваивание модуля), но на всякий случай
-      try {
-        setApiPort(foundPort);
-      } catch (e) {
-        console.error(
-          `${LOG_PREFIX} Ошибка обновления порта API:`,
-          e,
-        );
-      }
-      // Сохраняем порт для будущих запусков popup
-      try {
-        await chrome.storage.local.set({ apiPort: foundPort });
-      } catch (e) {
-        // storage.local может быть недоступен в edge-кейсах — не критично
-        console.warn(
-          `${LOG_PREFIX} Не удалось сохранить порт ${foundPort} в storage:`,
-          e,
-        );
-      }
-      return foundPort;
-    }
-
-    // Ничего не найдено — логируем для отладки
-    console.warn(
-      `${LOG_PREFIX} Бэкенд не найден в диапазоне ${SCAN_START}–${SCAN_END}. ` +
-      `Убедитесь, что бэкенд запущен.`,
-    );
-    return currentPort;
-  } finally {
-    _isScanning = false;
-  }
+  })();
+  _scanPromise = scanPromise;
+  return scanPromise;
 }
 
 /**

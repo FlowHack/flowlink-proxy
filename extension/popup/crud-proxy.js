@@ -131,7 +131,6 @@ export async function handleSaveProxy(loadAndRender) {
     }
     closeModal();
     await loadAndRender();
-    await clearDraft();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка сохранения прокси:', e);
     // Типизированная ошибка (ApiError.kind) или обратная совместимость

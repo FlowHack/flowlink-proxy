@@ -18,7 +18,7 @@ import { checkBackendVersion, checkForUpdates, backendVersion, latestTag } from 
 import { handleSettingsSave, initLanguageSelect, handleLanguageChange } from './settings.js';
 import { discoverPort, extractPortFromBase } from '../shared/port_discovery.js';
 import { t, applyI18n } from '../shared/i18n.js';
-import { initDraftAutoSave, restoreUiDraft } from './draft.js';
+import { initDraftAutoSave, restoreUiDraft, isDraftRestored } from './draft.js';
 
 /** Глобальное состояние popup — прокси, маски, on/off, результаты пинга. */
 const state = {
@@ -320,6 +320,11 @@ async function pollBackend() {
       _pollFailCount = 0;
       showError(false);
       await loadAndRender();
+      // Бэкенд ожил: если черновик ещё не восстановлен (при открытии popup
+      // бэкенд был недоступен), применяем его сейчас.
+      if (!isDraftRestored()) {
+        await restoreUiDraft(state);
+      }
     } else if (!ok && state.connected) {
       // Бэкенд пропал
       _pollInterval = Math.min(_pollInterval * 1.5, POLL_MAX);

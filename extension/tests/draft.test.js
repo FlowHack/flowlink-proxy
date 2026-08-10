@@ -54,10 +54,28 @@ const elements = {
   'modal-mask-title': { textContent: '' },
 };
 
+// Слушатели событий для mock-объектов document/window (для initDraftAutoSave)
+const listeners = {};
+const mockEventTarget = {
+  addEventListener: (type, fn) => {
+    if (!listeners[type]) listeners[type] = [];
+    listeners[type].push(fn);
+  },
+  removeEventListener: (type, fn) => {
+    const arr = listeners[type] || [];
+    const idx = arr.indexOf(fn);
+    if (idx >= 0) arr.splice(idx, 1);
+  },
+};
+
+// ID активной модалки — переключается в тестах между proxy и mask
+let activeModalId = 'modal-proxy';
+
 const mockDocument = {
+  ...mockEventTarget,
   getElementById: (id) => elements[id] || null,
   querySelector: (selector) => {
-    if (selector === '.modal-overlay:not(.hidden)') return { id: 'modal-proxy' };
+    if (selector === '.modal-overlay:not(.hidden)') return { id: activeModalId };
     return null;
   },
   querySelectorAll: (selector) => {
@@ -65,8 +83,10 @@ const mockDocument = {
     if (selector === '.field-group') return [{ classList: { add: () => {}, remove: () => {} } }];
     return [];
   },
+  visibilityState: 'visible',
 };
 globalThis.document = mockDocument;
+globalThis.window = mockEventTarget;
 
 // Импортируем draft.js после мока chrome и document
 const {
@@ -80,6 +100,9 @@ const {
   applyMaskDraft,
   restoreUiDraft,
   isDraftValid,
+  initDraftAutoSave,
+  isDraftRestored,
+  resetDraftRestored,
   DRAFT_FIELD_KEYS,
 } = await import('../popup/draft.js');
 
@@ -322,4 +345,106 @@ test('restoreUiDraft: при отсутствии черновика → нет 
   const state = { proxies: [], masks: [] };
   await restoreUiDraft(state);
   assert.equal(sessionData.uiDraft, undefined);
+});
+
+test('isDraftRestored: true после успешного восстановления черновика', async () => {
+  resetDraftRestored();
+  await clearDraft();
+  sessionData.uiDraft = {
+    version: 1,
+    openModal: 'modal-proxy',
+    proxy: { id: 'proxy-1', touched: [], values: {}, passwordVisible: false },
+  };
+  const state = {
+    connected: true,
+    proxies: [{ proxyId: 'proxy-1', host: 'example.com', port: 8080 }],
+    masks: [],
+  };
+  await restoreUiDraft(state);
+  assert.equal(isDraftRestored(), true);
+});
+
+test('isDraftRestored: НЕ устанавливается при недоступном бэкенде', async () => {
+  resetDraftRestored();
+  await clearDraft();
+  sessionData.uiDraft = {
+    version: 1,
+    openModal: 'modal-proxy',
+    proxy: { id: 'proxy-1', touched: [], values: {} },
+  };
+  const state = { connected: false, proxies: [], masks: [] };
+  await restoreUiDraft(state);
+  assert.equal(isDraftRestored(), false);
+  // Черновик не очищен — его восстановит повторный вызов после оживления бэкенда
+  assert.notEqual(sessionData.uiDraft, undefined);
+});
+
+test('initDraftAutoSave: ввод в proxy-host добавляет host в touched и сохраняет черновик', async () => {
+  await clearDraft();
+  activeModalId = 'modal-proxy';
+  sessionData.uiDraft = undefined;
+  const state = { selectedProxyId: null, proxies: [], masks: [] };
+  initDraftAutoSave(state);
+  // Диспатчим реальный input-событие через зарегистрированный слушатель
+  const inputEvent = { target: { id: 'proxy-host', value: 'example.com' } };
+  for (const fn of (listeners.input || [])) fn(inputEvent);
+  // Ждём debounce (150 мс) и завершение асинхронного сохранения
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const draft = sessionData.uiDraft;
+  assert.ok(draft, 'черновик должен сохраниться');
+  assert.equal(draft.openModal, 'modal-proxy');
+  assert.deepEqual(draft.proxy.touched, ['host']);
+  assert.equal(draft.proxy.values.host, 'example.com');
+});
+
+test('initDraftAutoSave: ввод в mask-pattern при активной modal-mask сохраняет touched маски', async () => {
+  await clearDraft();
+  activeModalId = 'modal-mask';
+  sessionData.uiDraft = undefined;
+  const state = { selectedProxyId: 'proxy-1', proxies: [{ proxyId: 'proxy-1' }], masks: [] };
+  initDraftAutoSave(state);
+  const inputEvent = { target: { id: 'mask-pattern', value: '*.example.com' } };
+  for (const fn of (listeners.input || [])) fn(inputEvent);
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const draft = sessionData.uiDraft;
+  assert.ok(draft, 'черновик должен сохраниться');
+  assert.equal(draft.openModal, 'modal-mask');
+  assert.deepEqual(draft.mask.touched, ['pattern']);
+  assert.equal(draft.mask.values.pattern, '*.example.com');
+});
+
+test('initDraftAutoSave: touched фильтруется по полям формы маски (без host от прокси)', async () => {
+  await clearDraft();
+  activeModalId = 'modal-proxy';
+  sessionData.uiDraft = undefined;
+  const state = { selectedProxyId: 'proxy-1', proxies: [{ proxyId: 'proxy-1' }], masks: [] };
+  initDraftAutoSave(state);
+  // Сначала вводим поле прокси-формы
+  for (const fn of (listeners.input || [])) fn({ target: { id: 'proxy-host', value: 'h.example.com' } });
+  // Затем переключаемся на маску и вводим её поле
+  activeModalId = 'modal-mask';
+  for (const fn of (listeners.input || [])) fn({ target: { id: 'mask-pattern', value: '*.example.com' } });
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const draft = sessionData.uiDraft;
+  assert.ok(draft, 'черновик должен сохраниться');
+  // В touched маски не должно быть полей прокси-формы (host/port и т.п.)
+  assert.deepEqual(draft.mask.touched, ['pattern']);
+});
+
+test('initDraftAutoSave: touched фильтруется по полям формы прокси (без pattern от маски)', async () => {
+  await clearDraft();
+  activeModalId = 'modal-mask';
+  sessionData.uiDraft = undefined;
+  const state = { selectedProxyId: null, proxies: [], masks: [] };
+  initDraftAutoSave(state);
+  // Сначала вводим поле маски
+  for (const fn of (listeners.input || [])) fn({ target: { id: 'mask-pattern', value: '*.example.com' } });
+  // Затем переключаемся на прокси-форму
+  activeModalId = 'modal-proxy';
+  for (const fn of (listeners.input || [])) fn({ target: { id: 'proxy-host', value: 'h.example.com' } });
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const draft = sessionData.uiDraft;
+  assert.ok(draft, 'черновик должен сохраниться');
+  // В touched прокси не должно быть pattern от маски
+  assert.deepEqual(draft.proxy.touched, ['host']);
 });

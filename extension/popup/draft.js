@@ -15,6 +15,13 @@ import { t } from '../shared/i18n.js';
 let _touchedFields = new Set();
 
 /**
+ * Флаг успешного восстановления черновика: предотвращает повторное
+ * применение после оживления бэкенда (см. restoreUiDraft).
+ * @type {boolean}
+ */
+let _draftRestored = false;
+
+/**
  * Маппинг DOM-id полей на короткие ключи для черновика.
  * @type {Object<string, string>}
  */
@@ -26,6 +33,18 @@ export const DRAFT_FIELD_KEYS = {
   'proxy-label': 'label',
   'mask-pattern': 'pattern',
 };
+
+/**
+ * Ключи полей формы прокси (для фильтрации touched-полей).
+ * @type {Set<string>}
+ */
+const PROXY_FIELDS = new Set(['host', 'port', 'username', 'password', 'label']);
+
+/**
+ * Ключи полей формы маски (для фильтрации touched-полей).
+ * @type {Set<string>}
+ */
+const MASK_FIELDS = new Set(['pattern']);
 
 /**
  * Сбрасывает множество изменённых полей.
@@ -159,7 +178,9 @@ function captureProxyForm(selectedProxyId) {
   const label = document.getElementById('proxy-label')?.value || '';
   const passwordVisible = document.getElementById('proxy-password')?.type === 'text';
 
-  const touched = Array.from(_touchedFields);
+  // Фильтруем touched по полям прокси-формы: общее множество
+  // _touchedFields может содержать ключи полей маски (см. DRAFT_FIELD_KEYS)
+  const touched = Array.from(_touchedFields).filter(f => PROXY_FIELDS.has(f));
   const values = {};
   if (touched.includes('host')) values.host = host;
   if (touched.includes('port')) values.port = port;
@@ -183,7 +204,9 @@ function captureMaskForm() {
   const maskId = document.getElementById('mask-id')?.value || '';
   const pattern = document.getElementById('mask-pattern')?.value || '';
 
-  const touched = Array.from(_touchedFields);
+  // Фильтруем touched по полям маски: общее множество _touchedFields
+  // может содержать ключи полей прокси-формы (см. DRAFT_FIELD_KEYS)
+  const touched = Array.from(_touchedFields).filter(f => MASK_FIELDS.has(f));
   const values = {};
   if (touched.includes('pattern')) values.pattern = pattern;
 
@@ -363,6 +386,8 @@ export function applyMaskDraft(state, draft) {
 export async function restoreUiDraft(state) {
   const draft = await getDraft();
   if (!draft) {
+    // Черновика нет (или он был невалиден и удалён) — восстанавливать нечего
+    _draftRestored = true;
     return;
   }
 
@@ -383,6 +408,24 @@ export async function restoreUiDraft(state) {
   } else {
     await clearDraft();
   }
+  // Черновик применён или очищен — повторное восстановление не требуется
+  _draftRestored = true;
+}
+
+/**
+ * Возвращает true, если черновик уже был восстановлен (или отсутствовал).
+ * @returns {boolean} — true, если повторное восстановление не требуется.
+ */
+export function isDraftRestored() {
+  return _draftRestored;
+}
+
+/**
+ * Сбрасывает флаг восстановления черновика.
+ * Используется в тестах: в проде флаг живёт до перезагрузки popup.
+ */
+export function resetDraftRestored() {
+  _draftRestored = false;
 }
 
 /**

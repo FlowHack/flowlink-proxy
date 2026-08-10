@@ -5,6 +5,7 @@
  */
 
 import { t } from '../shared/i18n.js';
+import { convertWildcardToRegex } from '../shared/utils.js';
 
 /**
  * Проверяет URL активной вкладки по маскам и отображает статус (через прокси или напрямую).
@@ -26,9 +27,18 @@ export async function renderTabStatus(url, state) {
     }
     // Ищем первую маску, под которую попадает URL вкладки
     const matchedMask = state.masks.find(m => {
-      try { return new RegExp(m.regexString).test(url); } catch (e) {
-        // Невалидный regex в маске — маска не матчится, но не роняем popup
-        console.warn('[FlowLink Proxy] Невалидный regex маски:', m.regexString, e);
+      // Regex пересобираем из pattern через convertWildcardToRegex: она
+      // ограничивает длину паттерна (255 символов), что исключает ReDoS даже
+      // при ручном редактировании config.json. Значению regexString из конфига
+      // не доверяем (оно может содержать произвольный regex).
+      if (typeof m.pattern !== 'string' || !m.pattern) {
+        return false;
+      }
+      try {
+        return new RegExp(convertWildcardToRegex(m.pattern)).test(url);
+      } catch (e) {
+        // Невалидный паттерн — маска не матчится, но не роняем popup
+        console.warn('[FlowLink Proxy] Невалидный паттерн маски:', m.pattern, e);
         return false;
       }
     });
