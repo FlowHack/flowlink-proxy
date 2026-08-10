@@ -46,7 +46,7 @@ if [ -z "$BINARY" ]; then
     exit 1
 fi
 
-install -m 755 "$BINARY" "$BUILD_DIR/usr/local/bin/flowlink-proxy"
+install -m 755 "$BINARY" "$BUILD_DIR/usr/local/bin/FlowLink Proxy"
 
 # --- Копирование EULA и LICENSE ---
 for doc in EULA.rtf LICENSE.txt; do

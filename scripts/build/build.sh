@@ -3,7 +3,7 @@
 # Сборка FlowLink Proxy в standalone-бинарник через PyInstaller.
 # Создаёт временное venv, устанавливает зависимости, собирает, чистит.
 #
-# На выходе: releases/flowlink-proxy (или releases/"FlowLink Proxy")
+# На выходе: releases/"FlowLink Proxy" (или releases/FlowLink Proxy)
 #
 # Использование:
 #   ./scripts/build/build.sh
@@ -49,7 +49,7 @@ case "$(uname -s)" in
     *)          OS_DIR="unknown"; EXT="";;
 esac
 
-BINARY_NAME="flowlink-proxy${EXT}"
+BINARY_NAME="FlowLink Proxy${EXT}"
 
 # --- Путь к бинарникам venv (bin для Unix, Scripts для Windows) ---
 if [ "$OS_DIR" = "windows" ]; then
