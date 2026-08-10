@@ -207,7 +207,6 @@ const HELP_TEXTS = {
       <p>После выбора браузера автозапуск будет работать: при запуске бэкенда браузер откроется автоматически.</p>
     </div>
     <p>Если вы не хотите, чтобы браузер запускался автоматически, отключите автозапуск в меню бэкенда (пункт «Автозапуск браузера»).</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     <h3>Selecting a browser for autostart</h3>
@@ -223,7 +222,6 @@ const HELP_TEXTS = {
       <p>After selecting the browser, autostart will work: when the backend starts, the browser will open automatically.</p>
     </div>
     <p>If you do not want the browser to start automatically, disable autostart in the backend menu (item "Browser autostart").</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     <h3>Izbor pregledača za automatsko pokretanje</h3>
@@ -239,7 +237,6 @@ const HELP_TEXTS = {
       <p>Nakon izbora pregledača, automatsko pokretanje će raditi: kada se backend pokrene, pregledač će se automatski otvoriti.</p>
     </div>
     <p>Ako ne želite da se pregledač automatski pokreće, isključite automatsko pokretanje u meniju backend-a (stavka "Automatsko pokretanje pregledača").</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -269,7 +266,6 @@ const HELP_TEXTS = {
     ${_PORTS_DEFAULT_TABLE(lang)}
 
     <p>Если проблема не решена — обратитесь в поддержку (ссылка ниже).</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     <h3>Port setup</h3>
@@ -294,7 +290,6 @@ const HELP_TEXTS = {
     ${_PORTS_DEFAULT_TABLE(lang)}
 
     <p>If the problem is not resolved — contact support (link below).</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     <h3>Podešavanje porta</h3>
@@ -319,7 +314,6 @@ const HELP_TEXTS = {
     ${_PORTS_DEFAULT_TABLE(lang)}
 
     <p>Ako problem nije rešen — kontaktirajte podršku (link ispod).</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -340,7 +334,6 @@ const HELP_TEXTS = {
       <li>Остановите старый процесс (системный трей → «Выход»)</li>
       <li>Замените файлы и запустите новый</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
@@ -356,7 +349,6 @@ const HELP_TEXTS = {
       <li>Stop the old process (system tray → "Exit")</li>
       <li>Replace the files and run the new one</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
@@ -372,7 +364,6 @@ const HELP_TEXTS = {
       <li>Zaustavite stari proces (sistemska traka → "Izlaz")</li>
       <li>Zamenite datoteke i pokrenite novi</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -386,7 +377,6 @@ const HELP_TEXTS = {
       <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
       <li>Остановите старый процесс, перезапустите: <code>python -m server</code></li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
@@ -395,7 +385,6 @@ const HELP_TEXTS = {
       <li><strong>Or ZIP:</strong> download the new archive, unpack it over the old folder</li>
       <li>Stop the old process, restart: <code>python -m server</code></li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
@@ -404,7 +393,6 @@ const HELP_TEXTS = {
       <li><strong>Ili ZIP:</strong> preuzmite novu arhivu, raspakujte je preko stare fascikle</li>
       <li>Zaustavite stari proces, ponovo pokrenite: <code>python -m server</code></li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -417,7 +405,6 @@ const HELP_TEXTS = {
       <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
       <li><strong>Unpacked:</strong> откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>), нажмите «Обновить» (круглая стрелка)</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
@@ -425,7 +412,6 @@ const HELP_TEXTS = {
       <li><strong>From store:</strong> the extension will update automatically</li>
       <li><strong>Unpacked:</strong> open <code>chrome://extensions</code> (or <code>browser://extensions</code>), click "Update" (circular arrow)</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
@@ -433,7 +419,6 @@ const HELP_TEXTS = {
       <li><strong>Iz prodavnice:</strong> ekstenzija će se ažurirati automatski</li>
       <li><strong>Unpacked:</strong> otvorite <code>chrome://extensions</code> (ili <code>browser://extensions</code>), kliknite "Ažuriraj" (kružna strelica)</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -485,7 +470,6 @@ const HELP_TEXTS = {
       <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
       <li><strong>Unpacked:</strong> откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>), нажмите «Обновить» (круглая стрелка)</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
@@ -494,7 +478,6 @@ const HELP_TEXTS = {
       <li><strong>From store:</strong> the extension will update automatically</li>
       <li><strong>Unpacked:</strong> open <code>chrome://extensions</code> (or <code>browser://extensions</code>), click "Update" (circular arrow)</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
@@ -503,7 +486,6 @@ const HELP_TEXTS = {
       <li><strong>Iz prodavnice:</strong> ekstenzija će se ažurirati automatski</li>
       <li><strong>Unpacked:</strong> otvorite <code>chrome://extensions</code> (ili <code>browser://extensions</code>), kliknite "Ažuriraj" (kružna strelica)</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -527,7 +509,6 @@ const HELP_TEXTS = {
       <li><strong>Если меню недоступно:</strong> через диспетчер задач (Windows) или <code>kill</code> процесса (Linux/macOS).</li>
     </ol>
     <p>Это может понадобиться при обновлении, при сбоях или при смене конфигурации.</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     <h3>Backend menu fault tolerance</h3>
@@ -546,7 +527,6 @@ const HELP_TEXTS = {
       <li><strong>If the menu is unavailable:</strong> via Task Manager (Windows) or <code>kill</code> process (Linux/macOS).</li>
     </ol>
     <p>This may be needed during updates, failures, or configuration changes.</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     <h3>Otpornost menija backend-a na greške</h3>
@@ -565,7 +545,6 @@ const HELP_TEXTS = {
       <li><strong>Ako meni nije dostupan:</strong> preko Task Manager-a (Windows) ili <code>kill</code> procesa (Linux/macOS).</li>
     </ol>
     <p>Ovo može biti potrebno pri ažuriranju, kvarovima ili promeni konfiguracije.</p>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -587,7 +566,6 @@ const HELP_TEXTS = {
       <li>Программа предоставляется «как есть», без каких-либо гарантий</li>
       <li>Автор не несёт ответственности за любые убытки от использования программы</li>
     </ul>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     <p class="help-intro">By using FlowLink Proxy, you agree to the terms of:</p>
@@ -604,7 +582,6 @@ const HELP_TEXTS = {
       <li>The program is provided "as is", without any warranty</li>
       <li>The author is not liable for any damages arising from use</li>
     </ul>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     <p class="help-intro">Korišćenjem FlowLink Proxy, slažete se sa uslovima:</p>
@@ -621,7 +598,6 @@ const HELP_TEXTS = {
       <li>Program se pruža "kao što jeste", bez ikakvih garancija</li>
       <li>Autor ne snosi odgovornost za bilo kakvu štetu od korišćenja</li>
     </ul>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1159,7 +1135,6 @@ const _UPDATE_SUB_TEXTS = {
       <li>Остановите старый процесс (системный трей → «Выход»)</li>
       <li>Замените файлы и запустите новый</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
@@ -1179,7 +1154,6 @@ const _UPDATE_SUB_TEXTS = {
       <li>Stop the old process (system tray → "Exit")</li>
       <li>Replace the files and run the new one</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
@@ -1199,7 +1173,6 @@ const _UPDATE_SUB_TEXTS = {
       <li>Zaustavite stari proces (sistemska traka → "Izlaz")</li>
       <li>Zamenite datoteke i pokrenite novi</li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1286,7 +1259,6 @@ const _UPDATE_SUB_TEXTS = {
       <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
       <li>Остановите старый процесс, перезапустите: <code>python -m server</code></li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
@@ -1295,7 +1267,6 @@ const _UPDATE_SUB_TEXTS = {
       <li><strong>Or ZIP:</strong> download the new archive, unpack it over the old folder</li>
       <li>Stop the old process, restart: <code>python -m server</code></li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
@@ -1304,7 +1275,6 @@ const _UPDATE_SUB_TEXTS = {
       <li><strong>Ili ZIP:</strong> preuzmite novu arhivu, raspakujte je preko stare fascikle</li>
       <li>Zaustavite stari proces, ponovo pokrenite: <code>python -m server</code></li>
     </ol>
-    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1734,7 +1704,7 @@ export function switchHelpTab(tab) {
 
   // Все ключи HELP_TEXTS — функции (lang) => html
   try {
-    content.innerHTML = textFn(_currentHelpLang);
+    content.innerHTML = textFn(_currentHelpLang) + _EMAIL_FOOTER(_currentHelpLang);
   } catch (err) {
     console.error('[FlowLink Proxy] Ошибка рендеринга помощи:', err);
     content.innerHTML = '<p>Ошибка при отображении помощи. Попробуйте перезагрузить popup.</p>';
@@ -1801,24 +1771,24 @@ function _renderSubTabContent(tab, sub) {
   if (tab === 'backend') {
     const text = _BACKEND_SUB_TEXTS[sub];
     if (!text) return '<p>Раздел в разработке.</p>';
-    return (typeof text === 'function' ? text(_currentHelpLang) : text) + _EMAIL_FOOTER(_currentHelpLang);
+    return typeof text === 'function' ? text(_currentHelpLang) : text;
   }
   // Вложенные подвкладки linux/macos
   if (tab === 'linux') {
     const text = _LINUX_SUB_TEXTS[sub];
     if (!text) return '<p>Раздел в разработке.</p>';
-    return (typeof text === 'function' ? text(_currentHelpLang) : text) + _EMAIL_FOOTER(_currentHelpLang);
+    return typeof text === 'function' ? text(_currentHelpLang) : text;
   }
   if (tab === 'macos') {
     const text = _MACOS_SUB_TEXTS[sub];
     if (!text) return '<p>Раздел в разработке.</p>';
-    return (typeof text === 'function' ? text(_currentHelpLang) : text) + _EMAIL_FOOTER(_currentHelpLang);
+    return typeof text === 'function' ? text(_currentHelpLang) : text;
   }
   // Под-подвкладки macOS (macos-intel/macos-arm)
   if (tab === 'macos-intel' || tab === 'macos-arm') {
     const text = _MACOS_SUB_TEXTS[sub];
     if (!text) return '<p>Раздел в разработке.</p>';
-    return (typeof text === 'function' ? text(_currentHelpLang) : text) + _EMAIL_FOOTER(_currentHelpLang);
+    return typeof text === 'function' ? text(_currentHelpLang) : text;
   }
   return '<p>Раздел в разработке.</p>';
 }
@@ -1897,7 +1867,7 @@ function _showUpdateContent(tab) {
     // Экранируем тег перед вставкой в HTML — защита от XSS (инъекция через tag)
     const escapedTag = escapeHtml(tag);
     // Update-ключи HELP_TEXTS — функции (lang) => (tag) => html
-    content.innerHTML = textFn(_currentHelpLang)(escapedTag);
+    content.innerHTML = textFn(_currentHelpLang)(escapedTag) + _EMAIL_FOOTER(_currentHelpLang);
   } catch (err) {
     console.error('[FlowLink Proxy] Ошибка рендеринга обновления:', err);
     content.innerHTML = '<p>Ошибка при отображении обновления. Попробуйте перезагрузить popup.</p>';
