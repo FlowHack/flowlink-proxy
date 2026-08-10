@@ -551,7 +551,7 @@ body {
 .help-sub-tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   justify-content: center;
 }
 
@@ -581,6 +581,10 @@ body {
 
 .help-sub-content {
   padding: 4px 0;
+}
+
+.help-sub-content h3 {
+  margin-top: 4px;
 }
 
 /* ───── Контент вкладок помощи ───── */

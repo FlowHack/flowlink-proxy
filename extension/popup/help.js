@@ -321,48 +321,30 @@ const HELP_TEXTS = {
   updateExe: (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Установщик</h3>
     <ol>
       <li>Скачайте новый установщик со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Запустите — установщик заменит файлы автоматически</li>
       <li>Бэкенд будет перезапущен</li>
     </ol>
-    <h3>Standalone-бинарник</h3>
-    <ol>
-      <li>Скачайте новый архив со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Остановите старый процесс (системный трей → «Выход»)</li>
-      <li>Замените файлы и запустите новый</li>
-    </ol>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Installer</h3>
     <ol>
       <li>Download the new installer from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Run it — the installer will replace files automatically</li>
       <li>The backend will be restarted</li>
     </ol>
-    <h3>Standalone binary</h3>
-    <ol>
-      <li>Download the new archive from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Stop the old process (system tray → "Exit")</li>
-      <li>Replace the files and run the new one</li>
-    </ol>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Instalater</h3>
     <ol>
       <li>Preuzmite novi instalater sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Pokrenite ga — instalater će automatski zameniti datoteke</li>
       <li>Backend će biti ponovo pokrenut</li>
-    </ol>
-    <h3>Standalone binarni fajl</h3>
-    <ol>
-      <li>Preuzmite novu arhivu sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Zaustavite stari proces (sistemska traka → "Izlaz")</li>
-      <li>Zamenite datoteke i pokrenite novi</li>
     </ol>
   `,
     };
@@ -371,7 +353,7 @@ const HELP_TEXTS = {
   updateSource: (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Через Git:</strong> <code>git pull</code></li>
       <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
@@ -379,7 +361,7 @@ const HELP_TEXTS = {
     </ol>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Via Git:</strong> <code>git pull</code></li>
       <li><strong>Or ZIP:</strong> download the new archive, unpack it over the old folder</li>
@@ -387,7 +369,7 @@ const HELP_TEXTS = {
     </ol>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Preko Git-a:</strong> <code>git pull</code></li>
       <li><strong>Ili ZIP:</strong> preuzmite novu arhivu, raspakujte je preko stare fascikle</li>
@@ -400,21 +382,21 @@ const HELP_TEXTS = {
   updateExt: (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
       <li><strong>Unpacked:</strong> откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>), нажмите «Обновить» (круглая стрелка)</li>
     </ol>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>From store:</strong> the extension will update automatically</li>
       <li><strong>Unpacked:</strong> open <code>chrome://extensions</code> (or <code>browser://extensions</code>), click "Update" (circular arrow)</li>
     </ol>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Iz prodavnice:</strong> ekstenzija će se ažurirati automatski</li>
       <li><strong>Unpacked:</strong> otvorite <code>chrome://extensions</code> (ili <code>browser://extensions</code>), kliknite "Ažuriraj" (kružna strelica)</li>
@@ -464,27 +446,24 @@ const HELP_TEXTS = {
   'update-ext': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
     <h3>Обновление расширения</h3>
     <ol>
-      <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
-      <li><strong>Unpacked:</strong> откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>), нажмите «Обновить» (круглая стрелка)</li>
+      <li><strong>CRX:</strong> скачайте новый <code>FlowLink-Proxy-v*.crx</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, перетащите на <code>chrome://extensions</code></li>
+      <li><strong>ZIP (unpacked):</strong> скачайте <code>FlowLink-Proxy-v*.zip</code>, распакуйте в папку расширения, затем на <code>chrome://extensions</code> нажмите «Обновить» (круглая стрелка) у карточки FlowLink Proxy</li>
     </ol>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
     <h3>Extension update</h3>
     <ol>
-      <li><strong>From store:</strong> the extension will update automatically</li>
-      <li><strong>Unpacked:</strong> open <code>chrome://extensions</code> (or <code>browser://extensions</code>), click "Update" (circular arrow)</li>
+      <li><strong>CRX:</strong> download the new <code>FlowLink-Proxy-v*.crx</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, drag it onto <code>chrome://extensions</code></li>
+      <li><strong>ZIP (unpacked):</strong> download <code>FlowLink-Proxy-v*.zip</code>, unpack into the extension folder, then on <code>chrome://extensions</code> click «Update» (circular arrow) on the FlowLink Proxy card</li>
     </ol>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
     <h3>Ažuriranje ekstenzije</h3>
     <ol>
-      <li><strong>Iz prodavnice:</strong> ekstenzija će se ažurirati automatski</li>
-      <li><strong>Unpacked:</strong> otvorite <code>chrome://extensions</code> (ili <code>browser://extensions</code>), kliknite "Ažuriraj" (kružna strelica)</li>
+      <li><strong>CRX:</strong> preuzmite novi <code>FlowLink-Proxy-v*.crx</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, prevucite na <code>chrome://extensions</code></li>
+      <li><strong>ZIP (unpacked):</strong> preuzmite <code>FlowLink-Proxy-v*.zip</code>, raspakujte u fasciklu ekstenzije, zatim na <code>chrome://extensions</code> kliknite «Ažuriraj» (kružna strelica) na kartici FlowLink Proxy</li>
     </ol>
   `,
     };
@@ -839,25 +818,25 @@ const _LINUX_SUB_TEXTS = {
       ru: `
     <h3>Пакет (.deb)</h3>
     <ol>
-      <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.deb</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Скачайте <code>FlowLink-Proxy_*.deb</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Установите: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
-      <li>Запустите: <code>flowlink-proxy</code></li>
+      <li>Запустите: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       en: `
     <h3>Package (.deb)</h3>
     <ol>
-      <li>Download <code>FlowLink-Proxy-*-linux-x64.deb</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Download <code>FlowLink-Proxy_*.deb</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Install: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
-      <li>Run: <code>flowlink-proxy</code></li>
+      <li>Run: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       sr: `
     <h3>Paket (.deb)</h3>
     <ol>
-      <li>Preuzmite <code>FlowLink-Proxy-*-linux-x64.deb</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Preuzmite <code>FlowLink-Proxy_*.deb</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Instalirajte: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
-      <li>Pokrenite: <code>flowlink-proxy</code></li>
+      <li>Pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
     };
@@ -868,25 +847,25 @@ const _LINUX_SUB_TEXTS = {
       ru: `
     <h3>Пакет (.rpm)</h3>
     <ol>
-      <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.rpm</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Скачайте <code>FlowLink-Proxy-*.x86_64.rpm</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Установите: <code>sudo rpm -i FlowLink-Proxy-*.rpm</code></li>
-      <li>Запустите: <code>flowlink-proxy</code></li>
+      <li>Запустите: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       en: `
     <h3>Package (.rpm)</h3>
     <ol>
-      <li>Download <code>FlowLink-Proxy-*-linux-x64.rpm</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Download <code>FlowLink-Proxy-*.x86_64.rpm</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Install: <code>sudo rpm -i FlowLink-Proxy-*.rpm</code></li>
-      <li>Run: <code>flowlink-proxy</code></li>
+      <li>Run: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       sr: `
     <h3>Paket (.rpm)</h3>
     <ol>
-      <li>Preuzmite <code>FlowLink-Proxy-*-linux-x64.rpm</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Preuzmite <code>FlowLink-Proxy-*.x86_64.rpm</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Instalirajte: <code>sudo rpm -i FlowLink-Proxy-*.rpm</code></li>
-      <li>Pokrenite: <code>flowlink-proxy</code></li>
+      <li>Pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
     };
@@ -899,7 +878,7 @@ const _LINUX_SUB_TEXTS = {
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Запустите: <code>./flowlink-proxy</code></li>
+      <li>Запустите: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
       en: `
@@ -907,7 +886,7 @@ const _LINUX_SUB_TEXTS = {
     <ol>
       <li>Download <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Unpack: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Run: <code>./flowlink-proxy</code></li>
+      <li>Run: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
       sr: `
@@ -915,7 +894,7 @@ const _LINUX_SUB_TEXTS = {
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Raspakujte: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Pokrenite: <code>./flowlink-proxy</code></li>
+      <li>Pokrenite: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
     };
@@ -999,7 +978,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Запустите: <code>flowlink-proxy</code></li>
+      <li>Запустите: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       en: `
@@ -1007,7 +986,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-x64.pkg</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Install: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Run: <code>flowlink-proxy</code></li>
+      <li>Run: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       sr: `
@@ -1015,7 +994,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-x64.pkg</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Instalirajte: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Pokrenite: <code>flowlink-proxy</code></li>
+      <li>Pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
     };
@@ -1028,7 +1007,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Запустите: <code>./flowlink-proxy</code></li>
+      <li>Запустите: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
       en: `
@@ -1036,7 +1015,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Unpack: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Run: <code>./flowlink-proxy</code></li>
+      <li>Run: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
       sr: `
@@ -1044,7 +1023,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Raspakujte: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Pokrenite: <code>./flowlink-proxy</code></li>
+      <li>Pokrenite: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
     };
@@ -1057,7 +1036,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Установите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Запустите: <code>flowlink-proxy</code></li>
+      <li>Запустите: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       en: `
@@ -1065,7 +1044,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-arm64.pkg</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Install: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Run: <code>flowlink-proxy</code></li>
+      <li>Run: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
       sr: `
@@ -1073,7 +1052,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-arm64.pkg</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Instalirajte: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Pokrenite: <code>flowlink-proxy</code></li>
+      <li>Pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
   `,
     };
@@ -1086,7 +1065,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Распакуйте: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Запустите: <code>./flowlink-proxy</code></li>
+      <li>Запустите: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
       en: `
@@ -1094,7 +1073,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Unpack: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Run: <code>./flowlink-proxy</code></li>
+      <li>Run: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
       sr: `
@@ -1102,7 +1081,7 @@ const _MACOS_SUB_TEXTS = {
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Raspakujte: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Pokrenite: <code>./flowlink-proxy</code></li>
+      <li>Pokrenite: <code>"./FlowLink Proxy"</code></li>
     </ol>
   `,
     };
@@ -1118,7 +1097,7 @@ const _UPDATE_SUB_TEXTS = {
   'update-windows': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>1. Скачайте новый установщик</h3>
     <ol>
       <li>Перейдите по ссылке <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
@@ -1129,15 +1108,10 @@ const _UPDATE_SUB_TEXTS = {
       <li>Запустите установщик — он заменит файлы автоматически</li>
       <li>Бэкенд будет перезапущен</li>
     </ol>
-    <h3>Standalone-бинарник</h3>
-    <ol>
-      <li>Скачайте новый архив со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Остановите старый процесс (системный трей → «Выход»)</li>
-      <li>Замените файлы и запустите новый</li>
-    </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>1. Download the new installer</h3>
     <ol>
       <li>Go to <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
@@ -1148,15 +1122,10 @@ const _UPDATE_SUB_TEXTS = {
       <li>Run the installer — it will replace files automatically</li>
       <li>The backend will be restarted</li>
     </ol>
-    <h3>Standalone binary</h3>
-    <ol>
-      <li>Download the new archive from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Stop the old process (system tray → "Exit")</li>
-      <li>Replace the files and run the new one</li>
-    </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>1. Preuzmite novi instalater</h3>
     <ol>
       <li>Idite na <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub → Releases</a></li>
@@ -1167,12 +1136,7 @@ const _UPDATE_SUB_TEXTS = {
       <li>Pokrenite instalater — on će automatski zameniti datoteke</li>
       <li>Backend će biti ponovo pokrenut</li>
     </ol>
-    <h3>Standalone binarni fajl</h3>
-    <ol>
-      <li>Preuzmite novu arhivu sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
-      <li>Zaustavite stari proces (sistemska traka → "Izlaz")</li>
-      <li>Zamenite datoteke i pokrenite novi</li>
-    </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1180,7 +1144,7 @@ const _UPDATE_SUB_TEXTS = {
   'update-linux': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-linux">
       <button class="help-sub-tab active" data-sub="update-linux-deb">Пакет (.deb)</button>
       <button class="help-sub-tab" data-sub="update-linux-rpm">Пакет (.rpm)</button>
@@ -1191,7 +1155,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-linux">
       <button class="help-sub-tab active" data-sub="update-linux-deb">Package (.deb)</button>
       <button class="help-sub-tab" data-sub="update-linux-rpm">Package (.rpm)</button>
@@ -1202,7 +1166,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-linux">
       <button class="help-sub-tab active" data-sub="update-linux-deb">Paket (.deb)</button>
       <button class="help-sub-tab" data-sub="update-linux-rpm">Paket (.rpm)</button>
@@ -1218,7 +1182,7 @@ const _UPDATE_SUB_TEXTS = {
   'update-macos': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos">
       <button class="help-sub-tab active" data-sub="update-macos-intel">Intel</button>
       <button class="help-sub-tab" data-sub="update-macos-arm">ARM</button>
@@ -1228,7 +1192,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos">
       <button class="help-sub-tab active" data-sub="update-macos-intel">Intel</button>
       <button class="help-sub-tab" data-sub="update-macos-arm">ARM</button>
@@ -1238,7 +1202,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos">
       <button class="help-sub-tab active" data-sub="update-macos-intel">Intel</button>
       <button class="help-sub-tab" data-sub="update-macos-arm">ARM</button>
@@ -1253,28 +1217,31 @@ const _UPDATE_SUB_TEXTS = {
   'update-source': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Через Git:</strong> <code>git pull</code></li>
       <li><strong>Или ZIP:</strong> скачайте новый архив, распакуйте поверх старой папки</li>
       <li>Остановите старый процесс, перезапустите: <code>python -m server</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Via Git:</strong> <code>git pull</code></li>
       <li><strong>Or ZIP:</strong> download the new archive, unpack it over the old folder</li>
       <li>Stop the old process, restart: <code>python -m server</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <ol>
       <li><strong>Preko Git-a:</strong> <code>git pull</code></li>
       <li><strong>Ili ZIP:</strong> preuzmite novu arhivu, raspakujte je preko stare fascikle</li>
       <li>Zaustavite stari proces, ponovo pokrenite: <code>python -m server</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1282,31 +1249,34 @@ const _UPDATE_SUB_TEXTS = {
   'update-linux-deb': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Пакет (.deb)</h3>
     <ol>
-      <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.deb</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Скачайте <code>FlowLink-Proxy_*.deb</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Обновите: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
-      <li>Перезапустите: <code>flowlink-proxy</code></li>
+      <li>Перезапустите: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Package (.deb)</h3>
     <ol>
-      <li>Download <code>FlowLink-Proxy-*-linux-x64.deb</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Download <code>FlowLink-Proxy_*.deb</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Update: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
-      <li>Restart: <code>flowlink-proxy</code></li>
+      <li>Restart: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Paket (.deb)</h3>
     <ol>
-      <li>Preuzmite <code>FlowLink-Proxy-*-linux-x64.deb</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Preuzmite <code>FlowLink-Proxy_*.deb</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Ažurirajte: <code>sudo dpkg -i FlowLink-Proxy-*.deb</code></li>
-      <li>Ponovo pokrenite: <code>flowlink-proxy</code></li>
+      <li>Ponovo pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1314,31 +1284,34 @@ const _UPDATE_SUB_TEXTS = {
   'update-linux-rpm': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Пакет (.rpm)</h3>
     <ol>
-      <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.rpm</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Скачайте <code>FlowLink-Proxy-*.x86_64.rpm</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Обновите: <code>sudo rpm -U FlowLink-Proxy-*.rpm</code></li>
-      <li>Перезапустите: <code>flowlink-proxy</code></li>
+      <li>Перезапустите: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Package (.rpm)</h3>
     <ol>
-      <li>Download <code>FlowLink-Proxy-*-linux-x64.rpm</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Download <code>FlowLink-Proxy-*.x86_64.rpm</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Update: <code>sudo rpm -U FlowLink-Proxy-*.rpm</code></li>
-      <li>Restart: <code>flowlink-proxy</code></li>
+      <li>Restart: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Paket (.rpm)</h3>
     <ol>
-      <li>Preuzmite <code>FlowLink-Proxy-*-linux-x64.rpm</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
+      <li>Preuzmite <code>FlowLink-Proxy-*.x86_64.rpm</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Ažurirajte: <code>sudo rpm -U FlowLink-Proxy-*.rpm</code></li>
-      <li>Ponovo pokrenite: <code>flowlink-proxy</code></li>
+      <li>Ponovo pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1346,31 +1319,34 @@ const _UPDATE_SUB_TEXTS = {
   'update-linux-bin': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Бинарник (.tar.gz)</h3>
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Распакуйте поверх старой папки: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Перезапустите: <code>./flowlink-proxy</code></li>
+      <li>Перезапустите: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Binary (.tar.gz)</h3>
     <ol>
       <li>Download <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Unpack over the old folder: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Restart: <code>./flowlink-proxy</code></li>
+      <li>Restart: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Binarni fajl (.tar.gz)</h3>
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-linux-x64.tar.gz</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Raspakujte preko stare fascikle: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Ponovo pokrenite: <code>./flowlink-proxy</code></li>
+      <li>Ponovo pokrenite: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1378,7 +1354,7 @@ const _UPDATE_SUB_TEXTS = {
   'update-macos-intel': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos-intel">
       <button class="help-sub-tab active" data-sub="update-macos-intel-pkg">Пакет (.pkg)</button>
       <button class="help-sub-tab" data-sub="update-macos-intel-bin">Бинарник (.tar.gz)</button>
@@ -1388,7 +1364,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos-intel">
       <button class="help-sub-tab active" data-sub="update-macos-intel-pkg">Package (.pkg)</button>
       <button class="help-sub-tab" data-sub="update-macos-intel-bin">Binary (.tar.gz)</button>
@@ -1398,7 +1374,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos-intel">
       <button class="help-sub-tab active" data-sub="update-macos-intel-pkg">Paket (.pkg)</button>
       <button class="help-sub-tab" data-sub="update-macos-intel-bin">Binarni fajl (.tar.gz)</button>
@@ -1413,7 +1389,7 @@ const _UPDATE_SUB_TEXTS = {
   'update-macos-arm': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos-arm">
       <button class="help-sub-tab active" data-sub="update-macos-arm-pkg">Пакет (.pkg)</button>
       <button class="help-sub-tab" data-sub="update-macos-arm-bin">Бинарник (.tar.gz)</button>
@@ -1423,7 +1399,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos-arm">
       <button class="help-sub-tab active" data-sub="update-macos-arm-pkg">Package (.pkg)</button>
       <button class="help-sub-tab" data-sub="update-macos-arm-bin">Binary (.tar.gz)</button>
@@ -1433,7 +1409,7 @@ const _UPDATE_SUB_TEXTS = {
     </div>
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <div class="help-sub-tabs" id="help-sub-tabs-update-macos-arm">
       <button class="help-sub-tab active" data-sub="update-macos-arm-pkg">Paket (.pkg)</button>
       <button class="help-sub-tab" data-sub="update-macos-arm-bin">Binarni fajl (.tar.gz)</button>
@@ -1448,31 +1424,34 @@ const _UPDATE_SUB_TEXTS = {
   'update-macos-intel-pkg': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Intel — Пакет (.pkg)</h3>
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Обновите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Перезапустите: <code>flowlink-proxy</code></li>
+      <li>Перезапустите: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Intel — Package (.pkg)</h3>
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-x64.pkg</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Update: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Restart: <code>flowlink-proxy</code></li>
+      <li>Restart: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Intel — Paket (.pkg)</h3>
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-x64.pkg</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Ažurirajte: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Ponovo pokrenite: <code>flowlink-proxy</code></li>
+      <li>Ponovo pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1480,31 +1459,34 @@ const _UPDATE_SUB_TEXTS = {
   'update-macos-intel-bin': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Intel — Бинарник (.tar.gz)</h3>
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Распакуйте поверх старой папки: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Перезапустите: <code>./flowlink-proxy</code></li>
+      <li>Перезапустите: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Intel — Binary (.tar.gz)</h3>
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Unpack over the old folder: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Restart: <code>./flowlink-proxy</code></li>
+      <li>Restart: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>Intel — Binarni fajl (.tar.gz)</h3>
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-x64.tar.gz</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Raspakujte preko stare fascikle: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Ponovo pokrenite: <code>./flowlink-proxy</code></li>
+      <li>Ponovo pokrenite: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1512,31 +1494,34 @@ const _UPDATE_SUB_TEXTS = {
   'update-macos-arm-pkg': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>ARM — Пакет (.pkg)</h3>
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.pkg</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Обновите: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Перезапустите: <code>flowlink-proxy</code></li>
+      <li>Перезапустите: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>ARM — Package (.pkg)</h3>
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-arm64.pkg</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Update: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Restart: <code>flowlink-proxy</code></li>
+      <li>Restart: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>ARM — Paket (.pkg)</h3>
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-arm64.pkg</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Ažurirajte: <code>sudo installer -pkg FlowLink-Proxy-*.pkg -target /</code></li>
-      <li>Ponovo pokrenite: <code>flowlink-proxy</code></li>
+      <li>Ponovo pokrenite: <code>"FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1544,31 +1529,34 @@ const _UPDATE_SUB_TEXTS = {
   'update-macos-arm-bin': (lang = 'ru') => (tag) => {
     const texts = {
       ru: `
-    ${tag ? `<p>Доступна новая версия: <strong>${tag}</strong></p>` : ''}
+    
     <h3>ARM — Бинарник (.tar.gz)</h3>
     <ol>
       <li>Скачайте <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Распакуйте поверх старой папки: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Перезапустите: <code>./flowlink-proxy</code></li>
+      <li>Перезапустите: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
-    ${tag ? `<p>New version available: <strong>${tag}</strong></p>` : ''}
+    
     <h3>ARM — Binary (.tar.gz)</h3>
     <ol>
       <li>Download <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Unpack over the old folder: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Restart: <code>./flowlink-proxy</code></li>
+      <li>Restart: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
-    ${tag ? `<p>Dostupna nova verzija: <strong>${tag}</strong></p>` : ''}
+    
     <h3>ARM — Binarni fajl (.tar.gz)</h3>
     <ol>
       <li>Preuzmite <code>FlowLink-Proxy-*-macos-arm64.tar.gz</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a></li>
       <li>Raspakujte preko stare fascikle: <code>tar -xzf FlowLink-Proxy-*.tar.gz</code></li>
-      <li>Ponovo pokrenite: <code>./flowlink-proxy</code></li>
+      <li>Ponovo pokrenite: <code>"./FlowLink Proxy"</code></li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;
@@ -1867,7 +1855,7 @@ function _showUpdateContent(tab) {
     // Экранируем тег перед вставкой в HTML — защита от XSS (инъекция через tag)
     const escapedTag = escapeHtml(tag);
     // Update-ключи HELP_TEXTS — функции (lang) => (tag) => html
-    content.innerHTML = textFn(_currentHelpLang)(escapedTag) + _EMAIL_FOOTER(_currentHelpLang);
+    content.innerHTML = textFn(_currentHelpLang)(escapedTag);
   } catch (err) {
     console.error('[FlowLink Proxy] Ошибка рендеринга обновления:', err);
     content.innerHTML = '<p>Ошибка при отображении обновления. Попробуйте перезагрузить popup.</p>';
