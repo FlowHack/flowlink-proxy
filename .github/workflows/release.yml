@@ -11,6 +11,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: write
+      actions: read
 
     steps:
       - name: Клонирование репозитория
@@ -51,12 +52,17 @@ jobs:
         with:
           path: artifacts/
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
 
       - name: Сборка артефактов
         run: |
           mkdir -p release-files
-          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" -o -name "*.crx" -o -name "*.zip" \) \
-            -exec cp {} release-files/ \;
+          if [ -d artifacts ]; then
+            find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.exe" -o -name "*.crx" -o -name "*.zip" \) \
+              -exec cp {} release-files/ \;
+          else
+            echo "::warning::Директория artifacts/ не найдена — артефакты не были загружены"
+          fi
 
       - name: Удаление существующего релиза (идемпотентность)
         env:
