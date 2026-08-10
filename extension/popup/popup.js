@@ -634,6 +634,7 @@ function attachGlobalListeners() {
   document.getElementById('tab-browser')?.addEventListener('click', () => switchHelpTab('browser'));
   document.getElementById('tab-port')?.addEventListener('click', () => switchHelpTab('port'));
   document.getElementById('tab-faq')?.addEventListener('click', () => switchHelpTab('faq'));
+  document.getElementById('tab-license')?.addEventListener('click', () => switchHelpTab('license'));
   document.getElementById('tab-update-backend')?.addEventListener('click', () => switchHelpTab('update-backend'));
   document.getElementById('tab-update-ext')?.addEventListener('click', () => switchHelpTab('update-ext'));
 

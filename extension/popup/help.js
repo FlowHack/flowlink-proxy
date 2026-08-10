@@ -1662,7 +1662,7 @@ const _TABS = ['backend', 'browser', 'port', 'faq', 'license'];
  */
 const _CONTEXT_TABS = {
   // Общая помощь (кнопка «Помощь» в popup) — все вкладки.
-  general: ['backend', 'browser', 'port', 'faq', 'license'],
+  general: ['license', 'backend', 'browser', 'port', 'faq'],
   // Помощь при невозможности подключения к бэкенду — без вкладки «Браузер».
   'backend-error': ['backend', 'port', 'faq', 'license'],
   // Помощь при неуказанном браузере — только содержимое вкладки «Браузер».
@@ -1729,6 +1729,13 @@ export function switchHelpTab(tab) {
   const tabsBar = document.getElementById('modal-tabs');
   if (tabsBar) {
     tabsBar.classList.toggle('hidden', visibleTabs.length <= 1);
+  }
+
+  // Вторая строка табов (Лицензия) — скрывается в контекстах без неё
+  const tabsBarRow2 = document.querySelector('.help-tabs-row2');
+  if (tabsBarRow2) {
+    const licenseVisible = visibleTabs.length > 1 && visibleTabs.includes('license');
+    tabsBarRow2.classList.toggle('hidden', !licenseVisible);
   }
 
   // Показываем/скрываем вкладки в зависимости от контекста
