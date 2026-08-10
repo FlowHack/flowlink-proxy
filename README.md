@@ -124,7 +124,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 
 Нажмите иконку FlowLink Proxy в панели расширений.
 
-![Главный экран](screenshots/main-screen.png)
+<img src="screenshots/main-screen.png" alt="Главный экран" width="350">
 
 #### Добавление прокси
 
@@ -137,7 +137,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
    - **Метка** — удобное название (например «Мой прокси»)
 3. Нажмите **«Сохранить»**
 
-![Добавление прокси](screenshots/add-proxy.png)
+<img src="screenshots/add-proxy.png" alt="Добавление прокси" width="350">
 
 #### Добавление маски
 
@@ -151,11 +151,11 @@ FlowLink Proxy создан с использованием **AI-assisted develo
    - `*github.com*` — все домены github.com
 4. Нажмите **«Сохранить»**
 
-![Окно добавления маски](screenshots/add-mask.png)
+<img src="screenshots/add-mask.png" alt="Окно добавления маски" width="350">
 
 > Маска привязывается к тому прокси, рядом с которым вы открыли список. Символ `*` заменяет любую часть адреса. Маски автоматически конвертируются в регулярные выражения.
 
-![Окно масок](screenshots/masks.png)
+<img src="screenshots/masks.png" alt="Окно масок" width="350">
 
 #### Конфликты масок
 
@@ -178,7 +178,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 - **Порт API** — измените если бэкенд работает на другом порту (по умолчанию `8081`)
 - **Обновление** — проверить наличие новой версии
 
-![Настройки](screenshots/settings.png)
+<img src="screenshots/settings.png" alt="Настройки" width="350">
 
 #### Директория данных
 
@@ -201,7 +201,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 После запуска бэкенда в системном трее (рядом с часами) появляется иконка FlowLink Proxy. 
 Правый клик открывает контекстное меню со следующими пунктами:
 
-![Меню бэкенда](screenshots/tray-menu.png)
+<img src="screenshots/tray-menu.png" alt="Меню бэкенда" width="170">
 
 | Пункт меню | Описание |
 |---|---|
