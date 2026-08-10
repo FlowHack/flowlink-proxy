@@ -38,8 +38,6 @@
       note2Title: 'Примечание:',
       note2Text: ' Возможно, потребуется VPN или прокси для доступа к GitHub (для пользователей в России).',
       support: 'Поддержка:',
-      eulaLink: 'Лицензионное соглашение (EULA)',
-      privacyLink: 'Политика конфиденциальности',
     },
     en: {
       title: 'FlowLink Proxy — Extension Installation',
@@ -58,8 +56,6 @@
       note2Title: 'Note:',
       note2Text: ' A VPN or proxy may be required to access GitHub (for users in Russia).',
       support: 'Support:',
-      eulaLink: 'License Agreement (EULA)',
-      privacyLink: 'Privacy Policy',
     },
     sr: {
       title: 'FlowLink Proxy — Instalacija ekstenzije',
@@ -78,8 +74,6 @@
       note2Title: 'Napomena:',
       note2Text: ' VPN ili proxy mogu biti potrebni za pristup GitHub-u (za korisnike u Rusiji).',
       support: 'Podrška:',
-      eulaLink: 'Licencni ugovor (EULA)',
-      privacyLink: 'Politika privatnosti',
     },
   };
 

@@ -565,6 +565,37 @@ body {
   padding: 4px 0;
 }
 
+/* ───── Футер помощи: EULA / Privacy ───── */
+.help-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.help-consent {
+  width: 100%;
+  margin: 0 0 2px;
+}
+
+.help-footer a {
+  color: var(--accent-red);
+  text-decoration: none;
+}
+
+.help-footer a:hover {
+  text-decoration: underline;
+}
+
+.help-sep {
+  color: var(--text-muted);
+}
+
 /* ───── Контент вкладок помощи ───── */
 .help-tab-content {
   padding: 8px 0;
