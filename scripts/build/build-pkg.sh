@@ -76,13 +76,7 @@ pkgbuild --root "$ROOT_DIR" \
     "$BUILD_DIR/$PKG_NAME-component.pkg"
 
 # --- productbuild ---
-LICENSE_ARGS=()
-if [ -f "$PROJECT_DIR/LICENSE.txt" ]; then
-    LICENSE_ARGS=(--license "$PROJECT_DIR/LICENSE.txt")
-fi
-
 productbuild --package "$BUILD_DIR/$PKG_NAME-component.pkg" \
-    "${LICENSE_ARGS[@]}" \
     "$PROJECT_DIR/releases/${PKG_NAME}-${VERSION}-macos-${ARCH}.pkg"
 
 # --- Очистка ---
