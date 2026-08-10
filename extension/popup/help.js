@@ -508,41 +508,6 @@ const HELP_TEXTS = {
     };
     return texts[lang] || texts.ru;
   },
-  license: (lang = 'ru') => {
-    const texts = {
-      ru: `
-    <h3>Лицензия</h3>
-    <p>FlowLink Proxy распространяется под лицензией <strong>GNU AGPL v3</strong>.</p>
-    <p>При использовании вы соглашаетесь с условиями
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">EULA.rtf</a>,
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">LICENSE.txt</a> и
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/PRIVACY_POLICY.md" target="_blank" rel="noopener">Политикой конфиденциальности</a>.
-    </p>
-    ${_EMAIL_FOOTER(lang)}
-  `,
-      en: `
-    <h3>License</h3>
-    <p>FlowLink Proxy is distributed under the <strong>GNU AGPL v3</strong> license.</p>
-    <p>By using it you agree to the terms of
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">EULA.rtf</a>,
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">LICENSE.txt</a> and
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/PRIVACY_POLICY.md" target="_blank" rel="noopener">Privacy Policy</a>.
-    </p>
-    ${_EMAIL_FOOTER(lang)}
-  `,
-      sr: `
-    <h3>Licenca</h3>
-    <p>FlowLink Proxy se distribuira pod <strong>GNU AGPL v3</strong> licencom.</p>
-    <p>Korišćenjem prihvatate uslove
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/EULA.rtf" target="_blank" rel="noopener">EULA.rtf</a>,
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/LICENSE.txt" target="_blank" rel="noopener">LICENSE.txt</a> i
-      <a href="https://github.com/FlowHack/flowlink-proxy/blob/master/PRIVACY_POLICY.md" target="_blank" rel="noopener">Politiku privatnosti</a>.
-    </p>
-    ${_EMAIL_FOOTER(lang)}
-  `,
-    };
-    return texts[lang] || texts.ru;
-  },
   faq: (lang = 'ru') => {
     const texts = {
       ru: `
