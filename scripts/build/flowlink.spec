@@ -16,9 +16,11 @@ FlowLink Proxy — Python proxy-gateway с Chrome-расширением
 %build
 # Бинарник уже собран, сборка не требуется
 
-# Отключение brp-strip: бинарник "FlowLink Proxy" содержит пробел,
-# который ломает парсинг в стандартном brp-strip-скрипте RPM.
+# Отключение brp-strip-* скриптов: бинарник "FlowLink Proxy" содержит пробел,
+# который ломает парсинг в стандартных brp-скриптах RPM.
 %global __brp_strip %{nil}
+%global __brp_strip_static_archive %{nil}
+%global __brp_strip_comment_note %{nil}
 
 %install
 mkdir -p %{buildroot}/usr/local/bin
@@ -40,7 +42,7 @@ fi
 %files
 %license LICENSE.txt
 %doc EULA.rtf
-/usr/local/bin/FlowLink\ Proxy
+"/usr/local/bin/FlowLink Proxy"
 /usr/local/share/%{name}
 %{_datadir}/applications/flowlink-proxy.desktop
 
