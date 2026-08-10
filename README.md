@@ -55,7 +55,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 | **Шифрование** | AES-256-GCM + PBKDF2-HMAC-SHA256 (cryptography) |
 | **Системный трей** | tkinter (кастомное тёмное меню), pystray, Win32 ctypes |
 | **Расширение** | Chrome Extension Manifest V3, Service Worker, EventSource (SSE) |
-| **Сборка** | PyInstaller (standalone), Inno Setup (Windows), dpkg-deb / rpmbuild (Linux), pkgbuild (macOS) |
+| **Сборка** | PyInstaller (standalone), Inno Setup (Windows), dpkg-deb / rpmbuild (Linux), pkgbuild (macOS), CRX/ZIP (расширение) |
 | **CI/CD** | GitHub Actions (lint + typecheck + pytest; multios сборка + релизы по тегам) |
 | **Качество** | pytest, pylint >= 9.0, pyright (type-checking) |
 | **Платформы** | Windows 10+, Linux x64, macOS (Intel + Apple Silicon) |
@@ -87,12 +87,17 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 | **macOS Intel** | `FlowLink-Proxy-v*-macos-x64.tar.gz` | Распакуйте → запустите |
 | **macOS Apple Silicon** | `FlowLink-Proxy-v*-macos-arm64.tar.gz` | Распакуйте → запустите |
 | **macOS** | `flowlink-proxy-<версия>-macos-<арх>.pkg` | Дважды кликните по `.pkg` |
+| **Все платформы** | `FlowLink-Proxy-v*-extension.zip` / `.crx` | Расширение Chrome: распакуйте ZIP и загрузите как распакованное (или установите `.crx`) |
 
 > Подробные инструкции по каждому способу: **[SETUP.md](SETUP.md)**
 
 ### 2. Установите расширение
 
-Откройте страницу расширений в браузере → включите «Режим разработчика» → «Загрузить распакованное расширение» → выберите папку `extension/`.
+Расширение можно установить двумя способами: из архива релиза (`FlowLink-Proxy-v*-extension.zip` или `.crx` — см. вложения релиза) или из исходников. В обоих случаях:
+
+1. Откройте страницу расширений в браузере (см. таблицу ниже).
+2. Включите «Режим разработчика».
+3. **Из ZIP:** распакуйте архив → «Загрузить распакованное расширение» → выберите распакованную папку. **Из исходников:** «Загрузить распакованное расширение» → выберите папку `extension/`. **Из `.crx`:** перетащите файл `.crx` на страницу расширений.
 
 | Браузер | Страница расширений |
 |---------|---------------------|
@@ -262,7 +267,8 @@ flowlink-proxy/
 │   │   ├── events.py          # SSE-шина событий
 │   │   ├── sse.py             # SSE-обработчик (text/event-stream)
 │   │   ├── extension_connection.py # Отслеживание подключения расширения
-│   │   └── fake_proxies.py    # Генерация тестовых прокси (--count-proxy)
+│   │   ├── fake_proxies.py    # Генерация тестовых прокси (--count-proxy)
+│   │   └── mask_conflicts.py  # Проверка конфликтов масок (пересечение паттернов)
 │   ├── servers/
 │   │   ├── base_server.py     # ABC BaseServer
 │   │   ├── proxy.py           # HTTP CONNECT прокси (порт 8080)
@@ -281,7 +287,7 @@ flowlink-proxy/
 │       ├── test_crypto.py
 │       ├── test_handlers.py
 │       ├── test_events.py
-│       ├── test_proxy.py
+│       ├── test_proxy_server.py
 │       ├── test_router.py
 │       ├── test_socks5.py
 │       ├── test_tunnel.py     # SSRF-защита validate_target()
@@ -306,6 +312,7 @@ flowlink-proxy/
 │
 ├── extension/                 # Chrome-расширение (Manifest V3)
 │   ├── manifest.json          # Манифест расширения
+│   ├── _locales/              # Локализация расширения (ru/en/sr)
 │   ├── background/
 │   │   └── service-worker.js  # SSE-клиент + pushEnabledState
 │   ├── popup/
@@ -314,21 +321,29 @@ flowlink-proxy/
 │   │   ├── popup.js           # Главный контроллер
 │   │   ├── crud-proxy.js      # CRUD-операции с прокси
 │   │   ├── crud-mask.js       # CRUD-операции с масками
+│   │   ├── draft.js           # Черновики форм (chrome.storage.session)
 │   │   ├── ping.js            # Пинг прокси
 │   │   ├── settings.js        # Настройки порта API
 │   │   ├── tab-status.js      # Статус текущей вкладки
 │   │   ├── modal.js           # Модальные окна
 │   │   ├── help.js            # Окно помощи
+│   │   ├── help-page.js       # Логика статической справки (help.html)
+│   │   ├── help.css           # Стили справки
 │   │   ├── help.html          # Статическая справка (открывается из tkinter-диалога)
 │   │   └── updater.js         # Проверка обновлений
 │   ├── shared/
 │   │   ├── api.js             # HTTP хелперы (apiGet, apiPost, apiPatch, apiDelete, apiPostRaw)
+│   │   ├── auth.js            # Работа с токеном авторизации API
 │   │   ├── constants.js       # API_BASE, GitHub URLs
 │   │   ├── dom.js             # escapeHtml, утилиты DOM
+│   │   ├── i18n.js            # Словарь переводов (RU/EN/SR)
 │   │   ├── utils.js           # Валидация IP/port, wildcard→regex, copyEmailToClipboard
 │   │   └── port_discovery.js  # Автообнаружение порта API
 │   ├── tests/                 # Тесты расширения
-│   │   └── help.test.js       # Тесты логики вкладок справки
+│   │   ├── auth.test.js       # Тесты токена авторизации
+│   │   ├── draft.test.js      # Тесты черновиков форм
+│   │   ├── help.test.js       # Тесты логики вкладок справки
+│   │   └── port.test.js       # Тесты автообнаружения порта
 │   └── icons/                 # Иконки расширения
 │
 ├── scripts/
@@ -384,6 +399,7 @@ flowlink-proxy/
 | **[DEBUG.md](DEBUG.md)** | CLI-флаги, HTTP API, логи, отладка |
 | **[PRIVACY_POLICY.md](PRIVACY_POLICY.md)** | Политика конфиденциальности |
 | **[LICENSE.txt](LICENSE.txt)** | GNU AGPL v3 |
+| **[EULA.rtf](EULA.rtf)** | Лицензионное соглашение конечного пользователя |
 
 ---
 
@@ -405,7 +421,7 @@ flowlink-proxy/
 | **Linux (.deb)** | `sudo dpkg -r flowlink-proxy` |
 | **Linux (.rpm)** | `sudo rpm -e flowlink-proxy` |
 | **Linux (.tar.gz)** | Удалите папку с бинарником и лаунчером |
-| **macOS (.pkg)** | `sudo rm /usr/local/bin/flowlink-proxy && sudo rm -rf /usr/local/share/flowlink-proxy` (LaunchAgent пакет не ставит) |
+| **macOS (.pkg)** | `sudo rm "/usr/local/bin/FlowLink Proxy" && sudo rm -rf /usr/local/share/flowlink-proxy` (LaunchAgent пакет не ставит) |
 | **macOS (.tar.gz)** | Удалите папку с бинарником и лаунчером |
 | **Исходники** | Удалите `venv/` и папку данных (см. [SETUP.md](SETUP.md)) |
 

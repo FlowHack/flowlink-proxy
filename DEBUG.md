@@ -236,11 +236,14 @@ python -m server --debug --test-fallback-icon
 | `GET` | `/api/config` | Получить конфигурацию (прокси, маски, isEnabled) |
 | `POST` | `/api/config` | Обновить конфигурацию. Тело — JSON-объект с `proxies[]` и `masks[]`. При конфликте масок (включено более одного прокси из группы с пересекающимися масками) возвращает `422` с `{"error": "...", "conflict": {...}}` |
 | `POST` | `/api/enabled` | Установить глобальный флаг. Тело: `{"enabled": true/false}` |
-| `GET` | `/api/status` | Статус backend (proxiesCount, masksCount, debug, needUpdate) |
+| `POST` | `/api/rotate-key` | Ротация ключа шифрования AES-GCM (перешифровывает пароли). При сбое — откат к старой паре ключ/соль |
+| `GET` | `/api/status` | Статус backend (proxiesCount, masksCount, debug, needUpdate, isEnabled, status, cryptoHealthy) |
 | `GET` | `/api/version` | Версия сервера: `{"version": "X.X.X"}` |
+| `GET` | `/api/language` | Текущий язык интерфейса: `{"language": "ru"}` |
+| `POST` | `/api/language` | Установить язык интерфейса (ru/en/sr). Тело: `{"language": "ru"}` |
 | `GET` | `/api/bootstrap` | Токен и порт API для расширения (открытый, без токена): `{"token": "...", "apiPort": 8081}` |
 | `POST` | `/api/ping` | Пинг прокси. Тело: `{"proxyId": "..."}` |
-| `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`, `autostart_browser_changed`, `system_autostart_changed`, `browser_config_changed`) |
+| `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`, `autostart_browser_changed`, `system_autostart_changed`, `browser_config_changed`, `backend_error`, `backend_ready`, `language_changed`) |
 | `GET` | `/api/autostart-browser` | Автозапуск браузера: `{"autostartBrowser": true/false}` |
 | `GET` | `/api/system-autostart` | Статус автозапуска с системой |
 | `POST` | `/api/system-autostart` | Включить/выключить автозапуск с системой. Тело: `{"enabled": true/false}` |
@@ -291,6 +294,9 @@ curl -X POST http://127.0.0.1:8081/api/ping \
 | `autostart_browser_changed` | `{"autostartBrowser": true/false}` | Изменена настройка автозапуска браузера |
 | `system_autostart_changed` | `{"enabled": true/false}` | Изменена настройка автозапуска с системой |
 | `browser_config_changed` | `{"browserPath": "..."}` | Изменён выбранный браузер |
+| `backend_error` | `{"message": "..."}` | Ошибка бэкенда (например, не удалось сохранить конфиг) |
+| `backend_ready` | `{}` | Бэкенд готов (отправляется при подключении SSE-клиента, в т.ч. после перезапуска) |
+| `language_changed` | `{"language": "ru"}` | Изменён язык интерфейса |
 
 ### Структура конфигурации
 
@@ -327,6 +333,10 @@ curl -X POST http://127.0.0.1:8081/api/ping \
 
 - `autostart_browser` — флаг автозапуска браузера при старте бэкенда (true/false)
 - `browser_path` — путь к исполняемому файлу браузера
+- `parallel_launch` — флаг параллельного запуска браузера (не ждать закрытия предыдущего)
+- `language` — язык интерфейса (`ru`/`en`/`sr`)
+
+> Директория данных задаётся переменной окружения `FLOWLINK_DATA_DIR` (по умолчанию `~/.FlowHack/FlowLink Proxy`).
 
 ---
 
