@@ -13,9 +13,10 @@
 ## Флаги CLI
 
 ```bash
-"FlowLink Proxy" [флаги]                       # standalone
-python -m server [флаги]                        # исходный код
-./scripts/FlowLink Proxy Source.sh [флаги]      # dev-лаунчер
+"FlowLink Proxy" [флаги]                          # standalone
+python -m server [флаги]                           # исходный код
+./scripts/setup/setup-and-run-linux.sh [флаги]     # dev-лаунчер (Linux)
+./scripts/setup/setup-and-run-macos.sh [флаги]     # dev-лаунчер (macOS)
 ```
 
 | Флаг | По умолч. | Описание |
@@ -26,7 +27,8 @@ python -m server [флаги]                        # исходный код
 | `--dev` | выкл. | Режим разработки (подробные логи + автообновление + тестовый SOCKS5) |
 | `--need-update` | выкл. | Симуляция обновления (подробные логи + баннер «Доступно обновление») |
 | `--count-proxy` | `0` | Количество тестовых прокси (требует `--debug`, `--dev` или `--need-update`) |
-| `--no-tkinter` | выкл. | Отключить tkinter popup, использовать pystray с нативным меню |
+| `--test-fallback-icon` | выкл. | Тестирование дефолтной иконки (красный круг + FLP) вместо `icons/icon.ico` |
+| `--browser-path` | нет | Путь к браузеру (перезаписывает настройку из `.flowlink-settings`) |
 
 ### Примеры
 
@@ -54,11 +56,14 @@ python -m server --dev --count-proxy 10
 
 # Всё вместе: тестовые прокси + автообновление + баннер обновления
 python -m server --dev --need-update --count-proxy 5
+
+# Тестирование дефолтной иконки (красный круг + FLP)
+python -m server --debug --test-fallback-icon
 ```
 
 ### `--debug`
 
-Включает подробное логирование — все действия бэкенда записываются в консоль и файл `logs/flowlink.log`:
+Включает подробное логирование — все действия бэкенда записываются в консоль и файл `FlowLink Proxy.log` в директории данных:
 - Все входящие HTTP-запросы (адрес, метод, тело)
 - SOCKS5-соединения (какой прокси выбран, результат подключения)
 - Маршрутизация (какая маска совпала с URL)
@@ -67,7 +72,7 @@ python -m server --dev --need-update --count-proxy 5
 ### `--dev`
 
 Включает `--debug` плюс:
-- **Автообновление** — при изменении любого `.py` файла сервер автоматически перезапускается (удобно при разработке: сохранил файл — сервер перезапустился сам)
+- **Автообновление** — при изменении любого `.py` файла процесс завершается (`os._exit(0)`). Для автоматического перезапуска используйте внешнюю обёртку (например, `while true; do python -m server --dev; done`)
 - **Тестовый SOCKS5-сервер** — встроенный сервер-заглушка на случайном порту. Имитирует реальный SOCKS5-прокси, чтобы пинг и подключения работали без покупки аккаунта
 
 Не предназначен для продакшена.
@@ -103,26 +108,50 @@ python -m server --dev --count-proxy 10
 python -m server --need-update --count-proxy 3
 ```
 
-### `--no-tkinter`
+### Отказоустойчивость меню трея
 
-Принудительно отключает кастомное tkinter popup-меню и использует **pystray с нативным контекстным меню**. Пункты меню отображаются со стандартным стилем ОС, автозапуск браузера показывается с символами ✓ (включён) / ✗ (выключен).
+Меню трея автоматически переключается на запасной вариант, если основной не удалось создать.
+
+Цепочка отказоустойчивости:
+
+1. **Основной трей** — платформенный бэкенд: Win32 ctypes + tkinter popup (Windows) или pystray + tkinter popup (Linux/macOS)
+2. **Завершение** — если трей не запустился, в лог записывается критическая ошибка `Не удалось запустить трей (запуск): Системный трей недоступен`. В standalone-сборке приложение завершается с кодом 1, при запуске из исходников — только предупреждение в лог
+
+Для работы трея и диалогов бэкенда обязателен **tkinter**. Если tkinter недоступен, трей не запускается, а диалоги (выбор браузера, предупреждения) не отображаются. Установите tkinter для вашей ОС (Linux: `sudo apt install python3-tk`).
+
+Поведение при падении popup: если во время показа меню происходит ошибка рендера (например, 
+tkinter `TclError`), бэкенд не падает — ошибка перехватывается и записывается в лог с полным 
+трейсбеком (`exc_info`), меню просто не отображается.
+
+Как диагностировать:
+
+- Запустите с `--debug` и смотрите `FlowLink Proxy.log` в директории данных
+- При сбое трея в логе появится строка:
+  - `Основной трей не запустился (runtime ошибка): ...`
+- Если приложение сразу завершается — ищите в логе строку с `critical` и причину отказа
+
+### `--test-fallback-icon`
+
+Принудительно использует **дефолтную иконку** (красный круг с «FLP») вместо `icons/icon.ico`. Иконка генерируется через Pillow при запуске и сохраняется во временный `.ico` файл.
 
 Используется для:
-- **Отладки fallback-пути** — проверить как работает меню без tkinter
-- **Тестирования на разных платформах** — убедиться что pystray fallback работает корректно
-- **Систем без tkinter** — если Python установлен без поддержки tkinter
+- **Тестирования дефолтной иконки** — проверить как выглядит красный круг + «FLP» в трее
+- **Диагностики проблем с иконкой** — если `icons/icon.ico` не загружается (неправильный формат, отсутствует, повреждён)
+- **Отладки без иконки** — проверить поведение при отсутствии `icons/icon.ico`
+
+На standalone-сборках без `icons/icon.ico` рядом с бинарником:
+- При запуске **без** этого флага — автоматически создастся дефолтная иконка (красный круг + FLP)
+- При запуске **с** этим флагом — будет использована дефолтная иконка и в логе будет `INFO: Tray Win32: --test-fallback-icon, пропуск icon.ico`
 
 ```bash
-# Принудительно отключить tkinter popup
-python -m server --no-tkinter
+# Тестирование дефолтной иконки
+python -m server --test-fallback-icon
 
-# С отладкой + отключённый tkinter
-python -m server --debug --no-tkinter
+# С отладкой
+python -m server --debug --test-fallback-icon
 ```
 
 ---
-
-### Совмещение флагов
 
 Все флаги можно комбинировать. Вот полная таблица совместимости:
 
@@ -135,7 +164,7 @@ python -m server --debug --no-tkinter
 | `--dev --count-proxy N` | Тестовые прокси + автообновление + тестовый SOCKS5. Удобно для отладки расширения |
 | `--need-update --count-proxy N` | Тестовые прокси + баннер обновления. Удобно для проверки UI обновлений |
 | `--dev --need-update --count-proxy N` | Всё вместе: тестовые прокси + автообновление + тестовый SOCKS5 + баннер обновления |
-| `--no-tkinter` | Отключает tkinter popup, использует pystray с нативным меню (✓/✗ для автозапуска) |
+| `--test-fallback-icon` | Использует дефолтную иконку (красный круг + FLP) вместо `icons/icon.ico` |
 | `--proxy-port 9090 --api-port 9091` | Кастомные порты (работает с любыми другими флагами) |
 
 Примеры:
@@ -150,8 +179,8 @@ python -m server --dev --need-update --count-proxy 5
 # Кастомные порты + тестовые прокси
 python -m server --proxy-port 9090 --api-port 9091 --debug --count-proxy 3
 
-# Тестирование pystray fallback (без tkinter)
-python -m server --debug --no-tkinter
+# Тестирование дефолтной иконки + отладка
+python -m server --debug --test-fallback-icon
 ```
 
 ---
@@ -177,14 +206,16 @@ python -m server --debug --no-tkinter
 | Куда | Уровень | Где найти |
 |------|---------|-----------|
 | Консоль (stdout) | INFO+, DEBUG с `--debug` | Терминал |
-| Файл | DEBUG+ | `logs/flowlink.log` |
+| Файл | DEBUG+ | `FlowLink Proxy.log` в директории данных |
 
 ### Расположение файла
 
 | Среда | Путь |
 |-------|------|
-| Python (из исходника) | `logs/flowlink.log` в корне проекта |
-| Standalone-бинарник | `logs/flowlink.log` рядом с `.exe` |
+| Linux / macOS | `~/.FlowHack/FlowLink Proxy/logs/FlowLink Proxy.log` |
+| Windows | `%APPDATA%\FlowHack\FlowLink Proxy\logs\FlowLink Proxy.log` |
+
+> Standalone-бинарник пишет логи в ту же директорию данных, что и запуск из исходников.
 
 ### Ротация
 
@@ -203,12 +234,31 @@ python -m server --debug --no-tkinter
 | Метод | Путь | Описание |
 |-------|------|----------|
 | `GET` | `/api/config` | Получить конфигурацию (прокси, маски, isEnabled) |
-| `POST` | `/api/config` | Обновить конфигурацию. Тело — JSON-объект с `proxies[]` и `masks[]` |
+| `POST` | `/api/config` | Обновить конфигурацию. Тело — JSON-объект с `proxies[]` и `masks[]`. При конфликте масок (включено более одного прокси из группы с пересекающимися масками) возвращает `422` с `{"error": "...", "conflict": {...}}` |
 | `POST` | `/api/enabled` | Установить глобальный флаг. Тело: `{"enabled": true/false}` |
-| `GET` | `/api/status` | Статус backend (proxiesCount, masksCount, debug, needUpdate) |
+| `POST` | `/api/rotate-key` | Ротация ключа шифрования AES-GCM (перешифровывает пароли). При сбое — откат к старой паре ключ/соль |
+| `GET` | `/api/status` | Статус backend (proxiesCount, masksCount, debug, needUpdate, isEnabled, status, cryptoHealthy) |
 | `GET` | `/api/version` | Версия сервера: `{"version": "X.X.X"}` |
+| `GET` | `/api/language` | Текущий язык интерфейса: `{"language": "ru"}` |
+| `POST` | `/api/language` | Установить язык интерфейса (ru/en/sr). Тело: `{"language": "ru"}` |
+| `GET` | `/api/bootstrap` | Токен и порт API для расширения (открытый, без токена): `{"token": "...", "apiPort": 8081}` |
 | `POST` | `/api/ping` | Пинг прокси. Тело: `{"proxyId": "..."}` |
-| `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`) |
+| `GET` | `/api/events` | SSE-поток событий (`config_changed`, `need_update`, `autostart_browser_changed`, `system_autostart_changed`, `browser_config_changed`, `backend_error`, `backend_ready`, `language_changed`) |
+| `GET` | `/api/autostart-browser` | Автозапуск браузера: `{"autostartBrowser": true/false}` |
+| `GET` | `/api/system-autostart` | Статус автозапуска с системой |
+| `POST` | `/api/system-autostart` | Включить/выключить автозапуск с системой. Тело: `{"enabled": true/false}` |
+| `GET` | `/api/browser-path` | Текущий путь к браузеру: `{"browserPath": "..."}` |
+| `POST` | `/api/browser-path` | Сохранить путь к браузеру. Тело: `{"browserPath": "..."}` (возвращает 422 при невалидном пути) |
+| `POST` | `/api/validate-browser` | Валидация пути к браузеру без сохранения. Тело: `{"browserPath": "..."}` |
+| `GET` | `/api/detected-browsers` | Список найденных браузеров (автопоиск) |
+| `GET` | `/api/browser-config` | Конфигурация браузера (path + autostart + detected) |
+| `POST` | `/api/proxies` | Добавить прокси. Тело: `{"host": "...", "port": 1080, "username": "...", "password": "...", "label": "..."}`. Дубликат host:port → 422, невалидный port → 400 |
+| `PATCH` | `/api/proxy/{id}` | Обновить поля прокси (host, port, username, password, label). Несуществующий → 404, дубликат host:port → 422 |
+| `PATCH` | `/api/proxy/{id}/enabled` | Переключить активность прокси. Тело: `{"enabled": true/false}`. Конфликт масок при включении → 422 |
+| `DELETE` | `/api/proxy/{id}` | Удалить прокси и связанные маски. Несуществующий → 404 |
+| `POST` | `/api/masks` | Добавить маску. Тело: `{"pattern": "*.com", "regexString": ".*\\.com", "proxyId": "..."}`. regexString генерируется из pattern, если не передан. Конфликт → 422 |
+| `PATCH` | `/api/mask/{id}` | Обновить маску (pattern, regexString). regexString пересчитывается из pattern, если не передан. Несуществующая → 404 |
+| `DELETE` | `/api/mask/{id}` | Удалить маску. Несуществующая → 404 |
 
 ### Примеры запросов
 
@@ -241,12 +291,17 @@ curl -X POST http://127.0.0.1:8081/api/ping \
 |---------|--------|----------|
 | `config_changed` | `{}` | Конфигурация изменена (прокси, маски, тоггл) |
 | `need_update` | `{"version": "X.X.X"}` | Доступно обновление |
+| `autostart_browser_changed` | `{"autostartBrowser": true/false}` | Изменена настройка автозапуска браузера |
+| `system_autostart_changed` | `{"enabled": true/false}` | Изменена настройка автозапуска с системой |
+| `browser_config_changed` | `{"browserPath": "..."}` | Изменён выбранный браузер |
+| `backend_error` | `{"message": "..."}` | Ошибка бэкенда (например, не удалось сохранить конфиг) |
+| `backend_ready` | `{}` | Бэкенд готов (отправляется при подключении SSE-клиента, в т.ч. после перезапуска) |
+| `language_changed` | `{"language": "ru"}` | Изменён язык интерфейса |
 
 ### Структура конфигурации
 
 ```json
 {
-  "isEnabled": true,
   "proxies": [
     {
       "proxyId": "uuid",
@@ -262,11 +317,26 @@ curl -X POST http://127.0.0.1:8081/api/ping \
     {
       "maskId": "uuid",
       "proxyId": "uuid",
-      "regexString": "*.google.com"
+      "pattern": "*google.com*",
+      "regexString": ".*google\\.com.*"
     }
-  ]
+  ],
+  "lastActiveProxyId": "uuid"
 }
 ```
+
+> `isEnabled` (глобальный тоггл) хранится только в памяти и в config.json не пишется.
+> `lastActiveProxyId` — id последнего включённого прокси, восстанавливается при запуске.
+> Маска содержит `pattern` (wildcard-шаблон для UI) и `regexString` (сконвертированный regex для маршрутизации).
+
+Файл `.flowlink-settings` (JSON) в директории данных содержит:
+
+- `autostart_browser` — флаг автозапуска браузера при старте бэкенда (true/false)
+- `browser_path` — путь к исполняемому файлу браузера
+- `parallel_launch` — флаг параллельного запуска браузера (не ждать закрытия предыдущего)
+- `language` — язык интерфейса (`ru`/`en`/`sr`)
+
+> Директория данных задаётся переменной окружения `FLOWLINK_DATA_DIR` (по умолчанию `~/.FlowHack/FlowLink Proxy`).
 
 ---
 
@@ -304,6 +374,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 Запускайте браузер **только** через ярлык с `--proxy-server`. Если открыть браузер напрямую (без флага), трафик идёт мимо FlowLink Proxy.
 
+### Меню трея не отображается или падает
+
+| Симптом | Причина и решение |
+|---------|-------------------|
+| Меню не открывается, в логе ошибка рендера | Ошибка tkinter-рендера. Бэкенд продолжает работать — смотрите трейсбек в `FlowLink Proxy.log` в директории данных |
+| Приложение сразу завершается при запуске | Трей не запустился. В логе: `critical: Не удалось запустить трей (запуск): Системный трей недоступен`. Проверьте установку tkinter (`python -m tkinter`) и pystray (`pip show pystray`) |
+| tkinter недоступен | Установите пакет tkinter для вашей ОС (Linux: `sudo apt install python3-tk`, macOS: `brew install python-tk`) |
+
 ---
 
 ## Сборка и упаковка релиза
@@ -314,33 +392,59 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 ```bash
 # Linux / macOS
-./scripts/build.sh
+./scripts/build/build.sh
 
 # Windows
-scripts\build.bat
+scripts\build\build.bat
 ```
 
-Результат: `server/FlowLink Proxy/FlowLink Proxy`
+Результат: `releases/FlowLink Proxy` (Linux/macOS) или `releases\FlowLink Proxy.exe` (Windows)
 
 ### Упаковка архива релиза (Linux / macOS)
 
 ```bash
-./scripts/build.sh
-./scripts/create-release.sh
+./scripts/build/build.sh
+./scripts/build/create-release.sh
 ```
 
 Скрипт `create-release.sh` создаёт в папке `releases/`:
 - `FlowLink-Proxy-vX.X.X-linux-x64.tar.gz`
-- `FlowLink-Proxy-vX.X.X-linux-x64.zip`
-- (на macOS: `...-macos-x64.tar.gz` + `.zip`)
+- (на macOS: `...-macos-x64.tar.gz` или `...-macos-arm64.tar.gz`)
 
-Внутри архива: бинарник, лаунчер, README.md, SETUP.md, DEBUG.md, LICENSE.txt.
+Внутри архива: бинарник, лаунчер, EULA.rtf, LICENSE.txt, README.md. SETUP.md и DEBUG.md в архив не попадают.
+
+### Сборка .deb-пакета (Linux)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-deb.sh
+```
+
+Результат: `releases/flowlink-proxy_<версия>_<арх>.deb`
+
+### Сборка .rpm-пакета (Linux)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-rpm.sh
+```
+
+Результат: `~/rpmbuild/RPMS/x86_64/flowlink-proxy-<версия>-1.<dist>.x86_64.rpm`
+
+### Сборка .pkg-пакета (macOS)
+
+```bash
+./scripts/build/build.sh
+./scripts/build/build-pkg.sh
+```
+
+Результат: `releases/flowlink-proxy-<версия>-macos-<арх>.pkg`
 
 ### Сборка установщика Windows
 
 1. Установите [Inno Setup](https://jrsoftware.org/isdl.php) (последнюю стабильную **6**, не бета 7)
-2. Соберите бинарник: `scripts\build.bat`
-3. Откройте `scripts/flowlink-installer.iss` в Inno Setup → Build → Compile
+2. Соберите бинарник: `scripts\build\build.bat`
+3. Откройте `scripts/installer/flowlink-installer.iss` в Inno Setup → Build → Compile
 4. Результат: `releases/FlowLink-Proxy-vX.X.X-Setup.exe`
 
 > **Архитектура:** Inno Setup соберёт установщик под x64. В .iss уже указано `ArchitecturesInstallIn64BitMode=x64compatible` — автоматически выбирает правильную Program Files папку (32 или 64 бит).

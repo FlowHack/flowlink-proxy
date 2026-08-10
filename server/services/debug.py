@@ -5,6 +5,8 @@
 без бизнес-логики и без утечки чувствительных данных.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 
@@ -14,36 +16,70 @@ logger = logging.getLogger('flowlink.debug')
 
 # Регулярка для маскировки паролей в JSON-строках.
 # Ищет "password":"значение" и заменяет значение на "***".
-_PASSWORD_RE = re.compile(r'"password"\s*:\s*"[^"]*"')
+# Учитывает экранированные кавычки внутри значения (\").
+_PASSWORD_RE = re.compile(r'"password"\s*:\s*"(?:[^"\\]|\\.)*"', re.IGNORECASE)
 
 
-_USERNAME_RE = re.compile(r'"username"\s*:\s*"[^"]*"')
+_USERNAME_RE = re.compile(r'"username"\s*:\s*"(?:[^"\\]|\\.)*"', re.IGNORECASE)
+
+
+# Дополнительные чувствительные поля, которые маскируются в логах.
+# Покрывает токены, ключи API и заголовки авторизации.
+_SENSITIVE_FIELDS = (
+    'token',
+    'api_key',
+    'apikey',
+    'access_token',
+    'authorization',
+    'secret',
+)
+
+
+def _mask_field(body_str: str, field: str) -> str:
+    """Маскирует значение поля field в JSON-строке.
+
+    Args:
+        body_str: Исходная JSON-строка.
+        field: Имя поля для маскировки (без кавычек).
+
+    Returns:
+        Строка с замаскированным значением поля.
+    """
+    pattern = re.compile(
+        rf'"{re.escape(field)}"\s*:\s*"(?:[^"\\]|\\.)*"',
+        re.IGNORECASE,
+    )
+    return pattern.sub(f'"{field}":"***"', body_str)
 
 
 def mask_sensitive(body_str: str) -> str:
     """
     Маскирует чувствительные поля в JSON-строке для безопасного логирования.
 
-    Заменяет "password":"значение" и "username":"значение" на "***".
+    Заменяет "password", "username" и другие секретные поля (token,
+    api_key, access_token, authorization, secret) на "***". Учитывает
+    экранированные кавычки внутри значений.
     """
     body_str = _PASSWORD_RE.sub('"password":"***"', body_str)
     body_str = _USERNAME_RE.sub('"username":"***"', body_str)
+    for field in _SENSITIVE_FIELDS:
+        body_str = _mask_field(body_str, field)
     return body_str
 
 
 def truncate(text: str, max_len: int = 2000) -> str:
     """
-    Обрезает строку до max_len символов, добавляя '... (truncated)'.
+    Обрезает строку до max_len символов, добавляя '... (обрезано)'.
 
     Используется для предотвращения раздувания логов большими JSON-ответами.
     """
     if len(text) > max_len:
-        return text[:max_len] + '... (truncated)'
+        return text[:max_len] + '... (обрезано)'
     return text
 
 
-def log_config_state(is_startup: bool = False):
-    """Выводит текущее состояние конфига в debug-ログ (без паролей).
+def log_config_state(is_startup: bool = False) -> None:
+    """Выводит текущее состояние конфига в debug-лог (без паролей).
 
     Args:
         is_startup: Если True — выводит начальное сообщение при старте сервера.

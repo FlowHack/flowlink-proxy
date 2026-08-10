@@ -4,52 +4,83 @@
 Единственная ответственность: определение платформы и доступности компонентов.
 """
 
+from __future__ import annotations
+
+import logging
 import sys
+from typing import Any, Dict
+
+logger = logging.getLogger('flowlink.tray')
 
 
-def is_windows():
+def is_windows() -> bool:
     """Проверяет, запущен ли на Windows."""
     return sys.platform == 'win32'
 
 
-def is_linux():
+def is_linux() -> bool:
     """Проверяет, запущен ли на Linux."""
     return sys.platform == 'linux'
 
 
-def is_macos():
+def is_macos() -> bool:
     """Проверяет, запущен ли на macOS."""
     return sys.platform == 'darwin'
 
 
-def has_pystray():
+def has_pystray() -> bool:
     """Проверяет, доступен ли pystray."""
     try:
-        import pystray
+        # Runtime-проверка: нужен для выбора бэкенда трей.
+        # type: ignore[reportMissingImports] — pystray опциональная зависимость
+        # (не установлен в dev-среде); unused-import — импорт только для проверки
+        import pystray  # type: ignore[reportMissingImports]  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
+        # pystray не установлен — штатный случай
+        return False
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # В headless CI (GitHub Actions) import pystray бросает
+        # Xlib.error.DisplayNameError при отсутствии X-дисплея.
+        # Ловим display-ошибки Xlib, остальное — пробрасываем.
+        try:
+            # Xlib — опциональная зависимость (headless CI); подавление
+            # reportMissingModuleSource стоит на строке импорта, т.к.
+            # pyright привязывает диагностику именно к ней.
+            from Xlib.error import DisplayError  # type: ignore[reportMissingModuleSource]  # pylint: disable=import-outside-toplevel
+            if isinstance(exc, DisplayError):
+                logger.debug('pystray: Xlib display-ошибка (headless?): %s', exc)
+                return False
+        except ImportError:
+            logger.debug('Xlib недоступен — проверка DisplayError пропущена')
+        logger.warning('pystray: неожиданная ошибка при импорте: %s', exc)
         return False
 
 
-def has_pil():
+def has_pil() -> bool:
     """Проверяет, доступен ли Pillow (нужен для иконки)."""
     try:
-        from PIL import Image
+        # Runtime-проверка: нужен для иконки трея
+        # unused-import — импорт только для проверки доступности
+        from PIL import \
+            Image  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
         return False
 
 
-def has_tkinter():
+def has_tkinter() -> bool:
     """Проверяет, доступен ли tkinter (нужен для popup-меню)."""
     try:
-        import tkinter
+        # Runtime-проверка: нужен для popup-меню
+        # unused-import — импорт только для проверки доступности
+        import tkinter  # pylint: disable=import-outside-toplevel,unused-import
         return True
     except ImportError:
         return False
 
 
-def get_backend_info():
+def get_backend_info() -> Dict[str, Any]:
     """
     Возвращает информацию о доступных бэкендах трей.
 

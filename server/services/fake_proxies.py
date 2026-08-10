@@ -62,7 +62,7 @@ def _random_ip(index: int) -> str:
         IP-адрес в формате строки, например '198.51.100.1'.
     """
     last_octet = (index + 1) % 255
-    if last_octet == 0:
+    if not last_octet:
         last_octet = 1
     return f'{_IP_OCTETS_PREFIX[0]}.{_IP_OCTETS_PREFIX[1]}.{_IP_OCTETS_PREFIX[2]}.{last_octet}'
 

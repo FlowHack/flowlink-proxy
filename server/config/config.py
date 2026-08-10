@@ -7,6 +7,8 @@ isEnabled хранится ТОЛЬКО в памяти — расширение
 Единственная ответственность: управление конфигурацией с шифрованием.
 """
 
+from __future__ import annotations
+
 import copy
 import logging
 import time
@@ -16,9 +18,11 @@ from server.config import repo as config_repo
 from server.config.repo import load_raw, save_raw
 
 try:
-    from cryptography.exceptions import CryptographyException
+    # cryptography — runtime зависимость; атрибут существует только при установленной библиотеке
+    from cryptography.exceptions import \
+        CryptographyException  # type: ignore[reportAttributeAccessIssue]
 except ImportError:
-    CryptographyException = Exception
+    CryptographyException = Exception  # type: ignore[misc]  # fallback для сред без cryptography
 
 logger = logging.getLogger('flowlink.config')
 
@@ -43,11 +47,12 @@ def _crypto_field(
     field_name: str,
     *,
     encrypt: bool = False,
-) -> str:
+) -> str | None:
     """Шифрует или расшифровывает одно поле прокси (username/password).
 
-    При ошибке логирует предупреждение/ошибку и возвращает пустую строку,
-    чтобы не прерывать обработку остальных прокси.
+    При ошибке логирует предупреждение/ошибку и возвращает None,
+    чтобы вызвавший код мог отличить сбой от легитимно пустого значения
+    (пустая строка может быть настоящим значением поля).
 
     Args:
         value: Значение поля для шифрования/дешифрования.
@@ -57,7 +62,7 @@ def _crypto_field(
         encrypt: True для шифрования, False для дешифрования.
 
     Returns:
-        Зашифрованное/расшифрованное значение или пустая строка при ошибке.
+        Зашифрованное/расшифрованное значение или None при ошибке.
     """
     try:
         return crypto.encrypt(value) if encrypt else crypto.decrypt(value)
@@ -67,7 +72,7 @@ def _crypto_field(
             'Ошибка %s для прокси %s, поле %s: %s',
             operation, proxy_id, field_name, e,
         )
-        return ''
+        return None
 
 
 def _load_cached() -> dict:
@@ -81,7 +86,7 @@ def _load_cached() -> dict:
     return _CACHE[key]
 
 
-def _invalidate_cache():
+def invalidate_cache() -> None:
     """Сбрасывает кэш после сохранения."""
     key = _cache_key()
     _CACHE.pop(key, None)
@@ -89,18 +94,40 @@ def _invalidate_cache():
 
 
 def _decrypt_proxies(data: dict) -> dict:
-    """Расшифровывает username/password у всех прокси."""
+    """Расшифровывает username/password у всех прокси.
+
+    Если пароль не удалось расшифровать (например, ключ шифрования был
+    пересоздан), прокси помечается флагом passwordDecryptFailed: true,
+    чтобы UI мог показать предупреждение. Флаг добавляется только в
+    возвращаемые данные — в config.json он не записывается.
+    """
     for proxy in data.get('proxies', []):
         if proxy.get('username'):
-            proxy['username'] = _crypto_field(
+            decrypted_username = _crypto_field(
                 proxy['username'], 'расшифровки имени',
                 proxy.get('proxyId', '?'), 'username',
             )
+            if decrypted_username is None:
+                # Расшифровать имя не удалось (ключ пересоздан или данные
+                # повреждены) — оставляем пустую строку, чтобы UI не показывал
+                # нечитаемый блоб. Поведение обратно совместимо со старыми
+                # версиями (пустая строка вместо зашифрованного значения).
+                proxy['username'] = ''
+            else:
+                proxy['username'] = decrypted_username
         if proxy.get('password'):
-            proxy['password'] = _crypto_field(
+            decrypted_password = _crypto_field(
                 proxy['password'], 'расшифровки пароля',
                 proxy.get('proxyId', '?'), 'password',
             )
+            if decrypted_password is None:
+                # Ключ пересоздан или данные повреждены — расшифровать пароль
+                # невозможно. Помечаем прокси, чтобы UI показал предупреждение,
+                # пароль оставляем пустым (не отдаём в UI нечитаемый блоб).
+                proxy['passwordDecryptFailed'] = True
+                proxy['password'] = ''
+            else:
+                proxy['password'] = decrypted_password
     return data
 
 
@@ -110,7 +137,7 @@ def load_config(force: bool = False) -> dict:
     return _decrypt_proxies(copy.deepcopy(data))
 
 
-def set_enabled(val: bool):
+def set_enabled(val: bool) -> None:
     """Устанавливает глобальный флаг включения (только в памяти)."""
     _STATE['enabled'] = bool(val)
     logger.info(
@@ -119,28 +146,46 @@ def set_enabled(val: bool):
     )
 
 
-def save_config(data: dict):
+def save_config(data: dict) -> None:
     """Шифрует username/password и сохраняет конфиг.
-    isEnabled НЕ пишется в файл — хранится только в памяти."""
+    isEnabled НЕ пишется в файл — хранится только в памяти.
+    lastActiveProxyId сохраняется из текущего файла, если не передан явно."""
     to_save = {
         'proxies': [],
         'masks': data.get('masks', []),
+        'lastActiveProxyId': data.get('lastActiveProxyId', _load_last_active()),
     }
 
     for proxy in data.get('proxies', []):
         proxy_copy = dict(proxy)
+        # Служебный флаг passwordDecryptFailed существует только в возвращаемых
+        # данных — в config.json он не должен попадать.
+        proxy_copy.pop('passwordDecryptFailed', None)
         if proxy_copy.get('username'):
-            proxy_copy['username'] = _crypto_field(
+            encrypted_username = _crypto_field(
                 proxy_copy['username'], 'шифрования имени',
                 proxy_copy.get('proxyId', '?'), 'username',
                 encrypt=True,
             )
+            # При ошибке шифрования бросаем исключение, чтобы не сохранять повреждённые данные
+            if encrypted_username is None:
+                raise ValueError(
+                    f'Ошибка шифрования имени пользователя для прокси '
+                    f'{proxy_copy.get("proxyId", "?")}'
+                )
+            proxy_copy['username'] = encrypted_username
         if proxy_copy.get('password'):
-            proxy_copy['password'] = _crypto_field(
+            encrypted_password = _crypto_field(
                 proxy_copy['password'], 'шифрования пароля',
                 proxy_copy.get('proxyId', '?'), 'password',
                 encrypt=True,
             )
+            # При ошибке шифрования бросаем исключение, чтобы не сохранять повреждённые данные
+            if encrypted_password is None:
+                raise ValueError(
+                    f'Ошибка шифрования пароля для прокси {proxy_copy.get("proxyId", "?")}'
+                )
+            proxy_copy['password'] = encrypted_password
         to_save['proxies'].append(proxy_copy)
 
     proxy_count = len(to_save['proxies'])
@@ -149,7 +194,7 @@ def save_config(data: dict):
         'Конфигурация сохранена: %d прокси, %d масок',
         proxy_count, mask_count
     )
-    _invalidate_cache()
+    invalidate_cache()
     try:
         save_raw(to_save)
     except OSError as e:
@@ -163,6 +208,26 @@ def save_config(data: dict):
 def get_all_proxies() -> list:
     """Возвращает список всех прокси из конфига (с расшифрованными паролями)."""
     return load_config().get('proxies', [])
+
+
+def get_proxy_by_id(proxy_id: str) -> dict | None:
+    """Возвращает прокси по proxyId или None, если не найден.
+
+    Единая точка поиска прокси по идентификатору (DRY).
+    Используется в ping, handlers и других сервисах.
+
+    Args:
+        proxy_id: Идентификатор прокси.
+
+    Returns:
+        Словарь прокси или None.
+    """
+    if not proxy_id:
+        return None
+    for p in get_all_proxies():
+        if p.get('proxyId') == proxy_id:
+            return p
+    return None
 
 
 def get_all_masks() -> list:
@@ -190,7 +255,10 @@ def inject_proxies(data: dict) -> int:
     """
     try:
         existing = _load_cached()
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError) as e:
+        # Логируем причину, чтобы не потерять диагностику при сбое загрузки
+        logger.warning('inject_proxies: не удалось загрузить конфиг (%s), '
+                       'начинаю с пустого', e)
         existing = {'proxies': [], 'masks': []}
 
     existing_proxies = existing.get('proxies', [])
@@ -202,9 +270,11 @@ def inject_proxies(data: dict) -> int:
     merged = {
         'proxies': existing_proxies + new_proxies,
         'masks': existing_masks + new_masks,
+        # Сохраняем lastActiveProxyId, чтобы инъекция не затирала его.
+        'lastActiveProxyId': existing.get('lastActiveProxyId'),
     }
 
-    _invalidate_cache()
+    invalidate_cache()
     save_raw(merged)
 
     proxy_count = len(merged['proxies'])
@@ -215,3 +285,38 @@ def inject_proxies(data: dict) -> int:
         len(new_proxies), len(new_masks), proxy_count, mask_count,
     )
     return len(new_proxies)
+
+
+def _load_last_active() -> str | None:
+    """Возвращает lastActiveProxyId из файла конфига (без кэша)."""
+    try:
+        data = load_raw()
+    except (OSError, RuntimeError) as e:
+        logger.warning('Не удалось прочитать lastActiveProxyId: %s', e)
+        return None
+    value = data.get('lastActiveProxyId')
+    return value if isinstance(value, str) and value else None
+
+
+def get_last_active_proxy() -> str | None:
+    """Возвращает id последнего включённого прокси или None."""
+    return _load_last_active()
+
+
+def set_last_active_proxy(proxy_id: str | None) -> None:
+    """Сохраняет id последнего включённого прокси в config.json.
+
+    Args:
+        proxy_id: id прокси или None для сброса.
+    """
+    try:
+        data = load_raw()
+    except (OSError, RuntimeError) as e:
+        logger.warning('Не удалось обновить lastActiveProxyId: %s', e)
+        return
+    data['lastActiveProxyId'] = proxy_id if proxy_id else None
+    invalidate_cache()
+    try:
+        save_raw(data)
+    except OSError as e:
+        logger.error('Не удалось сохранить lastActiveProxyId: %s', e)

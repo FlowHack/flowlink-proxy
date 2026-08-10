@@ -1,7 +1,17 @@
 # --- Конфигурация агента (секреты, промпты, лог разработки) ---
 /myAgents/
 AI_DEV_LOG.md
-AGENTS.md
+AGENTS*
+CONVENTIONS*
+.aider*
+aider*
+.opencodeignore
+litellm*
+.opencode/
+opencode*
+task*
+/lancedb/
+deploy.ps1
 
 # --- IDE и редакторы ---
 .idea/
@@ -24,7 +34,7 @@ venv/
 .ruff_cache/
 .python-version
 .tox/
-build/
+/build/
 dist/
 *.egg
 .eggs/
@@ -32,6 +42,10 @@ dist/
 # --- Логи ---
 logs/
 *.log
+
+# --- CRX private key (не коммитить!) ---
+scripts/crx/crx-private-key.pem
+*.crx
 
 # --- Конфигурация прокси (пароли в открытом виде не хранятся) ---
 config.json
@@ -43,9 +57,22 @@ config.local.json
 
 # --- PyInstaller / сборка standalone ---
 server/work/
+server/dist/
 server/FlowLink Proxy/
 build-tmp/
 *.spec
+# Исключение: RPM spec-файл проекта (в отличие от генерируемых PyInstaller'ом .spec-файлов)
+!scripts/build/flowlink.spec
+
+# --- Сборка релизов ---
+releases/
+scripts/installer/Output/
+
+# --- Сборка пакетов ---
+*.deb
+*.rpm
+*.pkg
+*.tar.gz
 
 # --- Покрытие тестов ---
 .coverage
@@ -59,3 +86,4 @@ extension/icons/*.ico
 .env.*
 *.local
 *.secret
+crx-private-key.pem

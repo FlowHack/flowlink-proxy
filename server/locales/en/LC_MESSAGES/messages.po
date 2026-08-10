@@ -1,0 +1,1022 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: FlowLink Proxy 0.1.0\n"
+"Report-Msgid-Bugs-To: flowlink.proxy@atomicmail.io\n"
+"POT-Creation-Date: 2026-01-01 00:00+0000\n"
+"PO-Revision-Date: 2026-01-01 00:00+0000\n"
+"Last-Translator: FlowHack\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# server/servers/handlers.py
+msgid "Требуется поле \"autostartBrowser\" (true/false)"
+msgstr "Field \"autostartBrowser\" (true/false) is required"
+
+msgid "Поле \"autostartBrowser\" должно быть булевым (true/false)"
+msgstr "Field \"autostartBrowser\" must be boolean (true/false)"
+
+msgid "Не удалось сохранить настройку. Проверьте права на запись. Если проблема повторяется, обратитесь в поддержку: flowlink.proxy@atomicmail.io"
+msgstr "Failed to save the setting. Check write permissions. If the problem persists, contact support: flowlink.proxy@atomicmail.io"
+
+msgid "Требуется proxyId"
+msgstr "proxyId is required"
+
+msgid "Требуется поле \"enabled\" (true/false)"
+msgstr "Field \"enabled\" (true/false) is required"
+
+msgid "Поле \"enabled\" должно быть булевым (true/false)"
+msgstr "Field \"enabled\" must be boolean (true/false)"
+
+msgid "Требуется поле \"path\""
+msgstr "Field \"path\" is required"
+
+msgid "Поле \"path\" должно быть строкой"
+msgstr "Field \"path\" must be a string"
+
+msgid "Требуется поле \"host\""
+msgstr "Field \"host\" is required"
+
+msgid "Поле \"host\" должно быть строкой"
+msgstr "Field \"host\" must be a string"
+
+msgid "Требуется поле \"port\""
+msgstr "Field \"port\" is required"
+
+msgid "Поле \"port\" должно быть целым числом"
+msgstr "Field \"port\" must be an integer"
+
+msgid "Порт должен быть в диапазоне 1-65535"
+msgstr "Port must be in the range 1-65535"
+
+msgid "Неверный формат хоста (IP или домен)"
+msgstr "Invalid host format (IP or domain)"
+
+msgid "Требуется поле \"pattern\""
+msgstr "Field \"pattern\" is required"
+
+msgid "Поле \"pattern\" должно быть строкой"
+msgstr "Field \"pattern\" must be a string"
+
+msgid "Требуется поле \"proxyId\""
+msgstr "Field \"proxyId\" is required"
+
+msgid "Прокси не найден"
+msgstr "Proxy not found"
+
+msgid "Маска не найдена"
+msgstr "Mask not found"
+
+msgid "Не удалось сохранить настройку"
+msgstr "Failed to save the setting"
+
+msgid "Внутренняя ошибка сервера"
+msgstr "Internal server error"
+
+msgid "Неверный запрос"
+msgstr "Invalid request"
+
+msgid "Доступ запрещён"
+msgstr "Access denied"
+
+msgid "Не найдено"
+msgstr "Not found"
+
+msgid "Требуется поле \"language\""
+msgstr "Field \"language\" is required"
+
+msgid "Неподдерживаемый язык. Доступные: ru, en, sr"
+msgstr "Unsupported language. Available: ru, en, sr"
+
+# server/servers/api.py
+msgid "Метод не поддерживается"
+msgstr "Method not supported"
+
+msgid "Путь не найден"
+msgstr "Path not found"
+
+msgid "Неверный JSON в теле запроса"
+msgstr "Invalid JSON in request body"
+
+msgid "Требуется токен аутентификации"
+msgstr "Authentication token is required"
+
+msgid "Неверный токен аутентификации"
+msgstr "Invalid authentication token"
+
+msgid "Слишком большой запрос"
+msgstr "Request too large"
+
+msgid "Таймаут запроса"
+msgstr "Request timeout"
+
+# server/config/browser_config.py
+msgid "Путь к браузеру не указан"
+msgstr "Browser path is not specified"
+
+msgid "Файл браузера не найден"
+msgstr "Browser file not found"
+
+msgid "Указанный файл не является исполняемым"
+msgstr "The specified file is not executable"
+
+msgid "Браузер не поддерживается"
+msgstr "Browser is not supported"
+
+msgid "Не удалось определить версию браузера"
+msgstr "Failed to determine browser version"
+
+msgid "Не удалось сохранить конфигурацию браузера"
+msgstr "Failed to save browser configuration"
+
+msgid "Не удалось загрузить конфигурацию браузера"
+msgstr "Failed to load browser configuration"
+
+# server/ui/dialogs.py
+msgid "OK"
+msgstr "OK"
+
+msgid "Да"
+msgstr "Yes"
+
+msgid "Нет"
+msgstr "No"
+
+msgid "Указать вручную"
+msgstr "Specify manually"
+
+msgid "Отмена"
+msgstr "Cancel"
+
+msgid "Выбор браузера"
+msgstr "Select browser"
+
+msgid "Предупреждение"
+msgstr "Warning"
+
+# server/tray/menu.py
+msgid "FlowLink Proxy"
+msgstr "FlowLink Proxy"
+
+msgid "Включить"
+msgstr "Enable"
+
+msgid "Выключить"
+msgstr "Disable"
+
+msgid "Прокси"
+msgstr "Proxies"
+
+msgid "Маски"
+msgstr "Masks"
+
+msgid "Браузер"
+msgstr "Browser"
+
+msgid "Выбрать браузер"
+msgstr "Select browser"
+
+msgid "Автозапуск браузера"
+msgstr "Browser autostart"
+
+msgid "Настройки"
+msgstr "Settings"
+
+msgid "Помощь"
+msgstr "Help"
+
+msgid "О программе"
+msgstr "About"
+
+msgid "Выход"
+msgstr "Exit"
+
+msgid "Обновление доступно"
+msgstr "Update available"
+
+msgid "Проверить обновления"
+msgstr "Check for updates"
+
+msgid "Открыть папку с логами"
+msgstr "Open logs folder"
+
+msgid "Открыть папку с данными"
+msgstr "Open data folder"
+
+msgid "Язык"
+msgstr "Language"
+
+msgid "Русский"
+msgstr "Russian"
+
+msgid "Английский"
+msgstr "English"
+
+msgid "Сербский"
+msgstr "Serbian"
+
+msgid "Бэкенд запущен"
+msgstr "Backend is running"
+
+msgid "Бэкенд остановлен"
+msgstr "Backend is stopped"
+
+msgid "Ошибка запуска бэкенда"
+msgstr "Backend startup error"
+
+msgid "Порт занят"
+msgstr "Port is busy"
+
+msgid "Не удалось создать меню трея"
+msgstr "Failed to create tray menu"
+
+msgid "Не удалось запустить браузер"
+msgstr "Failed to launch browser"
+
+msgid "Браузер не выбран"
+msgstr "Browser is not selected"
+
+msgid "Автозапуск включён"
+msgstr "Autostart is enabled"
+
+msgid "Автозапуск выключен"
+msgstr "Autostart is disabled"
+
+msgid "Прокси включён"
+msgstr "Proxy is enabled"
+
+msgid "Прокси выключен"
+msgstr "Proxy is disabled"
+
+msgid "Все прокси выключены"
+msgstr "All proxies are disabled"
+
+msgid "Нет активных прокси"
+msgstr "No active proxies"
+
+msgid "Подключено"
+msgstr "Connected"
+
+msgid "Отключено"
+msgstr "Disconnected"
+
+msgid "Ошибка"
+msgstr "Error"
+
+msgid "Успешно"
+msgstr "Success"
+
+msgid "Загрузка..."
+msgstr "Loading..."
+
+msgid "Сохранить"
+msgstr "Save"
+
+msgid "Закрыть"
+msgstr "Close"
+
+msgid "Добавить"
+msgstr "Add"
+
+msgid "Удалить"
+msgstr "Delete"
+
+msgid "Изменить"
+msgstr "Edit"
+
+msgid "Очистить"
+msgstr "Clear"
+
+msgid "Подтвердить"
+msgstr "Confirm"
+
+msgid "Отменить"
+msgstr "Cancel"
+
+msgid "Повторить"
+msgstr "Retry"
+
+msgid "Проверка..."
+msgstr "Checking..."
+
+msgid "Пинг"
+msgstr "Ping"
+
+msgid "Версия"
+msgstr "Version"
+
+msgid "Обновление"
+msgstr "Update"
+
+msgid "Лицензия"
+msgstr "License"
+
+msgid "Поддержка"
+msgstr "Support"
+
+msgid "Скачать"
+msgstr "Download"
+
+msgid "Как обновить?"
+msgstr "How to update?"
+
+msgid "Настройка FlowLink Proxy"
+msgstr "FlowLink Proxy Setup"
+
+msgid "Порт API"
+msgstr "API port"
+
+msgid "Подключение"
+msgstr "Connection"
+
+msgid "Бэкенд"
+msgstr "Backend"
+
+msgid "Браузер"
+msgstr "Browser"
+
+msgid "Настройка порта"
+msgstr "Port setup"
+
+msgid "FAQ"
+msgstr "FAQ"
+
+msgid "Обновление бэкенда"
+msgstr "Update backend"
+
+msgid "Обновление расширения"
+msgstr "Update extension"
+
+msgid "Добавить прокси"
+msgstr "Add proxy"
+
+msgid "Редактировать прокси"
+msgstr "Edit proxy"
+
+msgid "IP или домен"
+msgstr "IP or domain"
+
+msgid "Порт"
+msgstr "Port"
+
+msgid "Логин"
+msgstr "Login"
+
+msgid "Пароль"
+msgstr "Password"
+
+msgid "Показать пароль"
+msgstr "Show password"
+
+msgid "Скрыть пароль"
+msgstr "Hide password"
+
+msgid "Название (необязательно)"
+msgstr "Label (optional)"
+
+msgid "Маски"
+msgstr "Masks"
+
+msgid "Добавить маску"
+msgstr "Add mask"
+
+msgid "Редактировать маску"
+msgstr "Edit mask"
+
+msgid "Нет масок"
+msgstr "No masks"
+
+msgid "Нет добавленных прокси"
+msgstr "No proxies added"
+
+msgid "Прокси не добавлены"
+msgstr "No proxies added"
+
+msgid "Включён автозапуск браузера, но браузер не выбран. Настройте его, чтобы автозапуск работал."
+msgstr "Browser autostart is enabled, but no browser is selected. Configure it for autostart to work."
+
+msgid "Нет соединения с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "No connection to backend. Check if FlowLink Proxy is running."
+
+msgid "Не удалось переключить состояние. Проверьте соединение с бэкендом."
+msgstr "Failed to toggle state. Check connection to backend."
+
+msgid "Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "Failed to reach backend. Check if FlowLink Proxy is running."
+
+msgid "Не удалось удалить прокси. Проверьте соединение с бэкендом."
+msgstr "Failed to delete proxy. Check connection to backend."
+
+msgid "Не удалось переключить прокси. Проверьте соединение с бэкендом."
+msgstr "Failed to toggle proxy. Check connection to backend."
+
+msgid "Не удалось удалить маску. Проверьте соединение с бэкендом."
+msgstr "Failed to delete mask. Check connection to backend."
+
+msgid "Не удалось очистить маски. Проверьте соединение с бэкендом."
+msgstr "Failed to clear masks. Check connection to backend."
+
+msgid "Порт должен быть числом от 1 до 65535"
+msgstr "Port must be a number from 1 to 65535"
+
+msgid "Не удалось сохранить настройки. Проверьте соединение с бэкендом."
+msgstr "Failed to save settings. Check connection to backend."
+
+msgid "Не удалось проверить обновления. Возможно, GitHub заблокирован — используйте VPN или прокси."
+msgstr "Failed to check updates. GitHub may be blocked — use VPN or proxy."
+
+msgid "Прокси не отвечают (таймаут/сброс). Возможно, соединение блокируется провайдером — используйте VPN или другой прокси."
+msgstr "Proxies are not responding (timeout/reset). Connection may be blocked by provider — use VPN or another proxy."
+
+msgid "Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд."
+msgstr "Backend returned invalid response. Try restarting the backend."
+
+msgid "Введите хост"
+msgstr "Enter host"
+
+msgid "Введите порт"
+msgstr "Enter port"
+
+msgid "Порт от 1 до 65535"
+msgstr "Port from 1 to 65535"
+
+msgid "Введите паттерн маски"
+msgstr "Enter mask pattern"
+
+msgid "Не выбран прокси для маски"
+msgstr "No proxy selected for mask"
+
+msgid "Язык изменён"
+msgstr "Language changed"
+
+msgid "Вкл/Выкл"
+msgstr "On/Off"
+
+msgid "Вкл"
+msgstr "On"
+
+msgid "Выкл"
+msgstr "Off"
+
+msgid "Выключено"
+msgstr "Disabled"
+
+msgid "Напрямую"
+msgstr "Direct"
+
+msgid "Через SOCKS5 ({host})"
+msgstr "Via SOCKS5 ({host})"
+
+msgid "неизвестно"
+msgstr "unknown"
+
+msgid "н/д"
+msgstr "n/a"
+
+msgid "Доступно обновление {tag}"
+msgstr "Update available {tag}"
+
+msgid "Версия: {ext} (бэкенд: {be})"
+msgstr "Version: {ext} (backend: {be})"
+
+msgid "Версия: {ver}"
+msgstr "Version: {ver}"
+
+msgid "Клик — маски для {label}"
+msgstr "Click — masks for {label}"
+
+msgid "Email скопирован: {email}"
+msgstr "Email copied: {email}"
+
+msgid "Не удалось скопировать. Выделите вручную: {email}"
+msgstr "Failed to copy. Select manually: {email}"
+
+msgid "Выделите вручную: {email}"
+msgstr "Select manually: {email}"
+
+msgid "Поддержать проект"
+msgstr "Support the project"
+
+msgid "Ошибки и предложения:"
+msgstr "Errors and suggestions:"
+
+msgid "Нажмите, чтобы скопировать"
+msgstr "Click to copy"
+
+msgid "Помощь"
+msgstr "Help"
+
+msgid "Настройки"
+msgstr "Settings"
+
+msgid "Порт API:"
+msgstr "API port:"
+
+msgid "Язык:"
+msgstr "Language:"
+
+msgid "Сохранить"
+msgstr "Save"
+
+msgid "Отменить"
+msgstr "Cancel"
+
+msgid "Закрыть"
+msgstr "Close"
+
+msgid "Очистить"
+msgstr "Clear"
+
+msgid "Добавить"
+msgstr "Add"
+
+msgid "Удалить"
+msgstr "Delete"
+
+msgid "Изменить"
+msgstr "Edit"
+
+msgid "Подтвердить"
+msgstr "Confirm"
+
+msgid "Повторить"
+msgstr "Retry"
+
+msgid "Проверка..."
+msgstr "Checking..."
+
+msgid "Пинг"
+msgstr "Ping"
+
+msgid "Версия"
+msgstr "Version"
+
+msgid "Обновление"
+msgstr "Update"
+
+msgid "Лицензия"
+msgstr "License"
+
+msgid "Поддержка"
+msgstr "Support"
+
+msgid "Скачать"
+msgstr "Download"
+
+msgid "Как обновить?"
+msgstr "How to update?"
+
+msgid "Настройка FlowLink Proxy"
+msgstr "FlowLink Proxy Setup"
+
+msgid "Порт API"
+msgstr "API port"
+
+msgid "Подключение"
+msgstr "Connection"
+
+msgid "Бэкенд"
+msgstr "Backend"
+
+msgid "Браузер"
+msgstr "Browser"
+
+msgid "Настройка порта"
+msgstr "Port setup"
+
+msgid "FAQ"
+msgstr "FAQ"
+
+msgid "Обновление бэкенда"
+msgstr "Update backend"
+
+msgid "Обновление расширения"
+msgstr "Update extension"
+
+msgid "Добавить прокси"
+msgstr "Add proxy"
+
+msgid "Редактировать прокси"
+msgstr "Edit proxy"
+
+msgid "IP или домен"
+msgstr "IP or domain"
+
+msgid "Порт"
+msgstr "Port"
+
+msgid "Логин"
+msgstr "Login"
+
+msgid "Пароль"
+msgstr "Password"
+
+msgid "Показать пароль"
+msgstr "Show password"
+
+msgid "Скрыть пароль"
+msgstr "Hide password"
+
+msgid "Название (необязательно)"
+msgstr "Label (optional)"
+
+msgid "Маски"
+msgstr "Masks"
+
+msgid "Добавить маску"
+msgstr "Add mask"
+
+msgid "Редактировать маску"
+msgstr "Edit mask"
+
+msgid "Нет масок"
+msgstr "No masks"
+
+msgid "Нет добавленных прокси"
+msgstr "No proxies added"
+
+msgid "Прокси не добавлены"
+msgstr "No proxies added"
+
+msgid "Включён автозапуск браузера, но браузер не выбран. Настройте его, чтобы автозапуск работал."
+msgstr "Browser autostart is enabled, but no browser is selected. Configure it for autostart to work."
+
+msgid "Нет соединения с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "No connection to backend. Check if FlowLink Proxy is running."
+
+msgid "Не удалось переключить состояние. Проверьте соединение с бэкендом."
+msgstr "Failed to toggle state. Check connection to backend."
+
+msgid "Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "Failed to reach backend. Check if FlowLink Proxy is running."
+
+msgid "Не удалось удалить прокси. Проверьте соединение с бэкендом."
+msgstr "Failed to delete proxy. Check connection to backend."
+
+msgid "Не удалось переключить прокси. Проверьте соединение с бэкендом."
+msgstr "Failed to toggle proxy. Check connection to backend."
+
+msgid "Не удалось удалить маску. Проверьте соединение с бэкендом."
+msgstr "Failed to delete mask. Check connection to backend."
+
+msgid "Не удалось очистить маски. Проверьте соединение с бэкендом."
+msgstr "Failed to clear masks. Check connection to backend."
+
+msgid "Порт должен быть числом от 1 до 65535"
+msgstr "Port must be a number from 1 to 65535"
+
+msgid "Не удалось сохранить настройки. Проверьте соединение с бэкендом."
+msgstr "Failed to save settings. Check connection to backend."
+
+msgid "Не удалось проверить обновления. Возможно, GitHub заблокирован — используйте VPN или прокси."
+msgstr "Failed to check updates. GitHub may be blocked — use VPN or proxy."
+
+msgid "Прокси не отвечают (таймаут/сброс). Возможно, соединение блокируется провайдером — используйте VPN или другой прокси."
+msgstr "Proxies are not responding (timeout/reset). Connection may be blocked by provider — use VPN or another proxy."
+
+msgid "Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд."
+msgstr "Backend returned invalid response. Try restarting the backend."
+
+msgid "Введите хост"
+msgstr "Enter host"
+
+msgid "Введите порт"
+msgstr "Enter port"
+
+msgid "Порт от 1 до 65535"
+msgstr "Port from 1 to 65535"
+
+msgid "Введите паттерн маски"
+msgstr "Enter mask pattern"
+
+msgid "Не выбран прокси для маски"
+msgstr "No proxy selected for mask"
+
+msgid "Язык изменён"
+msgstr "Language changed"
+
+msgid "Вкл/Выкл"
+msgstr "On/Off"
+
+msgid "Вкл"
+msgstr "On"
+
+msgid "Выкл"
+msgstr "Off"
+
+msgid "Выключено"
+msgstr "Disabled"
+
+msgid "Напрямую"
+msgstr "Direct"
+
+msgid "Через SOCKS5 ({host})"
+msgstr "Via SOCKS5 ({host})"
+
+msgid "неизвестно"
+msgstr "unknown"
+
+msgid "н/д"
+msgstr "n/a"
+
+msgid "Доступно обновление {tag}"
+msgstr "Update available {tag}"
+
+msgid "Версия: {ext} (бэкенд: {be})"
+msgstr "Version: {ext} (backend: {be})"
+
+msgid "Версия: {ver}"
+msgstr "Version: {ver}"
+
+msgid "Клик — маски для {label}"
+msgstr "Click — masks for {label}"
+
+msgid "Email скопирован: {email}"
+msgstr "Email copied: {email}"
+
+msgid "Не удалось скопировать. Выделите вручную: {email}"
+msgstr "Failed to copy. Select manually: {email}"
+
+msgid "Выделите вручную: {email}"
+msgstr "Select manually: {email}"
+
+msgid "Поддержать проект"
+msgstr "Support the project"
+
+msgid "Ошибки и предложения:"
+msgstr "Errors and suggestions:"
+
+msgid "Нажмите, чтобы скопировать"
+msgstr "Click to copy"
+
+msgid "Помощь"
+msgstr "Help"
+
+msgid "Настройки"
+msgstr "Settings"
+
+msgid "Порт API:"
+msgstr "API port:"
+
+msgid "Язык:"
+msgstr "Language:"
+
+# Добавленные строки (автоматически)
+
+msgid "Автозакрытие браузера"
+msgstr "Auto-close browser"
+
+msgid "Автозапуск FlowLink Proxy вместе с системой"
+msgstr "Start FlowLink Proxy with the system"
+
+msgid "Браузер был запущен из FlowLink Proxy. Закрытие браузера может прервать незавершённые действия (скачивание файлов, обновления и т.п.). Если идёт важный процесс — дождитесь его завершения.\n\nВнимание: будут закрыты все процессы выбранного браузера. Если запущено несколько профилей или окон — все они будут закрыты."
+msgstr "The browser was launched from FlowLink Proxy. Closing the browser may interrupt unfinished actions (file downloads, updates, etc.). If an important process is running, wait for it to finish.\n\nWarning: all processes of the selected browser will be closed. If multiple profiles or windows are running, all of them will be closed."
+
+msgid "Браузер уже запущен"
+msgstr "Browser is already running"
+
+msgid "Браузер уже запущен через FlowLink Proxy и работает через прокси. Повторный запуск не требуется.\n\nЕсли вы хотите перезапустить браузер (например, после изменения настроек), нажмите «Перезапустить браузер». Закрытие браузера может прервать незавершённые действия (скачивание файлов, обновления и т.п.) — дождитесь их завершения.\n\nВнимание: будут закрыты все процессы выбранного браузера. Если запущено несколько профилей или окон — все они будут закрыты."
+msgstr "The browser is already running through FlowLink Proxy and works through the proxy. No restart is required.\n\nIf you want to restart the browser (for example, after changing settings), click \"Restart browser\". Closing the browser may interrupt unfinished actions (file downloads, updates, etc.) — wait for them to finish.\n\nWarning: all processes of the selected browser will be closed. If multiple profiles or windows are running, all of them will be closed."
+
+msgid "Все файлы"
+msgstr "All files"
+
+msgid "Выберите исполняемый файл браузера"
+msgstr "Select the browser executable file"
+
+msgid "Выбрать браузер..."
+msgstr "Select browser..."
+
+msgid "Выбрать браузер... ✓"
+msgstr "Select browser... ✓"
+
+msgid "Для работы через прокси браузер необходимо закрыть и запустить через FlowLink Proxy. Закрытие браузера может прервать незавершённые действия (скачивание файлов, обновления и т.п.). Если идёт важный процесс — дождитесь его завершения и повторите попытку.\n\nКак завершить процесс вручную:\n{instructions}\n\nВнимание: будут закрыты все процессы выбранного браузера. Если запущено несколько профилей или окон — все они будут закрыты."
+msgstr "To work through the proxy, the browser must be closed and launched through FlowLink Proxy. Closing the browser may interrupt unfinished actions (file downloads, updates, etc.). If an important process is running, wait for it to finish and try again.\n\nHow to terminate the process manually:\n{instructions}\n\nWarning: all processes of the selected browser will be closed. If multiple profiles or windows are running, all of them will be closed."
+
+msgid "Завершить работу FlowLink Proxy"
+msgstr "Exit FlowLink Proxy"
+
+msgid "Закрывать браузер при выходе из FlowLink Proxy"
+msgstr "Close browser when exiting FlowLink Proxy"
+
+msgid "Закрыть браузер"
+msgstr "Close browser"
+
+msgid "Закрыть браузер и запустить через FlowLink Proxy"
+msgstr "Close browser and launch through FlowLink Proxy"
+
+msgid "Закрыть браузер, запущенный из FlowLink Proxy"
+msgstr "Close the browser launched from FlowLink Proxy"
+
+msgid "Закрыть браузер?"
+msgstr "Close browser?"
+
+msgid "Запуск с системой"
+msgstr "Start with system"
+
+msgid "Запускать браузер автоматически при старте системы"
+msgstr "Launch browser automatically at system startup"
+
+msgid "Запустить браузер"
+msgstr "Launch browser"
+
+msgid "Запустить выбранный браузер сейчас"
+msgstr "Launch the selected browser now"
+
+msgid "Исполняемые файлы"
+msgstr "Executable files"
+
+msgid "Маски прокси \"{proxy_label}\" и \"{conflicting_label}\" пересекаются. Включён может быть только один из них."
+msgstr "Proxy masks \"{proxy_label}\" and \"{conflicting_label}\" overlap. Only one of them can be enabled."
+
+msgid "Найденные браузеры:"
+msgstr "Found browsers:"
+
+msgid "Не авторизован"
+msgstr "Not authorized"
+
+msgid "Не закрывать браузер"
+msgstr "Do not close browser"
+
+msgid "Не перезапускать"
+msgstr "Do not restart"
+
+msgid "Не удалось добавить маску"
+msgstr "Failed to add mask"
+
+msgid "Не удалось добавить прокси"
+msgstr "Failed to add proxy"
+
+msgid "Не удалось загрузить конфигурацию"
+msgstr "Failed to load configuration"
+
+msgid "Не удалось загрузить конфигурацию. Проверьте подключение к бэкенду."
+msgstr "Failed to load configuration. Check the connection to the backend."
+
+msgid "Не удалось изменить настройку автозапуска"
+msgstr "Failed to change the autostart setting"
+
+msgid "Не удалось изменить настройку автозапуска системы"
+msgstr "Failed to change the system autostart setting"
+
+msgid "Не удалось обновить маску"
+msgstr "Failed to update mask"
+
+msgid "Не удалось обновить прокси"
+msgstr "Failed to update proxy"
+
+msgid "Не удалось переключить прокси"
+msgstr "Failed to toggle proxy"
+
+msgid "Не удалось переключить состояние"
+msgstr "Failed to toggle the state"
+
+msgid "Не удалось прочитать конфигурацию браузера"
+msgstr "Failed to read the browser configuration"
+
+msgid "Не удалось прочитать настройку"
+msgstr "Failed to read the setting"
+
+msgid "Не удалось прочитать путь браузера"
+msgstr "Failed to read the browser path"
+
+msgid "Не удалось прочитать статус автозапуска"
+msgstr "Failed to read the autostart status"
+
+msgid "Не удалось сохранить конфигурацию"
+msgstr "Failed to save configuration"
+
+msgid "Не удалось сохранить настройку. Проверьте права на запись."
+msgstr "Failed to save the setting. Check write permissions."
+
+msgid "Не удалось сохранить путь браузера"
+msgstr "Failed to save the browser path"
+
+msgid "Не удалось удалить маску"
+msgstr "Failed to delete mask"
+
+msgid "Не удалось удалить прокси"
+msgstr "Failed to delete proxy"
+
+msgid "Открыть папку с данными (конфиг, ключи)"
+msgstr "Open the data folder (config, keys)"
+
+msgid "Открыть папку с логами FlowLink Proxy"
+msgstr "Open the FlowLink Proxy logs folder"
+
+msgid "Очистить данные"
+msgstr "Clear data"
+
+msgid "Очистить логи"
+msgstr "Clear logs"
+
+msgid "Ошибка автопоиска"
+msgstr "Auto-detection error"
+
+msgid "Перезапустить браузер"
+msgstr "Restart browser"
+
+msgid "Поле \"autostartBrowser\" должно быть булевым (true/false)"
+msgstr "Field \"autostartBrowser\" must be boolean (true/false)"
+
+msgid "Поле \"enabled\" должно быть булевым (true/false)"
+msgstr "Field \"enabled\" must be boolean (true/false)"
+
+msgid "Поле \"label\" должно быть строкой"
+msgstr "Field \"label\" must be a string"
+
+msgid "Поле \"language\" должно быть непустой строкой"
+msgstr "Field \"language\" must be a non-empty string"
+
+msgid "Поле \"password\" должно быть строкой"
+msgstr "Field \"password\" must be a string"
+
+msgid "Поле \"port\" должно быть целым числом от 1 до 65535"
+msgstr "Field \"port\" must be an integer from 1 to 65535"
+
+msgid "Поле \"username\" должно быть строкой"
+msgstr "Field \"username\" must be a string"
+
+msgid "Посмотреть данные"
+msgstr "View data"
+
+msgid "Посмотреть логи"
+msgstr "View logs"
+
+msgid "Прокси с таким host:port уже существует"
+msgstr "A proxy with this host:port already exists"
+
+msgid "Путь не может быть пустым"
+msgstr "Path cannot be empty"
+
+msgid "Расширение FlowLink Proxy не подключено. Установите и запустите расширение в браузере"
+msgstr "FlowLink Proxy extension is not connected. Install and run the extension in the browser"
+
+msgid "Расширение FlowLink Proxy подключено к бэкенду"
+msgstr "FlowLink Proxy extension is connected to the backend"
+
+msgid "Расширение: не подключено"
+msgstr "Extension: not connected"
+
+msgid "Расширение: подключено"
+msgstr "Extension: connected"
+
+msgid "Слишком много заголовков или превышен их суммарный размер (максимум {max_headers} шт / {max_header_size} байт)"
+msgstr "Too many headers or their total size exceeded (maximum {max_headers} pcs / {max_header_size} bytes)"
+
+msgid "Таймаут ожидания запроса"
+msgstr "Request timeout"
+
+msgid "Тело запроса должно быть JSON-объектом"
+msgstr "Request body must be a JSON object"
+
+msgid "Тело запроса слишком большое (максимум {max_body} байт)"
+msgstr "Request body is too large (maximum {max_body} bytes)"
+
+msgid "Требуется поле \"autostartBrowser\" (true/false)"
+msgstr "Field \"autostartBrowser\" (true/false) is required"
+
+msgid "Требуется поле \"browserPath\""
+msgstr "Field \"browserPath\" is required"
+
+msgid "Требуется поле \"enabled\" (true/false)"
+msgstr "Field \"enabled\" (true/false) is required"
+
+msgid "Требуется поле \"host\" (строка)"
+msgstr "Field \"host\" (string) is required"
+
+msgid "Требуется поле \"language\""
+msgstr "Field \"language\" is required"
+
+msgid "Требуется поле \"pattern\" (строка)"
+msgstr "Field \"pattern\" (string) is required"
+
+msgid "Требуется поле \"proxyId\""
+msgstr "Field \"proxyId\" is required"
+
+msgid "Удалить все файлы логов"
+msgstr "Delete all log files"
+
+msgid "Удалить конфигурацию и все данные"
+msgstr "Delete configuration and all data"
+
+msgid "Указать, какой браузер использовать"
+msgstr "Specify which browser to use"
+
+msgid "Файл .desktop является ярлыком. Укажите путь к исполняемому файлу напрямую."
+msgstr "The .desktop file is a shortcut. Specify the path to the executable file directly."
+
+msgid "Файл не является исполняемым"
+msgstr "File is not executable"
+
+msgid "Файл с расширением «{ext}» не является исполняемым файлом браузера"
+msgstr "File with extension «{ext}» is not a browser executable file"
+
+msgid "данные"
+msgstr "data"
+
+msgid "логи"
+msgstr "logs"

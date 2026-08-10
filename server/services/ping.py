@@ -8,6 +8,7 @@ import logging
 import time
 
 from server.config import config as cfg
+from server.i18n import _
 from server.protocols import get_protocol
 
 logger = logging.getLogger('flowlink.ping')
@@ -24,31 +25,27 @@ async def ping_proxy(proxy_id: str) -> dict:
         Словарь с полями: alive (bool), latency (int | None), error (str | None).
     """
     try:
-        proxies = cfg.get_all_proxies()
+        proxy = cfg.get_proxy_by_id(proxy_id)
     except (OSError, RuntimeError) as e:
         logger.error('Ошибка загрузки конфига для пинга: %s', e)
         return {'alive': False, 'latency': None,
-                'error': 'Не удалось загрузить конфигурацию. Проверьте подключение к бэкенду.'}
-
-    proxy = None
-    for p in proxies:
-        if p.get('proxyId') == proxy_id:
-            proxy = p
-            break
+                'error': _('Не удалось загрузить конфигурацию. '
+                           'Проверьте подключение к бэкенду.')}
 
     if not proxy:
-        return {'alive': False, 'latency': None, 'error': 'Прокси не найден'}
+        return {'alive': False, 'latency': None, 'error': _('Прокси не найден')}
 
     start = time.monotonic()
     try:
         proto = get_protocol(proxy)
     except ValueError as e:
+        logger.warning('Неизвестный тип прокси %s: %s', proxy.get('proxyId'), e)
         return {'alive': False, 'latency': None, 'error': f'Неизвестный тип прокси: {e}'}
 
-    alive = await proto.ping(timeout=5)
+    alive, error_kind = await proto.ping(timeout=5)
 
     if not alive:
-        return {'alive': False, 'latency': None}
+        return {'alive': False, 'latency': None, 'errorKind': error_kind}
 
     latency = int((time.monotonic() - start) * 1000)
     return {'alive': True, 'latency': latency}

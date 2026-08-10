@@ -5,11 +5,14 @@ HTTP CONNECT прокси-сервер на asyncio.
 Парсинг протокола, туннелирование и пересылка данных вынесены в отдельные модули.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 
 from server.protocols.parser import parse_connect, parse_http, skip_headers
-from server.servers.base_server import BaseServer, safe_close_writer
+from server.servers.base_server import BaseServer
+from server.utils import redact_url, safe_close_writer
 from server.services.router import MaskRouter
 from server.services.tunnel import tunnel_connect, tunnel_http, validate_target
 
@@ -27,6 +30,8 @@ class ProxyServer(BaseServer):
     def __init__(self, router: MaskRouter, host: str = '127.0.0.1',
                  port: int = 8080):
         """
+        Инициализирует HTTP CONNECT прокси-сервер.
+
         Args:
             router: Экземпляр MaskRouter для маршрутизации URL.
             host: Интерфейс (по умолч. localhost).
@@ -37,7 +42,7 @@ class ProxyServer(BaseServer):
 
     async def _handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
-    ):
+    ) -> None:
         """Читает первую строку запроса и диспетчеризует:
         CONNECT → _handle_connect, GET/POST → _handle_http."""
         peername = writer.get_extra_info('peername', ('?', 0))
@@ -55,7 +60,7 @@ class ProxyServer(BaseServer):
                 .replace('\n', ' ')
                 .replace('\r', '')[:500]
             )
-            logger.debug('Входящий запрос от %s: %s', peername, line)
+            logger.debug('Входящий запрос от %s: %s', peername, redact_url(line))
 
             if first_line.upper().startswith(b'CONNECT '):
                 await self._handle_connect(reader, writer, first_line)
@@ -84,11 +89,13 @@ class ProxyServer(BaseServer):
                         f'{body}'.encode(),
                     )
                     await writer.drain()
-                except (ConnectionError, OSError):
-                    pass
+                except (ConnectionError, OSError) as exc:
+                    logger.debug('Не удалось отправить ответ 502 клиенту %s: %s',
+                                 peername, exc)
             logger.error('Ошибка обработки клиента %s: %s',
                          peername, e, exc_info=True)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Последний рубеж: логируем неожиданные ошибки в туннеле
             logger.error('Неожиданная ошибка в клиенте %s: %s',
                          peername, e, exc_info=True)
         finally:
@@ -97,7 +104,7 @@ class ProxyServer(BaseServer):
     async def _handle_connect(
         self, reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter, first_line: bytes,
-    ):
+    ) -> None:
         """Обрабатывает HTTPS CONNECT-запрос:
         парсит host:port, находит прокси, устанавливает туннель."""
         parsed = parse_connect(first_line)
@@ -128,7 +135,7 @@ class ProxyServer(BaseServer):
     async def _handle_http(
         self, reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter, first_line: bytes,
-    ):
+    ) -> None:
         """Обрабатывает plain HTTP запрос:
         переписывает URL (абсолютный → относительный), туннелирует."""
         parsed = parse_http(first_line)
@@ -141,15 +148,16 @@ class ProxyServer(BaseServer):
             return
 
         _, host, port, path, relative_line = parsed
+        await validate_target(host, port)
         full_url = f'http://{host}:{port}{path}'
         proxy = self._router.route(full_url)
 
         if proxy:
             logger.debug('HTTP %s:%s%s через %s:%s',
-                         host, port, path,
+                         host, port, redact_url(path),
                          proxy['host'], proxy['port'])
         else:
             logger.debug('HTTP %s:%s%s напрямую',
-                         host, port, path)
+                         host, port, redact_url(path))
         await tunnel_http((reader, writer), (host, port), full_url,
                           relative_line, proxy)

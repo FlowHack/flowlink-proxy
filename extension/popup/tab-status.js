@@ -4,6 +4,9 @@
  * Единственная ответственность: проверка URL вкладки по маскам.
  */
 
+import { t } from '../shared/i18n.js';
+import { convertWildcardToRegex } from '../shared/utils.js';
+
 /**
  * Проверяет URL активной вкладки по маскам и отображает статус (через прокси или напрямую).
  * @param {string} url — URL активной вкладки.
@@ -18,24 +21,37 @@ export async function renderTabStatus(url, state) {
     if (!state.enabled) {
       bar.classList.remove('hidden');
       icon.style.color = 'var(--accent-orange)';
-      text.textContent = 'Выключено';
+      text.textContent = t('disabled');
       text.style.color = 'var(--accent-orange)';
       return;
     }
     // Ищем первую маску, под которую попадает URL вкладки
     const matchedMask = state.masks.find(m => {
-      try { return new RegExp(m.regexString).test(url); } catch { return false; }
+      // Regex пересобираем из pattern через convertWildcardToRegex: она
+      // ограничивает длину паттерна (255 символов), что исключает ReDoS даже
+      // при ручном редактировании config.json. Значению regexString из конфига
+      // не доверяем (оно может содержать произвольный regex).
+      if (typeof m.pattern !== 'string' || !m.pattern) {
+        return false;
+      }
+      try {
+        return new RegExp(convertWildcardToRegex(m.pattern)).test(url);
+      } catch (e) {
+        // Невалидный паттерн — маска не матчится, но не роняем popup
+        console.warn('[FlowLink Proxy] Невалидный паттерн маски:', m.pattern, e);
+        return false;
+      }
     });
     if (matchedMask) {
       const proxy = state.proxies.find(p => p.proxyId === matchedMask.proxyId);
       bar.classList.remove('hidden');
       icon.style.color = 'var(--accent-green)';
-      text.textContent = `Через SOCKS5 (${proxy ? proxy.host : 'неизвестно'})`;
+      text.textContent = t('viaSocks5', { host: proxy ? proxy.host : t('unknown') });
       text.style.color = 'var(--accent-green)';
     } else {
       bar.classList.remove('hidden');
       icon.style.color = 'var(--accent-green)';
-      text.textContent = 'Напрямую';
+      text.textContent = t('direct');
       text.style.color = 'var(--accent-green)';
     }
   } catch (e) {

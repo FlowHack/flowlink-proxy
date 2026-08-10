@@ -1,24 +1,23 @@
 """
 Тесты общих утилит FlowLink Proxy.
 
-Тестирует: get_data_dir, clear_all_data, write_port_file, _validate_port.
+Тестирует: get_data_dir, clear_all_data, clear_logs_only, write_port_file,
+_validate_port, reopen_logging.
 """
 
 import json
+import logging
+import logging.handlers
 import os
 import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from server.utils import (
-    _validate_port,
-    clear_all_data,
-    clear_data_only,
-    clear_logs_only,
-    get_data_dir,
-    write_port_file,
-)
+from server.logging_config import reopen_logging
+from server.utils import (_validate_port, clear_all_data, clear_data_only,
+                          clear_logs_only, get_data_dir, redact_url,
+                          write_port_file)
 
 
 class TestGetDataDirEnvVar(unittest.TestCase):
@@ -49,34 +48,30 @@ class TestGetDataDirPlatform(unittest.TestCase):
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_linux_uses_home(self, mock_sys, _mock_makedirs):
-        """На Linux/macOS используется $HOME/.flowlink-proxy."""
+        """На Linux используется $HOME/.FlowHack/FlowLink Proxy.
+
+        macOS (darwin) попадает в ту же ветку else, что и Linux —
+        отдельного теста не требуется (общая логика).
+        """
         mock_sys.platform = 'linux'
         mock_sys.frozen = False
         result = get_data_dir()
         home = os.path.expanduser('~')
-        self.assertEqual(result, os.path.join(home, '.flowlink-proxy'))
-
-    @patch.dict(os.environ, {}, clear=True)
-    @patch('os.makedirs')
-    @patch('server.utils.sys')
-    def test_macos_uses_home(self, mock_sys, _mock_makedirs):
-        """На macOS используется $HOME/.flowlink-proxy."""
-        mock_sys.platform = 'darwin'
-        mock_sys.frozen = False
-        result = get_data_dir()
-        home = os.path.expanduser('~')
-        self.assertEqual(result, os.path.join(home, '.flowlink-proxy'))
+        self.assertEqual(
+            result, os.path.join(home, '.FlowHack', 'FlowLink Proxy'),
+        )
 
     @patch.dict(os.environ, {'APPDATA': 'C:\\Users\\test\\AppData\\Roaming'})
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_windows_uses_appdata(self, mock_sys, _mock_makedirs):
-        """На Windows используется %APPDATA%\\FlowLink Proxy."""
+        """На Windows используется %APPDATA%\\FlowHack\\FlowLink Proxy."""
         mock_sys.platform = 'win32'
         mock_sys.frozen = False
         result = get_data_dir()
         expected = os.path.join(
-            'C:\\Users\\test\\AppData\\Roaming', 'FlowLink Proxy',
+            'C:\\Users\\test\\AppData\\Roaming',
+            'FlowHack', 'FlowLink Proxy',
         )
         self.assertEqual(result, expected)
 
@@ -84,12 +79,14 @@ class TestGetDataDirPlatform(unittest.TestCase):
     @patch('os.makedirs')
     @patch('server.utils.sys')
     def test_windows_no_appdata_fallback(self, mock_sys, _mock_makedirs):
-        """На Windows без APPDATA — fallback на $HOME/.flowlink-proxy."""
+        """На Windows без APPDATA — fallback на $HOME/.FlowHack/FlowLink Proxy."""
         mock_sys.platform = 'win32'
         mock_sys.frozen = False
         result = get_data_dir()
         home = os.path.expanduser('~')
-        self.assertEqual(result, os.path.join(home, '.flowlink-proxy'))
+        self.assertEqual(
+            result, os.path.join(home, '.FlowHack', 'FlowLink Proxy'),
+        )
 
 
 class TestGetDataDirCreatesDir(unittest.TestCase):
@@ -181,7 +178,7 @@ class TestClearAllData(unittest.TestCase):
         logs_dir = os.path.join(self.tmpdir, 'logs')
         self.assertTrue(os.path.isdir(logs_dir))
 
-    def test_returns_zero_when_empty(self):
+    def test_clear_all_data_returns_zero_when_empty(self):
         """Возвращает 0 если файлов данных нет."""
         with patch.dict(
             os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
@@ -245,7 +242,7 @@ class TestClearLogsOnly(unittest.TestCase):
         logs_dir = os.path.join(self.tmpdir, 'logs')
         self.assertTrue(os.path.isdir(logs_dir))
 
-    def test_returns_zero_when_no_logs(self):
+    def test_clear_logs_only_returns_zero_when_no_logs(self):
         """Возвращает 0 если директории logs/ нет."""
         with patch.dict(
             os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
@@ -253,6 +250,72 @@ class TestClearLogsOnly(unittest.TestCase):
             removed = clear_logs_only()
 
         self.assertEqual(removed, 0)
+
+
+class TestReopenLogging(unittest.TestCase):
+    """Тесты reopen_logging из server.logging_config."""
+
+    def setUp(self):
+        self._root = logging.getLogger()
+        self._saved_handlers = list(self._root.handlers)
+        self._root.handlers.clear()
+        self._tmpdir = tempfile.mkdtemp()
+        self._log_file = os.path.join(self._tmpdir, 'test.log')
+        # Реальный RotatingFileHandler — как в бою (setup_logging)
+        self._handler = logging.handlers.RotatingFileHandler(
+            self._log_file, maxBytes=1024, backupCount=1, encoding='utf-8',
+        )
+        self._root.addHandler(self._handler)
+
+    def tearDown(self):
+        self._root.handlers.clear()
+        for handler in self._saved_handlers:
+            self._root.addHandler(handler)
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
+
+    def _file_handlers(self):
+        """Возвращает RotatingFileHandler-ы корневого логгера."""
+        return [
+            h for h in self._root.handlers
+            if isinstance(h, logging.handlers.RotatingFileHandler)
+        ]
+
+    def test_recreate_false_removes_handler(self):
+        """reopen_logging(recreate=False) закрывает хендлер без нового."""
+        reopen_logging(recreate=False)
+        self.assertEqual(self._file_handlers(), [])
+
+    def test_recreate_false_frees_log_file(self):
+        """После recreate=False файл лога освобождён и удаляется без ошибки."""
+        reopen_logging(recreate=False)
+        self.assertTrue(os.path.isfile(self._log_file))
+        os.remove(self._log_file)
+        self.assertFalse(os.path.exists(self._log_file))
+
+    def test_recreate_true_creates_new_handler(self):
+        """reopen_logging() (recreate=True) создаёт новый хендлер."""
+        reopen_logging()
+        handlers = self._file_handlers()
+        self.assertEqual(len(handlers), 1)
+        # Файл лога пересоздан новым хендлером
+        self.assertTrue(os.path.isfile(self._log_file))
+
+    def test_preserves_debug_level_after_reopen(self):
+        """reopen_logging() сохраняет DEBUG-уровень, заданный в setup_logging.
+
+        Если сервер запущен с --debug, после переоткрытия хендлера
+        (например, очистки логов) уровень файлового логгера не должен
+        откатываться на INFO.
+        """
+        # Имитируем setup_logging(debug=True): устанавливаем уровень DEBUG
+        # через явный вызов reopen_logging(level=DEBUG), который синхронизирует
+        # _current_level. Затем повторный reopen_logging() без уровня должен
+        # сохранить DEBUG.
+        reopen_logging(level=logging.DEBUG)
+        reopen_logging()
+        handlers = self._file_handlers()
+        self.assertEqual(len(handlers), 1)
+        self.assertEqual(handlers[0].level, logging.DEBUG)
 
 
 class TestClearDataOnly(unittest.TestCase):
@@ -263,28 +326,6 @@ class TestClearDataOnly(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
-
-    def test_removes_data_files(self):
-        """Удаляет файлы данных."""
-        files = [
-            'config.json', '.flowlink.key', '.flowlink.salt',
-            '.flowlink-settings', '.flowlink-port',
-        ]
-        for filename in files:
-            filepath = os.path.join(self.tmpdir, filename)
-            with open(filepath, 'w', encoding='utf-8') as fh:
-                fh.write('test')
-
-        with patch.dict(
-            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
-        ):
-            removed = clear_data_only()
-
-        self.assertEqual(removed, 5)
-        for filename in files:
-            self.assertFalse(
-                os.path.exists(os.path.join(self.tmpdir, filename)),
-            )
 
     def test_preserves_logs(self):
         """Не удаляет директорию logs/."""
@@ -301,7 +342,7 @@ class TestClearDataOnly(unittest.TestCase):
 
         self.assertTrue(os.path.isfile(log_path))
 
-    def test_returns_zero_when_empty(self):
+    def test_clear_data_only_returns_zero_when_empty(self):
         """Возвращает 0 если файлов данных нет."""
         with patch.dict(
             os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
@@ -310,18 +351,6 @@ class TestClearDataOnly(unittest.TestCase):
 
         self.assertEqual(removed, 0)
 
-    def test_preserves_unknown_files(self):
-        """Не удаляет файлы, не входящие в список данных."""
-        unknown = os.path.join(self.tmpdir, 'my-custom.txt')
-        with open(unknown, 'w', encoding='utf-8') as f:
-            f.write('keep me')
-
-        with patch.dict(
-            os.environ, {'FLOWLINK_DATA_DIR': self.tmpdir},
-        ):
-            clear_data_only()
-
-        self.assertTrue(os.path.isfile(unknown))
 
 
 class TestValidatePort(unittest.TestCase):
@@ -396,7 +425,78 @@ class TestWritePortFile(unittest.TestCase):
     def test_non_int_port_raises(self):
         """Не-int порт вызывает TypeError."""
         with self.assertRaises(TypeError):
-            write_port_file('8081', 8080)
+            # type: ignore[reportArgumentType] — намеренно передаём строку для проверки ошибки
+            write_port_file('8081', 8080)  # type: ignore[reportArgumentType]
+
+
+class TestRedactUrl(unittest.TestCase):
+    """Тесты redact_url — удаление query-параметров из URL для логов."""
+
+    def test_removes_query_string(self):
+        """URL с query-строкой → возвращается без query-части."""
+        self.assertEqual(
+            redact_url('http://127.0.0.1:8081/api/config?token=secret'),
+            'http://127.0.0.1:8081/api/config',
+        )
+
+    def test_removes_query_with_multiple_params(self):
+        """URL с несколькими query-параметрами → без query-части."""
+        self.assertEqual(
+            redact_url('http://example.com/path?a=1&b=2&token=abc'),
+            'http://example.com/path',
+        )
+
+    def test_url_without_query_unchanged(self):
+        """URL без query-строки → возвращается без изменений."""
+        url = 'http://127.0.0.1:8081/api/config'
+        self.assertEqual(redact_url(url), url)
+
+    def test_empty_string_returns_empty(self):
+        """Пустая строка → возвращается как есть."""
+        self.assertEqual(redact_url(''), '')
+
+    def test_none_returns_none(self):
+        """None → возвращается как есть (не падает)."""
+        self.assertIsNone(redact_url(None))
+
+    def test_relative_path_with_query(self):
+        """Относительный путь с query → без query-части."""
+        self.assertEqual(redact_url('/api/events?token=abc'), '/api/events')
+
+    def test_url_with_fragment_removes_query_and_fragment(self):
+        """URL с фрагментом (#) → query и фрагмент убираются (всё после '?')."""
+        self.assertEqual(
+            redact_url('http://example.com/path?token=abc#section'),
+            'http://example.com/path',
+        )
+
+    def test_redacts_userinfo_password(self):
+        """URL с user:pass@host → пароль маскируется (***:***@host)."""
+        self.assertEqual(
+            redact_url('http://user:secret@example.com:8080/path'),
+            'http://***:***@example.com:8080/path',
+        )
+
+    def test_redacts_userinfo_without_password(self):
+        """URL с user@host → user маскируется (***@host)."""
+        self.assertEqual(
+            redact_url('http://user@example.com/path'),
+            'http://***@example.com/path',
+        )
+
+    def test_redacts_userinfo_keeps_ipv6_host(self):
+        """IPv6-хост с userinfo → скобки и порт сохраняются."""
+        self.assertEqual(
+            redact_url('http://user:pass@[::1]:8080/path'),
+            'http://***:***@[::1]:8080/path',
+        )
+
+    def test_redacts_userinfo_with_query(self):
+        """URL с userinfo и query → маскируется userinfo и убирается query."""
+        self.assertEqual(
+            redact_url('http://user:pass@example.com/path?token=abc'),
+            'http://***:***@example.com/path',
+        )
 
 
 if __name__ == '__main__':

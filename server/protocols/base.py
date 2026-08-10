@@ -20,6 +20,11 @@ class ProxyProtocol(ABC):
     """Интерфейс прокси-протокола."""
 
     def __init__(self, config: dict):
+        """Инициализирует базовый протокол.
+
+        Args:
+            config: Словарь с параметрами прокси.
+        """
         self._config = config
 
     @abstractmethod
@@ -44,11 +49,13 @@ class ProxyProtocol(ABC):
     async def ping(
         self,
         timeout: float = 5,
-    ) -> bool:
+    ) -> tuple[bool, str | None]:
         """
         Проверяет доступность прокси-сервера (handshake без CONNECT).
 
         Returns:
-            True если прокси ответил, иначе False.
+            Кортеж (alive, error_kind), где alive — True если прокси ответил,
+            error_kind — строка с типом ошибки ('timeout' | 'refused' |
+            'reset' | 'handshake' | None при успехе).
         """
         raise NotImplementedError

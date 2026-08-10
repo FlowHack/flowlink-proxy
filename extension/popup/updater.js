@@ -7,10 +7,17 @@
 import { apiGet } from '../shared/api.js';
 import { compareVersions } from '../shared/utils.js';
 import { GITHUB_API_RELEASES, GITHUB_RELEASES_URL } from '../shared/constants.js';
+import { t } from '../shared/i18n.js';
 
 let backendVersion = null;
 
-export { backendVersion };
+/** Тег последнего доступного обновления (например 'v0.1.0') или пустая строка. */
+let latestTag = null;
+
+/** Флаг: подсказка про VPN/прокси уже показана (не спамим). */
+let _vpnHintShown = false;
+
+export { backendVersion, latestTag };
 
 /**
  * Запрашивает версию бэкенда через /api/version.
@@ -24,10 +31,11 @@ export async function checkBackendVersion() {
     const extVer = document.getElementById('version-text');
     const extVersion = chrome.runtime.getManifest().version;
     if (extVer && resp.version && resp.version !== extVersion) {
-      extVer.textContent = `Версия: ${chrome.runtime.getManifest().version} (бэкенд: ${resp.version})`;
+      extVer.textContent = t('versionBackend', { ext: chrome.runtime.getManifest().version, be: resp.version });
     }
     return true;
-  } catch {
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Ошибка проверки версии бэкенда:', e);
     return false;
   }
 }
@@ -40,27 +48,61 @@ export async function checkBackendVersion() {
  */
 export async function checkForUpdates(simulate = false, simulateVersion = '') {
   if (simulate) {
-    const tag = simulateVersion ? `v${simulateVersion}` : 'v0.0.0 (тест)';
+    const tag = simulateVersion
+      ? (simulateVersion.startsWith('v') ? simulateVersion : `v${simulateVersion}`)
+      : 'v0.0.0';
+    latestTag = tag;
     showUpdateBanner(tag, GITHUB_RELEASES_URL);
     return;
   }
   try {
-    const resp = await fetch(GITHUB_API_RELEASES);
-    if (!resp.ok) return;
+    // Таймаут 8 секунд: при недоступности GitHub не блокируем popup
+    const resp = await fetch(GITHUB_API_RELEASES, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) {
+      _showVpnHint();
+      return;
+    }
     const release = await resp.json();
-    const latestTag = release.tag_name || '';
+    latestTag = release.tag_name || '';
     if (!latestTag) return;
+    if (backendVersion === null) return;
     const latestVer = latestTag.replace(/^v/, '');
     const currentVer = backendVersion || '0.0.0';
     if (compareVersions(latestVer, currentVer) > 0) {
       showUpdateBanner(latestTag, release.html_url);
     }
-  } catch {}
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Ошибка проверки обновлений GitHub:', e);
+    // GitHub может быть заблокирован (например, в РФ) — подсказываем про VPN
+    _showVpnHint();
+  }
+}
+
+/**
+ * Показывает подсказку про VPN/прокси при недоступности GitHub API.
+ * Показывается один раз за сессию, чтобы не спамить пользователя.
+ */
+function _showVpnHint() {
+  if (_vpnHintShown) return;
+  _vpnHintShown = true;
+  try {
+    const showToast = window.__flowlinkShowToast;
+    if (typeof showToast === 'function') {
+      showToast(
+        t('updateCheckFailed'),
+        'warning',
+      );
+    }
+  } catch (e) {
+    console.warn('[FlowLink Proxy] Не удалось показать подсказку про VPN:', e);
+  }
 }
 
 /**
  * Отображает баннер с информацией о доступном обновлении.
- * @param {string} tag — тег релиза (например 'v0.3.0').
+ * @param {string} tag — тег релиза (например 'v0.1.0').
  * @param {string} url — URL релиза на GitHub.
  */
 function showUpdateBanner(tag, url) {
@@ -68,7 +110,8 @@ function showUpdateBanner(tag, url) {
   const updateText = document.getElementById('update-text');
   const downloadBtn = document.getElementById('btn-update-download');
   if (!banner || !updateText || !downloadBtn) return;
-  updateText.textContent = `Доступно обновление ${tag}`;
+  if (!url || typeof url !== 'string' || !url.startsWith('https://')) return;
+  updateText.textContent = t('updateAvailable', { tag });
   downloadBtn.href = url;
   banner.classList.remove('hidden');
 }

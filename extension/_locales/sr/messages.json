@@ -1,0 +1,4 @@
+{
+  "appName": { "message": "FlowLink Proxy" },
+  "appDescription": { "message": "Upravljanje SOCKS5 proxy sa maskama adresa" }
+}

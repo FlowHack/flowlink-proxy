@@ -4,11 +4,13 @@
 Единственная ответственность: вспомогательные функции общего назначения.
 """
 
+import asyncio
 import json
 import logging
 import os
 import shutil
 import sys
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger('flowlink.utils')
 
@@ -19,6 +21,11 @@ _PORT_FILENAME = '.flowlink-port'
 # Диапазон допустимых портов TCP
 _PORT_MIN = 1
 _PORT_MAX = 65535
+
+# ID расширения Chrome для CORS-allowlist.
+# TODO: заменить на реальный ID расширения из Chrome WebStore после публикации.
+# В unpacked-режиме ID определяется ключом 'key' в manifest.json.
+ALLOWED_EXTENSION_ID = None  # type: str | None
 
 
 def get_data_dir() -> str:
@@ -32,8 +39,8 @@ def get_data_dir() -> str:
     Приоритет (от высшего к низшему):
     1. Переменная окружения FLOWLINK_DATA_DIR (для systemd-сервиса и кастомных путей)
     2. Стандартная директория данных ОС:
-       - Linux/macOS: ~/.flowlink-proxy
-       - Windows: %APPDATA%\\FlowLink Proxy
+       - Linux/macOS: ~/.FlowHack/FlowLink Proxy
+       - Windows: %APPDATA%\\FlowHack\\FlowLink Proxy
 
     Гарантия: возвращаемая директория существует (создаётся при первом вызове).
     """
@@ -43,11 +50,15 @@ def get_data_dir() -> str:
     elif sys.platform == 'win32':
         appdata = os.environ.get('APPDATA')
         if appdata:
-            data_dir = os.path.join(appdata, 'FlowLink Proxy')
+            data_dir = os.path.join(appdata, 'FlowHack', 'FlowLink Proxy')
         else:
-            data_dir = os.path.join(os.path.expanduser('~'), '.flowlink-proxy')
+            data_dir = os.path.join(
+                os.path.expanduser('~'), '.FlowHack', 'FlowLink Proxy',
+            )
     else:
-        data_dir = os.path.join(os.path.expanduser('~'), '.flowlink-proxy')
+        data_dir = os.path.join(
+            os.path.expanduser('~'), '.FlowHack', 'FlowLink Proxy',
+        )
 
     # Создаём директорию, если она ещё не существует (exist_ok)
     try:
@@ -100,15 +111,24 @@ def clear_all_data() -> int:
             except OSError as e:
                 logger.error('Не удалось удалить %s: %s', filepath, e)
 
-    # Удаляем директорию логов целиком
+    # Закрываем хендлер без пересоздания, чтобы освободить файл лога,
+    # затем удаляем директорию логов целиком. Хендлер пересоздаём в finally.
+    # Ленивый импорт для избежания циклической зависимости
+    from server.logging_config import \
+        reopen_logging  # pylint: disable=import-outside-toplevel
     logs_dir = os.path.join(data_dir, 'logs')
-    if os.path.isdir(logs_dir):
-        try:
-            shutil.rmtree(logs_dir)
-            removed += 1
-            logger.info('Удалена директория логов: %s', logs_dir)
-        except OSError as e:
-            logger.error('Не удалось удалить %s: %s', logs_dir, e)
+    try:
+        reopen_logging(recreate=False)
+        if os.path.isdir(logs_dir):
+            try:
+                shutil.rmtree(logs_dir)
+                removed += 1
+                logger.info('Удалена директория логов: %s', logs_dir)
+            except OSError as e:
+                logger.error('Не удалось удалить %s: %s', logs_dir, e)
+    finally:
+        # Пересоздаём хендлер в любом случае
+        reopen_logging()
 
     # Пересоздаём пустую директорию логов (logging может писать в неё)
     try:
@@ -122,26 +142,43 @@ def clear_all_data() -> int:
 
 def clear_logs_only() -> int:
     """
-    Удаляет только директорию логов из data-директории.
+    Удаляет только файлы логов из data-директории.
 
-    Не удаляет конфиги, ключи или настройки — только logs/.
+    Не удаляет конфиги, ключи или настройки — только содержимое logs/.
 
     Returns:
-        Количество удалённых элементов (0 или 1).
+        Количество удалённых файлов/директорий.
     """
     data_dir = get_data_dir()
     logs_dir = os.path.join(data_dir, 'logs')
     removed = 0
 
-    if os.path.isdir(logs_dir):
-        try:
-            shutil.rmtree(logs_dir)
-            removed += 1
-            logger.info('Удалена директория логов: %s', logs_dir)
-        except OSError as e:
-            logger.error('Не удалось удалить %s: %s', logs_dir, e)
+    # Закрываем хендлер без пересоздания, чтобы освободить файл лога,
+    # затем удаляем файлы внутри директории (не саму директорию).
+    # Хендлер пересоздаём в finally.
+    # Ленивый импорт для избежания циклической зависимости
+    from server.logging_config import \
+        reopen_logging  # pylint: disable=import-outside-toplevel
+    try:
+        reopen_logging(recreate=False)
+        if os.path.isdir(logs_dir):
+            # Удаляем файлы внутри директории (не саму директорию)
+            for name in os.listdir(logs_dir):
+                path = os.path.join(logs_dir, name)
+                try:
+                    if os.path.isfile(path):
+                        os.remove(path)
+                        removed += 1
+                    elif os.path.isdir(path):
+                        shutil.rmtree(path)
+                        removed += 1
+                except OSError as e:
+                    logger.error('Не удалось удалить %s: %s', path, e)
+    finally:
+        # Пересоздаём хендлер в любом случае
+        reopen_logging()
 
-    # Пересоздаём пустую директорию логов
+    # Пересоздаём пустую директорию логов (logging может писать в неё)
     try:
         os.makedirs(logs_dir, exist_ok=True)
     except OSError as e:
@@ -249,6 +286,15 @@ def write_port_file(api_port: int, proxy_port: int) -> None:
     try:
         with open(port_file, 'w', encoding='utf-8') as f:
             json.dump(payload, f, indent=2)
+        # Ограничиваем доступ к файлу портов: только владелец (0600),
+        # чтобы другие локальные пользователи не могли прочитать порты.
+        try:
+            os.chmod(port_file, 0o600)
+        except NotImplementedError:
+            # На Windows os.chmod для прав доступа не поддерживается — пропускаем
+            logger.debug(
+                'write_port_file: os.chmod не поддерживается, пропускаю'
+            )
         logger.debug(
             'Порты записаны в %s: API=%d, прокси=%d',
             port_file, api_port, proxy_port,
@@ -256,3 +302,103 @@ def write_port_file(api_port: int, proxy_port: int) -> None:
     except OSError as e:
         # Не критично — файл для отладки, его отсутствие не влияет на работу
         logger.warning('Не удалось записать файл портов %s: %s', port_file, e)
+
+
+def cors_allow_origin(origin: str | None) -> str:
+    """
+    Формирует CORS-заголовки ответа по allowlist.
+
+    Разрешаем только запросы из расширений Chrome
+    (Origin вида chrome-extension://<id>). Для остальных источников и для
+    запросов без Origin CORS-заголовок не добавляется — чужие веб-страницы
+    не смогут прочитать ответ API (защита от чтения секретов).
+
+    Args:
+        origin: Значение HTTP-заголовка Origin запроса (может быть None).
+
+    Returns:
+        Строка заголовков 'Access-Control-Allow-Origin: <origin>' и
+        'Vary: Origin' с завершающим '\\r\\n', либо пустая строка,
+        если Origin не в allowlist.
+    """
+    if origin and origin.startswith('chrome-extension://'):
+        return (
+            f'Access-Control-Allow-Origin: {origin}\r\n'
+            'Vary: Origin\r\n'
+        )
+    return ''
+
+
+def safe_close_writer(writer: asyncio.StreamWriter | None) -> None:
+    """Безопасно закрывает asyncio writer, игнорируя ошибки.
+
+    Единая точка закрытия сетевых соединений во всех серверах.
+    Позволяет избежать дублирования try/except в каждом обработчике.
+
+    Args:
+        writer: Объект asyncio.StreamWriter или None.
+    """
+    if writer is None:
+        return
+    try:
+        writer.close()
+    except (ConnectionError, OSError):
+        # Соединение уже закрыто или недоступно — ошибка несущественна
+        logger.debug('safe_close_writer: соединение уже закрыто')
+
+
+def proxy_addr(proxy: dict | None, default: str = 'direct') -> str:
+    """Форматирует адрес прокси как 'host:port'.
+
+    Единая точка форматирования адреса прокси (DRY).
+    Используется в логах, пинге и туннелях.
+
+    Args:
+        proxy: Словарь прокси или None.
+        default: Значение по умолчанию, если прокси отсутствует.
+
+    Returns:
+        Строка 'host:port' или default.
+    """
+    if not proxy:
+        return default
+    host = proxy.get('host', '?')
+    port = proxy.get('port', '?')
+    return f'{host}:{port}'
+
+
+def redact_url(url: str | None) -> str | None:
+    """Убирает query-параметры и маскирует userinfo в URL для безопасного логирования.
+
+    В query-строке и userinfo (user:password@host) могут содержаться секреты
+    (токены, api_key, пароли прокси), которые не должны попадать в файл лога.
+    Функция возвращает URL без query-части (схема + хост + порт + путь),
+    а userinfo заменяет на '***' или '***:***'.
+
+    Args:
+        url: Исходный URL (может содержать query-строку). None допустим —
+            функция отказоустойчива и вернёт None.
+
+    Returns:
+        URL без query-параметров и с замаскированным userinfo.
+        При ошибке парсинга — исходный URL. Для None — None.
+    """
+    if not url:
+        return url
+    try:
+        # Отрезаем query-часть по первому '?' (без полного URL-парсинга,
+        # т.к. url может быть относительным или содержать нестандартные схемы)
+        base = url.split('?', 1)[0]
+        # Маскируем userinfo (user:password@host) — пароль в URL не должен
+        # попадать в логи туннелей и прокси (например, при указании прокси
+        # с credentials прямо в адресе)
+        parts = urlsplit(base)
+        if '@' in parts.netloc:
+            userinfo, _, host = parts.netloc.rpartition('@')
+            masked = '***:***' if ':' in userinfo else '***'
+            base = urlunsplit((parts.scheme, f'{masked}@{host}', parts.path, '', ''))
+        return base
+    except (ValueError, AttributeError):
+        # Некорректный URL — возвращаем как есть (не падаем)
+        logger.debug('redact_url: не удалось обработать URL %r', url)
+        return url

@@ -4,13 +4,29 @@
 Предкомпилирует все RegExp из масок для быстрой проверки.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from typing import Optional
 
 from server.config import config
+from server.utils import redact_url
 
 logger = logging.getLogger('flowlink.router')
+
+# Максимальная длина URL для проверки по маскам. Сверхдлинные URL (патологически
+# длинные query/path) пропускаются без regex-поиска — защита от ReDoS и
+# от раздувания логов при маршрутизации.
+_MAX_ROUTE_URL_LENGTH = 8192
+# Максимальная длина исходного текста regex-маски. Сверхдлинные маски
+# пропускаются: компиляция и поиск по ним дороги и редко легитимны.
+_MAX_MASK_REGEX_LENGTH = 300
+# Эвристика обнаружения «вложенных квантификаторов» — главного источника ReDoS:
+# группа, внутри которой есть квантификатор (+/*/?) и которая сама имеет
+# неограниченный квантификатор (+/*). Примеры: (a+)+, (a*)*, (a?)+, (\w+)+.
+# Такие маски пропускаются с предупреждением вместо выполнения дорогого поиска.
+_RE_UNSAFE_PATTERN = re.compile(r'\([^()]*[+*?][^()]*\)[+*]')
 
 
 class MaskRouter:
@@ -23,11 +39,17 @@ class MaskRouter:
     """
 
     def __init__(self):
+        """Инициализирует маршрутизатор масок.
+
+        Загружает конфигурацию и перестраивает правила маршрутизации.
+        """
         self._rules: list[dict] = []
         self._proxy_map: dict[str, dict] = {}
         self._rebuild()
 
-    def _rebuild(self):
+    def _rebuild(  # pylint: disable=too-many-branches,too-many-statements  # множество проверок валидности масок и прокси
+        self,
+    ) -> None:
         """
         Перестраивает список правил из текущего конфига.
         Вызывается при инициализации и refresh().
@@ -84,17 +106,41 @@ class MaskRouter:
                 logger.debug('Маска %s пропущена: прокси %s выключен', regex_raw, pid)
                 continue
 
+            if len(regex_raw) > _MAX_MASK_REGEX_LENGTH:
+                logger.warning(
+                    'Маска %s слишком длинная (%d символов, лимит %d), пропущена',
+                    pid, len(regex_raw), _MAX_MASK_REGEX_LENGTH,
+                )
+                continue
+            if _RE_UNSAFE_PATTERN.search(regex_raw):
+                logger.warning(
+                    'Маска %s содержит потенциально опасный regex '
+                    '(вложенные квантификаторы, риск ReDoS), пропущена: %s',
+                    pid, regex_raw,
+                )
+                continue
+
             try:
                 regex = re.compile(regex_raw)
             except re.error as e:
                 logger.warning('Ошибка компиляции regex маски "%s": %s', regex_raw, e)
                 continue
 
+            # Защита от битого конфига: отсутствие host/port не должно ронять маршрутизатор
+            host = proxy.get('host')
+            port = proxy.get('port')
+            if not host or not isinstance(port, int) or not 1 <= port <= 65535:
+                logger.warning(
+                    'Маска %s: прокси %s имеет некорректные host/port (%r:%r), пропущена',
+                    regex_raw, pid, host, port,
+                )
+                continue
+
             rules.append({
                 'regex': regex,
                 'proxyId': pid,
-                'host': proxy['host'],
-                'port': proxy['port'],
+                'host': host,
+                'port': port,
                 'username': proxy.get('username', ''),
                 'password': proxy.get('password', ''),
                 'isEnabled': proxy.get('isEnabled', True),
@@ -113,12 +159,23 @@ class MaskRouter:
         Returns:
             Словарь с host/port/username/password или None, если нет совпадений.
         """
+        if url is None:
+            return None
+        # Ограничение длины URL: сверхдлинные URL не проверяются по маскам
+        # (защита от ReDoS-атак через длинный вход для «тяжёлых» regex).
+        if len(url) > _MAX_ROUTE_URL_LENGTH:
+            logger.warning(
+                'URL слишком длинный (%d символов, лимит %d) — '
+                'regex-поиск пропущен (защита от ReDoS)',
+                len(url), _MAX_ROUTE_URL_LENGTH,
+            )
+            return None
         for rule in self._rules:
             try:
                 if rule['regex'].search(url):
                     logger.debug(
                         'Маршрут: %s -> %s:%s (прокси %s)',
-                        url, rule['host'], rule['port'], rule['proxyId'],
+                        redact_url(url), rule['host'], rule['port'], rule['proxyId'],
                     )
                     return {
                         'host': rule['host'],
@@ -128,12 +185,12 @@ class MaskRouter:
                         'proxyId': rule['proxyId'],
                     }
             except re.error as e:
-                logger.warning('Regex ошибка при проверке URL %s: %s', url, e)
+                logger.warning('Regex ошибка при проверке URL %s: %s', redact_url(url), e)
                 continue
-        logger.debug('Маршрут: %s -> напрямую (нет совпадений)', url)
+        logger.debug('Маршрут: %s -> напрямую (нет совпадений)', redact_url(url))
         return None
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Принудительно перезагружает конфиг и перестраивает правила."""
         logger.info('Обновление правил маршрутизации')
         self._rebuild()

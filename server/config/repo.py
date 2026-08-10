@@ -21,6 +21,8 @@ CONFIG_FILE = os.path.join(get_data_dir(), 'config.json')
 DEFAULT_CONFIG = {
     'proxies': [],
     'masks': [],
+    # id последнего включённого прокси — восстанавливается при запуске.
+    'lastActiveProxyId': None,
 }
 
 
@@ -52,12 +54,38 @@ def load_raw(config_path: str | None = None) -> dict:
 
 
 def save_raw(data: dict, config_path: str | None = None) -> None:
-    """Записывает словарь в config.json."""
+    """Записывает словарь в config.json атомарно.
+
+    Сначала пишет во временный файл, затем переименовывает через os.replace.
+    Это гарантирует, что при сбое посреди записи config.json не останется
+    повреждённым (полузаписанным).
+    """
     path = config_path or CONFIG_FILE
+    tmp_path = f'{path}.tmp'
     try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        try:
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        except NotImplementedError:
+            logger.debug('os.open с 0o600 не поддерживается на этой платформе (Windows)')
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+        else:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+        os.replace(tmp_path, path)
         logger.debug('Конфигурация сохранена в %s', path)
     except OSError as e:
         logger.error('Ошибка записи %s: %s', path, e)
+        # Пытаемся убрать временный файл, если он остался
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError as exc:
+            logger.debug(
+                'Не удалось удалить временный файл %s: %s', tmp_path, exc,
+            )
         raise

@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "FlowLink Proxy",
-  "version": "0.2.0",
+  "version": "0.1.0",
+  "default_locale": "ru",
+  "minimum_chrome_version": "122",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1gjKye/kbIv5A4SOPcsrXIY0FrrPzLr8GC8LhxGn3zsp6W+v9RO+Kj/gW5BazHhTmZVC8Dwpj3gwa8drd+dkkNRUvGpXVEPBVM4thvyJbcBRDSB2GNbavTJOgqd8Pn1VOeaqOdEBUPJwGfXTWnOQIpma3PLgo5+XSpphF9GRQt6S8OvE7W+dZh9t1H1cwtuCtpYCxiN1Rsc1PYt8i0MYIsga4wEWO4R/3n/LzvsxkRTXA6D+XzH//ffD+352z04D85tJUT1VLpKFMcGwszozoxlotg8Y2+UW1it+XBlk8h447RR+f1sqDqtdf6yUZuCCYgpxaQF8vmdRVZB26ZyIgwIDAQAB",
   "author": "Прискалов Дмитрий Юрьевич (FlowHack)",
-  "description": "Управление прокси SOCKS5 с масками адресов",
+  "description": "__MSG_appDescription__",
   "icons": {
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
@@ -24,6 +27,7 @@
   },
   "permissions": [
     "activeTab",
+    "alarms",
     "storage"
   ],
   "host_permissions": [

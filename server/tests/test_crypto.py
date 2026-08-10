@@ -10,6 +10,7 @@ from unittest.mock import patch
 from server.config import crypto as crypto_mod
 
 
+# pylint: disable=too-many-public-methods  # тестовый класс: по методу на кейс, лимит pylint ниже числа кейсов
 class TestCryptoExceptions(unittest.TestCase):
     """Тесты обработки исключений и краевых случаев crypto.py."""
 
@@ -19,8 +20,14 @@ class TestCryptoExceptions(unittest.TestCase):
         self.orig_salt_file = crypto_mod.SALT_FILE
         crypto_mod.KEY_FILE = os.path.join(self.tmpdir, '.flowlink.key')
         crypto_mod.SALT_FILE = os.path.join(self.tmpdir, '.flowlink.salt')
+        # Сбрасываем кэш ключей при подмене путей, чтобы он не «протекал»
+        # между тестами (кэш привязан к содержимому, но файлы меняются).
+        crypto_mod.reset_key_cache()
+        # Сбрасываем флаг здоровья крипто-модуля для детерминизма тестов
+        crypto_mod._CRYPTO_HEALTHY = True  # pylint: disable=protected-access  # тестовый сброс модульного флага
 
     def tearDown(self):
+        crypto_mod.reset_key_cache()
         crypto_mod.KEY_FILE = self.orig_key_file
         crypto_mod.SALT_FILE = self.orig_salt_file
         for f in os.listdir(self.tmpdir):
@@ -47,6 +54,7 @@ class TestCryptoExceptions(unittest.TestCase):
         """Пустая строка → пустая строка"""
         self.assertEqual(crypto_mod.decrypt(''), '')
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_encrypt_decrypt_roundtrip(self):
         """Шифрование-дешифрование работает корректно"""
         original = 'my_secret_password'
@@ -54,6 +62,7 @@ class TestCryptoExceptions(unittest.TestCase):
         decrypted = crypto_mod.decrypt(encrypted)
         self.assertEqual(original, decrypted)
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_encrypt_decrypt_unicode(self):
         """Шифрование-дешифрование Unicode-строки"""
         original = 'пароль_кириллица_🔑'
@@ -61,6 +70,7 @@ class TestCryptoExceptions(unittest.TestCase):
         decrypted = crypto_mod.decrypt(encrypted)
         self.assertEqual(original, decrypted)
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_encrypt_decrypt_long_string(self):
         """Шифрование-дешифрование длинной строки (10 КБ)"""
         original = 'x' * 10240
@@ -101,29 +111,36 @@ class TestCryptoExceptions(unittest.TestCase):
         test_salt = os.urandom(32)
         with open(crypto_mod.SALT_FILE, 'wb') as f:
             f.write(test_salt)
-        loaded_salt = crypto_mod._load_salt()
+        # _load_salt — internal: проверка fallback-логики при коррупции файла
+        loaded_salt = crypto_mod._load_salt()  # pylint: disable=protected-access
         self.assertEqual(loaded_salt, test_salt)
 
     def test_legacy_salt_used_when_no_file(self):
         """При отсутствии файла соли используется legacy-соль"""
-        loaded_salt = crypto_mod._load_salt()
-        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)
+        # _load_salt — internal: проверка fallback-логики при отсутствии файла
+        loaded_salt = crypto_mod._load_salt()  # pylint: disable=protected-access
+        # _LEGACY_SALT — internal: проверка значения константы
+        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)  # pylint: disable=protected-access
 
     def test_corrupt_salt_file_uses_legacy(self):
         """Повреждённый файл соли → fallback на legacy-соль"""
         with open(crypto_mod.SALT_FILE, 'wb') as f:
             f.write(b'short')
-        loaded_salt = crypto_mod._load_salt()
-        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)
+        # _load_salt — internal: проверка fallback-логики при коррупции файла
+        loaded_salt = crypto_mod._load_salt()  # pylint: disable=protected-access
+        # _LEGACY_SALT — internal: проверка значения константы
+        self.assertEqual(loaded_salt, crypto_mod._LEGACY_SALT)  # pylint: disable=protected-access
 
     def test_save_salt_creates_file(self):
         """_save_salt создаёт файл соли"""
         test_salt = os.urandom(32)
-        crypto_mod._save_salt(test_salt)
+        # _save_salt — internal: проверка записи соли в файл
+        crypto_mod._save_salt(test_salt)  # pylint: disable=protected-access
         self.assertTrue(os.path.exists(crypto_mod.SALT_FILE))
         with open(crypto_mod.SALT_FILE, 'rb') as f:
             self.assertEqual(f.read(), test_salt)
 
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
     def test_multiple_encryptions_different_ciphertexts(self):
         """Два шифрования одной строки дают разный шифротекст (разный IV)"""
         text = 'same_password'
@@ -133,3 +150,120 @@ class TestCryptoExceptions(unittest.TestCase):
         # Но расшифровываются одинаково
         self.assertEqual(crypto_mod.decrypt(enc1), text)
         self.assertEqual(crypto_mod.decrypt(enc2), text)
+
+
+    def test_crypto_healthy_by_default(self):
+        """Без повреждений is_crypto_healthy() возвращает True."""
+        self.assertTrue(crypto_mod.is_crypto_healthy())
+
+    def test_corrupt_salt_marks_unhealthy(self):
+        """Повреждённая соль (не 32 байта) → is_crypto_healthy() = False."""
+        # Создаём валидный ключ и соль
+        crypto_mod.load_or_create_key()
+        # Повреждаем файл соли
+        with open(crypto_mod.SALT_FILE, 'wb') as f:
+            f.write(b'short-salt')
+        crypto_mod.reset_key_cache()
+        # encrypt вызывает _derive_key → _load_salt, фиксирующий повреждение
+        crypto_mod.encrypt('secret')
+        self.assertFalse(crypto_mod.is_crypto_healthy())
+
+    def test_key_file_wrong_size_marks_unhealthy(self):
+        """Повреждённый ключ (не 32 байта) → is_crypto_healthy() = False."""
+        with open(crypto_mod.KEY_FILE, 'wb') as f:
+            f.write(b'too short')
+        crypto_mod.load_or_create_key()
+        self.assertFalse(crypto_mod.is_crypto_healthy())
+
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
+    def test_rotate_key_invalidates_old_ciphertext(self):
+        """После rotate_key старый шифротекст не расшифровывается новым ключом."""
+        crypto_mod.reset_key_cache()
+        encrypted = crypto_mod.encrypt('old-password')
+        crypto_mod.rotate_key()
+        try:
+            # Ленивый импорт: cryptography не обязательна на всех окружениях
+            from cryptography.exceptions import \
+                InvalidTag  # pylint: disable=import-outside-toplevel
+        except ImportError:
+            InvalidTag = Exception  # type: ignore[misc]  # fallback для сред без cryptography
+        with self.assertRaises(InvalidTag):
+            crypto_mod.decrypt(encrypted)
+
+    @unittest.skipUnless(crypto_mod.HAS_CRYPTO, 'Требуется библиотека cryptography')
+    def test_rotate_key_roundtrip_with_new_key(self):
+        """После rotate_key encrypt/decrypt работают с новым ключом."""
+        crypto_mod.rotate_key()
+        encrypted = crypto_mod.encrypt('new-password')
+        self.assertEqual(crypto_mod.decrypt(encrypted), 'new-password')
+
+
+class TestDerivedKeyCache(unittest.TestCase):
+    """Тесты кэша производного ключа PBKDF2 и мастер-ключа."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.orig_key_file = crypto_mod.KEY_FILE
+        self.orig_salt_file = crypto_mod.SALT_FILE
+        crypto_mod.KEY_FILE = os.path.join(self.tmpdir, '.flowlink.key')
+        crypto_mod.SALT_FILE = os.path.join(self.tmpdir, '.flowlink.salt')
+        crypto_mod.reset_key_cache()
+        # Инициализируем ключ и соль в изолированной директории
+        crypto_mod.load_or_create_key()
+        crypto_mod._save_salt(os.urandom(32))  # pylint: disable=protected-access  # internal: фиксируем уникальную соль
+
+    def tearDown(self):
+        crypto_mod.reset_key_cache()
+        crypto_mod.KEY_FILE = self.orig_key_file
+        crypto_mod.SALT_FILE = self.orig_salt_file
+        for f in os.listdir(self.tmpdir):
+            os.remove(os.path.join(self.tmpdir, f))
+        os.rmdir(self.tmpdir)
+
+    def test_derive_key_cached(self):
+        """Второй вызов _derive_key с той же парой (ключ, соль) не выполняет PBKDF2"""
+        master = crypto_mod.load_or_create_key()
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
+        ) as mock_pbkdf2:
+            first = crypto_mod._derive_key(master)  # pylint: disable=protected-access  # internal: проверка кэша
+            second = crypto_mod._derive_key(master)  # pylint: disable=protected-access
+        self.assertEqual(first, second)
+        self.assertEqual(mock_pbkdf2.call_count, 1)
+
+    def test_reset_key_cache(self):
+        """После reset_key_cache PBKDF2 выполняется заново"""
+        master = crypto_mod.load_or_create_key()
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
+        ) as mock_pbkdf2:
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+            crypto_mod.reset_key_cache()
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+        self.assertEqual(mock_pbkdf2.call_count, 2)
+
+    def test_cache_invalidated_on_salt_change(self):
+        """Смена соли через _save_salt инвалидирует кэш производного ключа"""
+        master = crypto_mod.load_or_create_key()
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
+        ) as mock_pbkdf2:
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+            crypto_mod._save_salt(os.urandom(32))  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+            crypto_mod._derive_key(master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+        self.assertEqual(mock_pbkdf2.call_count, 2)
+
+    def test_cache_invalidated_on_key_recreate(self):
+        """Пересоздание ключа (повреждённый файл) инвалидирует кэш"""
+        with patch.object(
+            crypto_mod, 'pbkdf2_hmac', return_value=b'derived-key',
+        ) as mock_pbkdf2:
+            old_master = crypto_mod.load_or_create_key()
+            crypto_mod._derive_key(old_master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+            # Повреждаем файл ключа — при загрузке создаётся новый ключ
+            with open(crypto_mod.KEY_FILE, 'wb') as f:
+                f.write(b'tooshort')
+            new_master = crypto_mod.load_or_create_key()
+            self.assertNotEqual(new_master, old_master)
+            crypto_mod._derive_key(new_master)  # pylint: disable=protected-access  # тест проверяет внутренние функции шифрования
+        self.assertEqual(mock_pbkdf2.call_count, 2)

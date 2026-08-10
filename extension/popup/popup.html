@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +10,7 @@
   <div id="app" class="app">
     <header class="header">
       <h1 class="title">FlowLink Proxy</h1>
-      <label class="switch" id="global-toggle" title="Вкл/Выкл">
+      <label class="switch" id="global-toggle" title="Вкл/Выкл" data-i18n-title="toggle">
         <input type="checkbox" id="global-toggle-input">
         <span class="slider"></span>
       </label>
@@ -18,76 +18,80 @@
 
     <div id="update-banner" class="update-banner hidden">
       <span id="update-text"></span>
-      <a id="btn-update-download" class="btn-small" target="_blank" rel="noopener">Скачать</a>
-      <button id="btn-update-help" class="btn-small">Как обновить?</button>
-      <button id="btn-update-close" class="btn-icon" title="Закрыть">✕</button>
+      <a id="btn-update-download" class="btn-small" target="_blank" rel="noopener" data-i18n="download">Скачать</a>
+      <button id="btn-update-help" class="btn-small" data-i18n="howToUpdate">Как обновить?</button>
+      <button id="btn-update-close" class="btn-icon" title="Закрыть" data-i18n-title="close">✕</button>
     </div>
 
     <div id="status-bar" class="status-bar hidden">
       <span id="status-icon" class="status-icon">&#9679;</span>
       <span id="status-text" class="status-text"></span>
-      <button id="btn-ping-all" class="btn-small">Пинг</button>
+      <button id="btn-ping-all" class="btn-small" data-i18n="ping">Пинг</button>
     </div>
 
-    <div id="error-state" class="error-state hidden">
-      <span>Нет связи с бэкендом</span>
-      <button id="btn-retry" class="btn-small">Повторить</button>
-      <button id="btn-help-setup" class="btn-small">Помощь</button>
-    </div>
+    <!-- Баннеры ошибок и предупреждений создаются динамически через renderBanner() -->
 
     <div id="proxy-list" class="proxy-list">
-      <div class="empty-state">Нет добавленных прокси</div>
+      <div class="empty-state" data-i18n="noProxies">Нет добавленных прокси</div>
     </div>
 
-    <button id="btn-add-proxy" class="btn-add">+ Добавить прокси</button>
+    <button id="btn-add-proxy" class="btn-add" data-i18n="addProxy">+ Добавить прокси</button>
 
-    <a class="donation-link" href="https://yoomoney.ru/to/4100119569298015" target="_blank" rel="noopener" title="Поддержать проект">❤ Поддержать проект</a>
-    <div class="contact-email">Ошибки и предложения:
-      <span id="contact-email" class="contact-email-link" title="Нажмите, чтобы скопировать">flowlink.proxy@atomicmail.io</span>
+    <a class="donation-link" href="https://yoomoney.ru/to/4100119569298015" target="_blank" rel="noopener" title="Поддержать проект" data-i18n="supportProject" data-i18n-title="supportProject">❤ Поддержать проект</a>
+    <div class="contact-email"><span data-i18n="errorsSuggestions">Ошибки и предложения:</span>
+      <span id="contact-email" class="contact-email-link" title="Нажмите, чтобы скопировать" data-i18n-title="clickToCopy">flowlink.proxy@atomicmail.io</span>
     </div>
     <div class="version-wrap">
       <span id="version-text"></span>
-      <button id="btn-settings-toggle" class="btn-settings" title="Настройки">⚙</button>
+      <button id="btn-help" class="btn-settings" title="Помощь" data-i18n-title="help">?</button>
+      <button id="btn-settings-toggle" class="btn-settings" title="Настройки" data-i18n-title="settings">⚙</button>
     </div>
-    <form id="settings-form">
-      <div id="settings-row" class="settings-row hidden">
+    <div id="settings-block" class="settings-block hidden">
+      <!-- Секция: Подключение -->
+      <div class="settings-section">
+        <div class="settings-section-title" data-i18n="connection">Подключение</div>
+        <form id="settings-form">
+          <div class="settings-row-item">
+            <label for="settings-api-port" data-i18n="apiPort">Порт API:</label>
+            <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
+            <button id="btn-settings-save" type="submit" class="btn-settings-save" data-i18n="save">Сохранить</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Секция: Язык -->
+      <div class="settings-section">
+        <div class="settings-section-title" data-i18n="language">Язык</div>
         <div class="settings-row-item">
-          <label for="settings-api-port">Порт API:</label>
-          <input id="settings-api-port" class="input-settings" type="number" min="1" max="65535" value="8081">
-          <button id="btn-settings-save" type="submit" class="btn-settings-save">Сохранить</button>
-        </div>
-        <div id="autostart-browser-wrap" class="settings-row-item autostart-row-settings hidden">
-          <span class="autostart-label">Автозапуск браузера</span>
-          <label class="switch" title="Вкл/Выкл автозапуск браузера">
-            <input type="checkbox" id="autostart-browser-input">
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div id="autostart-scripts-banner" class="autostart-banner-settings hidden">
-          <span class="autostart-banner-text">Скрипты запуска не найдены. Автозапуск недоступен.</span>
-          <button id="btn-autostart-help" class="btn-small">Помощь</button>
+          <label for="settings-language" data-i18n="language">Язык:</label>
+          <select id="settings-language" class="input-settings">
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+            <option value="sr">Srpski</option>
+          </select>
         </div>
       </div>
-    </form>
+
+    </div>
   </div>
 
   <!-- Модальное окно: помощь с настройкой -->
   <div id="modal-help" class="modal-overlay hidden">
     <div class="modal modal-wide">
       <div class="modal-header">
-        <h2 class="modal-title">Настройка FlowLink Proxy</h2>
-        <button id="btn-help-close" class="btn-icon" title="Закрыть">✕</button>
+        <h2 class="modal-title" data-i18n="setupFlowLink">Настройка FlowLink Proxy</h2>
+        <button id="btn-help-close" class="btn-icon" title="Закрыть" data-i18n-title="close">✕</button>
       </div>
-      <div id="modal-tabs" class="modal-tabs">
-        <button id="tab-windows" class="tab tab-active">Windows (.exe)</button>
-        <button id="tab-source" class="tab">Исходный код</button>
-        <button id="tab-ext" class="tab">Расширение</button>
+      <div id="modal-tabs" class="help-tabs">
+        <button id="tab-backend" class="help-tab active" data-i18n="backend">Бэкенд</button>
+        <button id="tab-browser" class="help-tab" data-i18n="browser">Браузер</button>
+        <button id="tab-port" class="help-tab" data-i18n="portSetup">Настройка порта</button>
+        <button id="tab-faq" class="help-tab" data-i18n="faq">FAQ</button>
+        <button id="tab-update-backend" class="help-tab hidden" data-i18n="updateBackend">Обновление бэкенда</button>
+        <button id="tab-update-ext" class="help-tab hidden" data-i18n="updateExt">Обновление расширения</button>
       </div>
       <div class="modal-body help-content" id="help-content">
         <!-- заполняется JS -->
-      </div>
-      <div class="modal-actions">
-        <button id="btn-help-close2" class="btn btn-secondary">Закрыть</button>
       </div>
     </div>
   </div>
@@ -96,26 +100,26 @@
     <div class="modal">
       <form id="proxy-form">
         <div class="modal-header">
-          <h2 id="modal-proxy-title" class="modal-title">Добавить прокси</h2>
+          <h2 id="modal-proxy-title" class="modal-title" data-i18n="addProxyTitle">Добавить прокси</h2>
         </div>
         <div class="modal-body">
           <input id="proxy-id" type="hidden">
           <div class="field-group">
-            <input id="proxy-host" class="input" type="text" placeholder="IP адрес" autocomplete="off">
+            <input id="proxy-host" class="input" type="text" placeholder="IP или домен" autocomplete="off" data-i18n-placeholder="ipOrDomain">
             <div id="proxy-host-error" class="field-error hidden"></div>
           </div>
           <div class="field-group">
-            <input id="proxy-port" class="input" type="number" placeholder="Порт" min="1" max="65535">
+            <input id="proxy-port" class="input" type="number" placeholder="Порт" min="1" max="65535" data-i18n-placeholder="port">
             <div id="proxy-port-error" class="field-error hidden"></div>
           </div>
           <div class="field-group">
-            <input id="proxy-username" class="input" type="text" placeholder="Логин" autocomplete="off">
+            <input id="proxy-username" class="input" type="text" placeholder="Логин" autocomplete="off" data-i18n-placeholder="login">
             <div id="proxy-username-error" class="field-error hidden"></div>
           </div>
           <div class="field-group password-field">
             <div class="password-wrap">
-              <input id="proxy-password" class="input input--password" type="password" placeholder="Пароль" autocomplete="off">
-              <button id="btn-password-toggle" class="btn-password-toggle" type="button" title="Показать пароль">
+              <input id="proxy-password" class="input input--password" type="password" placeholder="Пароль" autocomplete="off" data-i18n-placeholder="password">
+              <button id="btn-password-toggle" class="btn-password-toggle" type="button" title="Показать пароль" data-i18n-title="showPassword">
                 <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
                   <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
@@ -130,13 +134,13 @@
             <div id="proxy-password-error" class="field-error hidden"></div>
           </div>
           <div class="field-group">
-            <input id="proxy-label" class="input" type="text" placeholder="Название (необязательно)" autocomplete="off" maxlength="21">
+            <input id="proxy-label" class="input" type="text" placeholder="Название (необязательно)" autocomplete="off" maxlength="21" data-i18n-placeholder="labelOptional">
             <div id="proxy-label-error" class="field-error hidden"></div>
           </div>
         </div>
         <div class="modal-actions">
-          <button id="btn-proxy-cancel" type="button" class="btn btn-secondary">Отменить</button>
-          <button id="btn-proxy-save" type="submit" class="btn btn-primary">Сохранить</button>
+          <button id="btn-proxy-cancel" type="button" class="btn btn-secondary" data-i18n="cancelBtn">Отменить</button>
+          <button id="btn-proxy-save" type="submit" class="btn btn-primary" data-i18n="save">Сохранить</button>
         </div>
       </form>
     </div>
@@ -145,17 +149,17 @@
   <div id="modal-masks" class="modal-overlay hidden">
     <div class="modal">
       <div class="modal-header">
-        <h2 class="modal-title">Маски</h2>
-        <button id="btn-clear-masks" class="btn btn-secondary flex-shrink-0" type="button">Очистить</button>
+        <h2 class="modal-title" data-i18n="masks">Маски</h2>
+        <button id="btn-clear-masks" class="btn btn-secondary flex-shrink-0" type="button" data-i18n="clear">Очистить</button>
       </div>
       <div class="modal-body modal-body--masks">
         <div id="mask-list" class="mask-list">
-          <div class="empty-state small">Нет масок</div>
+          <div class="empty-state small" data-i18n="noMasks">Нет масок</div>
         </div>
       </div>
       <div class="modal-actions">
-        <button id="btn-add-mask" class="btn btn-primary">+ Добавить маску</button>
-        <button id="btn-masks-close" class="btn btn-secondary">Закрыть</button>
+        <button id="btn-add-mask" class="btn btn-primary" data-i18n="addMask">+ Добавить маску</button>
+        <button id="btn-masks-close" class="btn btn-secondary" data-i18n="close">Закрыть</button>
       </div>
     </div>
   </div>
@@ -164,16 +168,16 @@
     <div class="modal">
       <form id="mask-form">
         <div class="modal-header">
-          <h2 id="modal-mask-title" class="modal-title">Добавить маску</h2>
+          <h2 id="modal-mask-title" class="modal-title" data-i18n="addMaskTitle">Добавить маску</h2>
         </div>
         <div class="modal-body">
           <input id="mask-id" type="hidden">
-          <input id="mask-pattern" class="input" type="text" placeholder='Например: *gemini.google.com* или *.google.com' autocomplete="off">
+          <input id="mask-pattern" class="input" type="text" placeholder='Например: *gemini.google.com* или *.google.com' autocomplete="off" data-i18n-placeholder="maskExample">
           <div id="mask-error" class="field-error hidden"></div>
         </div>
         <div class="modal-actions">
-          <button id="btn-mask-cancel" type="button" class="btn btn-secondary">Отменить</button>
-          <button id="btn-mask-save" type="submit" class="btn btn-primary">Сохранить</button>
+          <button id="btn-mask-cancel" type="button" class="btn btn-secondary" data-i18n="cancelBtn">Отменить</button>
+          <button id="btn-mask-save" type="submit" class="btn btn-primary" data-i18n="save">Сохранить</button>
         </div>
       </form>
     </div>

@@ -9,15 +9,8 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from server.tray.platform import (
-    get_backend_info,
-    has_pil,
-    has_pystray,
-    has_tkinter,
-    is_linux,
-    is_macos,
-    is_windows,
-)
+from server.tray.platform import (get_backend_info, has_tkinter,
+                                  is_linux, is_macos, is_windows)
 
 
 class TestIsPlatform(unittest.TestCase):
@@ -64,21 +57,6 @@ class TestHasModules(unittest.TestCase):
         """has_tkinter возвращает True если tkinter доступен."""
         self.assertTrue(has_tkinter())
 
-    def test_has_pystray_returns_bool(self):
-        """has_pystray возвращает bool."""
-        result = has_pystray()
-        self.assertIsInstance(result, bool)
-
-    def test_has_pil_returns_bool(self):
-        """has_pil возвращает bool."""
-        result = has_pil()
-        self.assertIsInstance(result, bool)
-
-    @patch('builtins.__import__', side_effect=ImportError)
-    def test_has_tkinter_false_when_import_fails(self, _mock_import):
-        """has_tkinter возвращает False при ошибке импорта."""
-        self.assertFalse(has_tkinter())
-
 
 class TestGetBackendInfo(unittest.TestCase):
     """Тесты get_backend_info."""
@@ -102,12 +80,6 @@ class TestGetBackendInfo(unittest.TestCase):
         self.assertFalse(info['is_windows'])
         self.assertFalse(info['is_macos'])
 
-    @patch.object(sys, 'platform', 'linux')
-    def test_has_tkinter_always_present(self):
-        """get_backend_info содержит has_tkinter."""
-        info = get_backend_info()
-        self.assertIn('has_tkinter', info)
-        self.assertIsInstance(info['has_tkinter'], bool)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,1022 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: FlowLink Proxy 0.1.0\n"
+"Report-Msgid-Bugs-To: flowlink.proxy@atomicmail.io\n"
+"POT-Creation-Date: 2026-01-01 00:00+0000\n"
+"PO-Revision-Date: 2026-01-01 00:00+0000\n"
+"Last-Translator: FlowHack\n"
+"Language-Team: Serbian\n"
+"Language: sr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+# server/servers/handlers.py
+msgid "Требуется поле \"autostartBrowser\" (true/false)"
+msgstr "Polje \"autostartBrowser\" (true/false) je obavezno"
+
+msgid "Поле \"autostartBrowser\" должно быть булевым (true/false)"
+msgstr "Polje \"autostartBrowser\" mora biti logičko (true/false)"
+
+msgid "Не удалось сохранить настройку. Проверьте права на запись. Если проблема повторяется, обратитесь в поддержку: flowlink.proxy@atomicmail.io"
+msgstr "Neuspešno čuvanje podešavanja. Proverite dozvole za upis. Ako se problem ponavlja, kontaktirajte podršku: flowlink.proxy@atomicmail.io"
+
+msgid "Требуется proxyId"
+msgstr "proxyId je obavezan"
+
+msgid "Требуется поле \"enabled\" (true/false)"
+msgstr "Polje \"enabled\" (true/false) je obavezno"
+
+msgid "Поле \"enabled\" должно быть булевым (true/false)"
+msgstr "Polje \"enabled\" mora biti logičko (true/false)"
+
+msgid "Требуется поле \"path\""
+msgstr "Polje \"path\" je obavezno"
+
+msgid "Поле \"path\" должно быть строкой"
+msgstr "Polje \"path\" mora biti string"
+
+msgid "Требуется поле \"host\""
+msgstr "Polje \"host\" je obavezno"
+
+msgid "Поле \"host\" должно быть строкой"
+msgstr "Polje \"host\" mora biti string"
+
+msgid "Требуется поле \"port\""
+msgstr "Polje \"port\" je obavezno"
+
+msgid "Поле \"port\" должно быть целым числом"
+msgstr "Polje \"port\" mora biti ceo broj"
+
+msgid "Порт должен быть в диапазоне 1-65535"
+msgstr "Port mora biti u opsegu 1-65535"
+
+msgid "Неверный формат хоста (IP или домен)"
+msgstr "Neispravan format hosta (IP ili domen)"
+
+msgid "Требуется поле \"pattern\""
+msgstr "Polje \"pattern\" je obavezno"
+
+msgid "Поле \"pattern\" должно быть строкой"
+msgstr "Polje \"pattern\" mora biti string"
+
+msgid "Требуется поле \"proxyId\""
+msgstr "Polje \"proxyId\" je obavezno"
+
+msgid "Прокси не найден"
+msgstr "Proxy nije pronađen"
+
+msgid "Маска не найдена"
+msgstr "Maska nije pronađena"
+
+msgid "Не удалось сохранить настройку"
+msgstr "Neuspešno čuvanje podešavanja"
+
+msgid "Внутренняя ошибка сервера"
+msgstr "Interna greška servera"
+
+msgid "Неверный запрос"
+msgstr "Neispravan zahtev"
+
+msgid "Доступ запрещён"
+msgstr "Pristup zabranjen"
+
+msgid "Не найдено"
+msgstr "Nije pronađeno"
+
+msgid "Требуется поле \"language\""
+msgstr "Polje \"language\" je obavezno"
+
+msgid "Неподдерживаемый язык. Доступные: ru, en, sr"
+msgstr "Nepodržan jezik. Dostupni: ru, en, sr"
+
+# server/servers/api.py
+msgid "Метод не поддерживается"
+msgstr "Metod nije podržan"
+
+msgid "Путь не найден"
+msgstr "Putanja nije pronađena"
+
+msgid "Неверный JSON в теле запроса"
+msgstr "Neispravan JSON u telu zahteva"
+
+msgid "Требуется токен аутентификации"
+msgstr "Token za autentifikaciju je obavezan"
+
+msgid "Неверный токен аутентификации"
+msgstr "Neispravan token za autentifikaciju"
+
+msgid "Слишком большой запрос"
+msgstr "Zahtev je prevelik"
+
+msgid "Таймаут запроса"
+msgstr "Vreme zahteva je isteklo"
+
+# server/config/browser_config.py
+msgid "Путь к браузеру не указан"
+msgstr "Putanja do pregledača nije navedena"
+
+msgid "Файл браузера не найден"
+msgstr "Datoteka pregledača nije pronađena"
+
+msgid "Указанный файл не является исполняемым"
+msgstr "Navedena datoteka nije izvršna"
+
+msgid "Браузер не поддерживается"
+msgstr "Pregledač nije podržan"
+
+msgid "Не удалось определить версию браузера"
+msgstr "Neuspešno određivanje verzije pregledača"
+
+msgid "Не удалось сохранить конфигурацию браузера"
+msgstr "Neuspešno čuvanje konfiguracije pregledača"
+
+msgid "Не удалось загрузить конфигурацию браузера"
+msgstr "Neuspešno učitavanje konfiguracije pregledača"
+
+# server/ui/dialogs.py
+msgid "OK"
+msgstr "OK"
+
+msgid "Да"
+msgstr "Da"
+
+msgid "Нет"
+msgstr "Ne"
+
+msgid "Указать вручную"
+msgstr "Navedi ručno"
+
+msgid "Отмена"
+msgstr "Otkaži"
+
+msgid "Выбор браузера"
+msgstr "Izbor pregledača"
+
+msgid "Предупреждение"
+msgstr "Upozorenje"
+
+# server/tray/menu.py
+msgid "FlowLink Proxy"
+msgstr "FlowLink Proxy"
+
+msgid "Включить"
+msgstr "Uključi"
+
+msgid "Выключить"
+msgstr "Isključi"
+
+msgid "Прокси"
+msgstr "Proxyji"
+
+msgid "Маски"
+msgstr "Maske"
+
+msgid "Браузер"
+msgstr "Pregledač"
+
+msgid "Выбрать браузер"
+msgstr "Izaberi pregledač"
+
+msgid "Автозапуск браузера"
+msgstr "Automatsko pokretanje pregledača"
+
+msgid "Настройки"
+msgstr "Podešavanja"
+
+msgid "Помощь"
+msgstr "Pomoć"
+
+msgid "О программе"
+msgstr "O programu"
+
+msgid "Выход"
+msgstr "Izlaz"
+
+msgid "Обновление доступно"
+msgstr "Ažuriranje je dostupno"
+
+msgid "Проверить обновления"
+msgstr "Proveri ažuriranja"
+
+msgid "Открыть папку с логами"
+msgstr "Otvori fasciklu sa logovima"
+
+msgid "Открыть папку с данными"
+msgstr "Otvori fasciklu sa podacima"
+
+msgid "Язык"
+msgstr "Jezik"
+
+msgid "Русский"
+msgstr "Ruski"
+
+msgid "Английский"
+msgstr "Engleski"
+
+msgid "Сербский"
+msgstr "Srpski"
+
+msgid "Бэкенд запущен"
+msgstr "Backend je pokrenut"
+
+msgid "Бэкенд остановлен"
+msgstr "Backend je zaustavljen"
+
+msgid "Ошибка запуска бэкенда"
+msgstr "Greška pri pokretanju backend-a"
+
+msgid "Порт занят"
+msgstr "Port je zauzet"
+
+msgid "Не удалось создать меню трея"
+msgstr "Neuspešno kreiranje menija u traci"
+
+msgid "Не удалось запустить браузер"
+msgstr "Neuspešno pokretanje pregledača"
+
+msgid "Браузер не выбран"
+msgstr "Pregledač nije izabran"
+
+msgid "Автозапуск включён"
+msgstr "Automatsko pokretanje je uključeno"
+
+msgid "Автозапуск выключен"
+msgstr "Automatsko pokretanje je isključeno"
+
+msgid "Прокси включён"
+msgstr "Proxy je uključen"
+
+msgid "Прокси выключен"
+msgstr "Proxy je isključen"
+
+msgid "Все прокси выключены"
+msgstr "Svi proxyji su isključeni"
+
+msgid "Нет активных прокси"
+msgstr "Nema aktivnih proxyja"
+
+msgid "Подключено"
+msgstr "Povezano"
+
+msgid "Отключено"
+msgstr "Isključeno"
+
+msgid "Ошибка"
+msgstr "Greška"
+
+msgid "Успешно"
+msgstr "Uspešno"
+
+msgid "Загрузка..."
+msgstr "Učitavanje..."
+
+msgid "Сохранить"
+msgstr "Sačuvaj"
+
+msgid "Закрыть"
+msgstr "Zatvori"
+
+msgid "Добавить"
+msgstr "Dodaj"
+
+msgid "Удалить"
+msgstr "Obriši"
+
+msgid "Изменить"
+msgstr "Izmeni"
+
+msgid "Очистить"
+msgstr "Očisti"
+
+msgid "Подтвердить"
+msgstr "Potvrdi"
+
+msgid "Отменить"
+msgstr "Otkaži"
+
+msgid "Повторить"
+msgstr "Pokušaj ponovo"
+
+msgid "Проверка..."
+msgstr "Provera..."
+
+msgid "Пинг"
+msgstr "Ping"
+
+msgid "Версия"
+msgstr "Verzija"
+
+msgid "Обновление"
+msgstr "Ažuriranje"
+
+msgid "Лицензия"
+msgstr "Licenca"
+
+msgid "Поддержка"
+msgstr "Podrška"
+
+msgid "Скачать"
+msgstr "Preuzmi"
+
+msgid "Как обновить?"
+msgstr "Kako ažurirati?"
+
+msgid "Настройка FlowLink Proxy"
+msgstr "Podešavanje FlowLink Proxy"
+
+msgid "Порт API"
+msgstr "API port"
+
+msgid "Подключение"
+msgstr "Veza"
+
+msgid "Бэкенд"
+msgstr "Backend"
+
+msgid "Браузер"
+msgstr "Pregledač"
+
+msgid "Настройка порта"
+msgstr "Podešavanje porta"
+
+msgid "FAQ"
+msgstr "FAQ"
+
+msgid "Обновление бэкенда"
+msgstr "Ažuriranje backend-a"
+
+msgid "Обновление расширения"
+msgstr "Ažuriranje ekstenzije"
+
+msgid "Добавить прокси"
+msgstr "Dodaj proxy"
+
+msgid "Редактировать прокси"
+msgstr "Izmeni proxy"
+
+msgid "IP или домен"
+msgstr "IP ili domen"
+
+msgid "Порт"
+msgstr "Port"
+
+msgid "Логин"
+msgstr "Korisničko ime"
+
+msgid "Пароль"
+msgstr "Lozinka"
+
+msgid "Показать пароль"
+msgstr "Prikaži lozinku"
+
+msgid "Скрыть пароль"
+msgstr "Sakrij lozinku"
+
+msgid "Название (необязательно)"
+msgstr "Naziv (opciono)"
+
+msgid "Маски"
+msgstr "Maske"
+
+msgid "Добавить маску"
+msgstr "Dodaj masku"
+
+msgid "Редактировать маску"
+msgstr "Izmeni masku"
+
+msgid "Нет масок"
+msgstr "Nema maski"
+
+msgid "Нет добавленных прокси"
+msgstr "Nema dodatih proxyja"
+
+msgid "Прокси не добавлены"
+msgstr "Nema dodatih proxyja"
+
+msgid "Включён автозапуск браузера, но браузер не выбран. Настройте его, чтобы автозапуск работал."
+msgstr "Automatsko pokretanje pregledača je uključeno, ali pregledač nije izabran. Podesite ga da bi automatsko pokretanje radilo."
+
+msgid "Нет соединения с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "Nema veze sa backend-om. Proverite da li je FlowLink Proxy pokrenut."
+
+msgid "Не удалось переключить состояние. Проверьте соединение с бэкендом."
+msgstr "Neuspešno prebacivanje stanja. Proverite vezu sa backend-om."
+
+msgid "Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "Neuspešno povezivanje sa backend-om. Proverite da li je FlowLink Proxy pokrenut."
+
+msgid "Не удалось удалить прокси. Проверьте соединение с бэкендом."
+msgstr "Neuspešno brisanje proxyja. Proverite vezu sa backend-om."
+
+msgid "Не удалось переключить прокси. Проверьте соединение с бэкендом."
+msgstr "Neuspešno prebacivanje proxyja. Proverite vezu sa backend-om."
+
+msgid "Не удалось удалить маску. Проверьте соединение с бэкендом."
+msgstr "Neuspešno brisanje maske. Proverite vezu sa backend-om."
+
+msgid "Не удалось очистить маски. Проверьте соединение с бэкендом."
+msgstr "Neuspešno čišćenje maski. Proverite vezu sa backend-om."
+
+msgid "Порт должен быть числом от 1 до 65535"
+msgstr "Port mora biti broj od 1 do 65535"
+
+msgid "Не удалось сохранить настройки. Проверьте соединение с бэкендом."
+msgstr "Neuspešno čuvanje podešavanja. Proverite vezu sa backend-om."
+
+msgid "Не удалось проверить обновления. Возможно, GitHub заблокирован — используйте VPN или прокси."
+msgstr "Neuspešna provera ažuriranja. GitHub je možda blokiran — koristite VPN ili proxy."
+
+msgid "Прокси не отвечают (таймаут/сброс). Возможно, соединение блокируется провайдером — используйте VPN или другой прокси."
+msgstr "Proxyji ne odgovaraju (timeout/reset). Veza je možda blokirana od strane provajdera — koristite VPN ili drugi proxy."
+
+msgid "Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд."
+msgstr "Backend je vratio neispravan odgovor. Pokušajte da restartujete backend."
+
+msgid "Введите хост"
+msgstr "Unesite host"
+
+msgid "Введите порт"
+msgstr "Unesite port"
+
+msgid "Порт от 1 до 65535"
+msgstr "Port od 1 do 65535"
+
+msgid "Введите паттерн маски"
+msgstr "Unesite pattern maske"
+
+msgid "Не выбран прокси для маски"
+msgstr "Nije izabran proxy za masku"
+
+msgid "Язык изменён"
+msgstr "Jezik je promenjen"
+
+msgid "Вкл/Выкл"
+msgstr "Uključi/Isključi"
+
+msgid "Вкл"
+msgstr "Uključeno"
+
+msgid "Выкл"
+msgstr "Isključeno"
+
+msgid "Выключено"
+msgstr "Isključeno"
+
+msgid "Напрямую"
+msgstr "Direktno"
+
+msgid "Через SOCKS5 ({host})"
+msgstr "Preko SOCKS5 ({host})"
+
+msgid "неизвестно"
+msgstr "nepoznato"
+
+msgid "н/д"
+msgstr "n/p"
+
+msgid "Доступно обновление {tag}"
+msgstr "Dostupno ažuriranje {tag}"
+
+msgid "Версия: {ext} (бэкенд: {be})"
+msgstr "Verzija: {ext} (backend: {be})"
+
+msgid "Версия: {ver}"
+msgstr "Verzija: {ver}"
+
+msgid "Клик — маски для {label}"
+msgstr "Klik — maske za {label}"
+
+msgid "Email скопирован: {email}"
+msgstr "Email kopiran: {email}"
+
+msgid "Не удалось скопировать. Выделите вручную: {email}"
+msgstr "Neuspešno kopiranje. Izaberite ručno: {email}"
+
+msgid "Выделите вручную: {email}"
+msgstr "Izaberite ručno: {email}"
+
+msgid "Поддержать проект"
+msgstr "Podrži projekat"
+
+msgid "Ошибки и предложения:"
+msgstr "Greške i predlozi:"
+
+msgid "Нажмите, чтобы скопировать"
+msgstr "Kliknite da kopirate"
+
+msgid "Помощь"
+msgstr "Pomoć"
+
+msgid "Настройки"
+msgstr "Podešavanja"
+
+msgid "Порт API:"
+msgstr "API port:"
+
+msgid "Язык:"
+msgstr "Jezik:"
+
+msgid "Сохранить"
+msgstr "Sačuvaj"
+
+msgid "Отменить"
+msgstr "Otkaži"
+
+msgid "Закрыть"
+msgstr "Zatvori"
+
+msgid "Очистить"
+msgstr "Očisti"
+
+msgid "Добавить"
+msgstr "Dodaj"
+
+msgid "Удалить"
+msgstr "Obriši"
+
+msgid "Изменить"
+msgstr "Izmeni"
+
+msgid "Подтвердить"
+msgstr "Potvrdi"
+
+msgid "Повторить"
+msgstr "Pokušaj ponovo"
+
+msgid "Проверка..."
+msgstr "Provera..."
+
+msgid "Пинг"
+msgstr "Ping"
+
+msgid "Версия"
+msgstr "Verzija"
+
+msgid "Обновление"
+msgstr "Ažuriranje"
+
+msgid "Лицензия"
+msgstr "Licenca"
+
+msgid "Поддержка"
+msgstr "Podrška"
+
+msgid "Скачать"
+msgstr "Preuzmi"
+
+msgid "Как обновить?"
+msgstr "Kako ažurirati?"
+
+msgid "Настройка FlowLink Proxy"
+msgstr "Podešavanje FlowLink Proxy"
+
+msgid "Порт API"
+msgstr "API port"
+
+msgid "Подключение"
+msgstr "Veza"
+
+msgid "Бэкенд"
+msgstr "Backend"
+
+msgid "Браузер"
+msgstr "Pregledač"
+
+msgid "Настройка порта"
+msgstr "Podešavanje porta"
+
+msgid "FAQ"
+msgstr "FAQ"
+
+msgid "Обновление бэкенда"
+msgstr "Ažuriranje backend-a"
+
+msgid "Обновление расширения"
+msgstr "Ažuriranje ekstenzije"
+
+msgid "Добавить прокси"
+msgstr "Dodaj proxy"
+
+msgid "Редактировать прокси"
+msgstr "Izmeni proxy"
+
+msgid "IP или домен"
+msgstr "IP ili domen"
+
+msgid "Порт"
+msgstr "Port"
+
+msgid "Логин"
+msgstr "Korisničko ime"
+
+msgid "Пароль"
+msgstr "Lozinka"
+
+msgid "Показать пароль"
+msgstr "Prikaži lozinku"
+
+msgid "Скрыть пароль"
+msgstr "Sakrij lozinku"
+
+msgid "Название (необязательно)"
+msgstr "Naziv (opciono)"
+
+msgid "Маски"
+msgstr "Maske"
+
+msgid "Добавить маску"
+msgstr "Dodaj masku"
+
+msgid "Редактировать маску"
+msgstr "Izmeni masku"
+
+msgid "Нет масок"
+msgstr "Nema maski"
+
+msgid "Нет добавленных прокси"
+msgstr "Nema dodatih proxyja"
+
+msgid "Прокси не добавлены"
+msgstr "Nema dodatih proxyja"
+
+msgid "Включён автозапуск браузера, но браузер не выбран. Настройте его, чтобы автозапуск работал."
+msgstr "Automatsko pokretanje pregledača je uključeno, ali pregledač nije izabran. Podesite ga da bi automatsko pokretanje radilo."
+
+msgid "Нет соединения с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "Nema veze sa backend-om. Proverite da li je FlowLink Proxy pokrenut."
+
+msgid "Не удалось переключить состояние. Проверьте соединение с бэкендом."
+msgstr "Neuspešno prebacivanje stanja. Proverite vezu sa backend-om."
+
+msgid "Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy."
+msgstr "Neuspešno povezivanje sa backend-om. Proverite da li je FlowLink Proxy pokrenut."
+
+msgid "Не удалось удалить прокси. Проверьте соединение с бэкендом."
+msgstr "Neuspešno brisanje proxyja. Proverite vezu sa backend-om."
+
+msgid "Не удалось переключить прокси. Проверьте соединение с бэкендом."
+msgstr "Neuspešno prebacivanje proxyja. Proverite vezu sa backend-om."
+
+msgid "Не удалось удалить маску. Проверьте соединение с бэкендом."
+msgstr "Neuspešno brisanje maske. Proverite vezu sa backend-om."
+
+msgid "Не удалось очистить маски. Проверьте соединение с бэкендом."
+msgstr "Neuspešno čišćenje maski. Proverite vezu sa backend-om."
+
+msgid "Порт должен быть числом от 1 до 65535"
+msgstr "Port mora biti broj od 1 do 65535"
+
+msgid "Не удалось сохранить настройки. Проверьте соединение с бэкендом."
+msgstr "Neuspešno čuvanje podešavanja. Proverite vezu sa backend-om."
+
+msgid "Не удалось проверить обновления. Возможно, GitHub заблокирован — используйте VPN или прокси."
+msgstr "Neuspešna provera ažuriranja. GitHub je možda blokiran — koristite VPN ili proxy."
+
+msgid "Прокси не отвечают (таймаут/сброс). Возможно, соединение блокируется провайдером — используйте VPN или другой прокси."
+msgstr "Proxyji ne odgovaraju (timeout/reset). Veza je možda blokirana od strane provajdera — koristite VPN ili drugi proxy."
+
+msgid "Бэкенд вернул невалидный ответ. Попробуйте перезапустить бэкенд."
+msgstr "Backend je vratio neispravan odgovor. Pokušajte da restartujete backend."
+
+msgid "Введите хост"
+msgstr "Unesite host"
+
+msgid "Введите порт"
+msgstr "Unesite port"
+
+msgid "Порт от 1 до 65535"
+msgstr "Port od 1 do 65535"
+
+msgid "Введите паттерн маски"
+msgstr "Unesite pattern maske"
+
+msgid "Не выбран прокси для маски"
+msgstr "Nije izabran proxy za masku"
+
+msgid "Язык изменён"
+msgstr "Jezik je promenjen"
+
+msgid "Вкл/Выкл"
+msgstr "Uključi/Isključi"
+
+msgid "Вкл"
+msgstr "Uključeno"
+
+msgid "Выкл"
+msgstr "Isključeno"
+
+msgid "Выключено"
+msgstr "Isključeno"
+
+msgid "Напрямую"
+msgstr "Direktno"
+
+msgid "Через SOCKS5 ({host})"
+msgstr "Preko SOCKS5 ({host})"
+
+msgid "неизвестно"
+msgstr "nepoznato"
+
+msgid "н/д"
+msgstr "n/p"
+
+msgid "Доступно обновление {tag}"
+msgstr "Dostupno ažuriranje {tag}"
+
+msgid "Версия: {ext} (бэкенд: {be})"
+msgstr "Verzija: {ext} (backend: {be})"
+
+msgid "Версия: {ver}"
+msgstr "Verzija: {ver}"
+
+msgid "Клик — маски для {label}"
+msgstr "Klik — maske za {label}"
+
+msgid "Email скопирован: {email}"
+msgstr "Email kopiran: {email}"
+
+msgid "Не удалось скопировать. Выделите вручную: {email}"
+msgstr "Neuspešno kopiranje. Izaberite ručno: {email}"
+
+msgid "Выделите вручную: {email}"
+msgstr "Izaberite ručno: {email}"
+
+msgid "Поддержать проект"
+msgstr "Podrži projekat"
+
+msgid "Ошибки и предложения:"
+msgstr "Greške i predlozi:"
+
+msgid "Нажмите, чтобы скопировать"
+msgstr "Kliknite da kopirate"
+
+msgid "Помощь"
+msgstr "Pomoć"
+
+msgid "Настройки"
+msgstr "Podešavanja"
+
+msgid "Порт API:"
+msgstr "API port:"
+
+msgid "Язык:"
+msgstr "Jezik:"
+
+# Добавленные строки (автоматически)
+
+msgid "Автозакрытие браузера"
+msgstr "Automatsko zatvaranje pregledača"
+
+msgid "Автозапуск FlowLink Proxy вместе с системой"
+msgstr "Pokreni FlowLink Proxy sa sistemom"
+
+msgid "Браузер был запущен из FlowLink Proxy. Закрытие браузера может прервать незавершённые действия (скачивание файлов, обновления и т.п.). Если идёт важный процесс — дождитесь его завершения.\n\nВнимание: будут закрыты все процессы выбранного браузера. Если запущено несколько профилей или окон — все они будут закрыты."
+msgstr "Pregledač je pokrenut iz FlowLink Proxy-ja. Zatvaranje pregledača može prekinuti nedovršene radnje (preuzimanje datoteka, ažuriranja itd.). Ako je važan proces u toku, sačekajte da se završi.\n\nUpozorenje: svi procesi izabranog pregledača biće zatvoreni. Ako je pokrenuto više profila ili prozora, svi će biti zatvoreni."
+
+msgid "Браузер уже запущен"
+msgstr "Pregledač je već pokrenut"
+
+msgid "Браузер уже запущен через FlowLink Proxy и работает через прокси. Повторный запуск не требуется.\n\nЕсли вы хотите перезапустить браузер (например, после изменения настроек), нажмите «Перезапустить браузер». Закрытие браузера может прервать незавершённые действия (скачивание файлов, обновления и т.п.) — дождитесь их завершения.\n\nВнимание: будут закрыты все процессы выбранного браузера. Если запущено несколько профилей или окон — все они будут закрыты."
+msgstr "Pregledač je već pokrenut kroz FlowLink Proxy i radi kroz proxy. Ponovno pokretanje nije potrebno.\n\nAko želite da ponovo pokrenete pregledač (na primer, nakon promene podešavanja), kliknite na „Ponovo pokreni pregledač“. Zatvaranje pregledača može prekinuti nedovršene radnje (preuzimanje datoteka, ažuriranja itd.) — sačekajte da se završe.\n\nUpozorenje: svi procesi izabranog pregledača biće zatvoreni. Ako je pokrenuto više profila ili prozora, svi će biti zatvoreni."
+
+msgid "Все файлы"
+msgstr "Sve datoteke"
+
+msgid "Выберите исполняемый файл браузера"
+msgstr "Izaberite izvršnu datoteku pregledača"
+
+msgid "Выбрать браузер..."
+msgstr "Izaberi pregledač..."
+
+msgid "Выбрать браузер... ✓"
+msgstr "Izaberi pregledač... ✓"
+
+msgid "Для работы через прокси браузер необходимо закрыть и запустить через FlowLink Proxy. Закрытие браузера может прервать незавершённые действия (скачивание файлов, обновления и т.п.). Если идёт важный процесс — дождитесь его завершения и повторите попытку.\n\nКак завершить процесс вручную:\n{instructions}\n\nВнимание: будут закрыты все процессы выбранного браузера. Если запущено несколько профилей или окон — все они будут закрыты."
+msgstr "Da bi radio kroz proxy, pregledač mora biti zatvoren i pokrenut kroz FlowLink Proxy. Zatvaranje pregledača može prekinuti nedovršene radnje (preuzimanje datoteka, ažuriranja itd.). Ako je važan proces u toku, sačekajte da se završi i pokušajte ponovo.\n\nKako ručno prekinuti proces:\n{instructions}\n\nUpozorenje: svi procesi izabranog pregledača biće zatvoreni. Ako je pokrenuto više profila ili prozora, svi će biti zatvoreni."
+
+msgid "Завершить работу FlowLink Proxy"
+msgstr "Završi rad FlowLink Proxy-ja"
+
+msgid "Закрывать браузер при выходе из FlowLink Proxy"
+msgstr "Zatvori pregledač pri izlasku iz FlowLink Proxy-ja"
+
+msgid "Закрыть браузер"
+msgstr "Zatvori pregledač"
+
+msgid "Закрыть браузер и запустить через FlowLink Proxy"
+msgstr "Zatvori pregledač i pokreni kroz FlowLink Proxy"
+
+msgid "Закрыть браузер, запущенный из FlowLink Proxy"
+msgstr "Zatvori pregledač pokrenut iz FlowLink Proxy-ja"
+
+msgid "Закрыть браузер?"
+msgstr "Zatvoriti pregledač?"
+
+msgid "Запуск с системой"
+msgstr "Pokretanje sa sistemom"
+
+msgid "Запускать браузер автоматически при старте системы"
+msgstr "Pokreni pregledač automatski pri pokretanju sistema"
+
+msgid "Запустить браузер"
+msgstr "Pokreni pregledač"
+
+msgid "Запустить выбранный браузер сейчас"
+msgstr "Pokreni izabrani pregledač sada"
+
+msgid "Исполняемые файлы"
+msgstr "Izvršne datoteke"
+
+msgid "Маски прокси \"{proxy_label}\" и \"{conflicting_label}\" пересекаются. Включён может быть только один из них."
+msgstr "Proxy maske \"{proxy_label}\" i \"{conflicting_label}\" se preklapaju. Može biti omogućena samo jedna od njih."
+
+msgid "Найденные браузеры:"
+msgstr "Pronađeni pregledači:"
+
+msgid "Не авторизован"
+msgstr "Niste autorizovani"
+
+msgid "Не закрывать браузер"
+msgstr "Ne zatvaraj pregledač"
+
+msgid "Не перезапускать"
+msgstr "Ne pokreći ponovo"
+
+msgid "Не удалось добавить маску"
+msgstr "Nije uspelo dodavanje maske"
+
+msgid "Не удалось добавить прокси"
+msgstr "Nije uspelo dodavanje proxy-ja"
+
+msgid "Не удалось загрузить конфигурацию"
+msgstr "Nije uspelo učitavanje konfiguracije"
+
+msgid "Не удалось загрузить конфигурацию. Проверьте подключение к бэкенду."
+msgstr "Nije uspelo učitavanje konfiguracije. Proverite vezu sa backend-om."
+
+msgid "Не удалось изменить настройку автозапуска"
+msgstr "Nije uspela izmena podešavanja automatskog pokretanja"
+
+msgid "Не удалось изменить настройку автозапуска системы"
+msgstr "Nije uspela izmena podešavanja sistemskog automatskog pokretanja"
+
+msgid "Не удалось обновить маску"
+msgstr "Nije uspelo ažuriranje maske"
+
+msgid "Не удалось обновить прокси"
+msgstr "Nije uspelo ažuriranje proxy-ja"
+
+msgid "Не удалось переключить прокси"
+msgstr "Nije uspelo prebacivanje proxy-ja"
+
+msgid "Не удалось переключить состояние"
+msgstr "Nije uspelo prebacivanje stanja"
+
+msgid "Не удалось прочитать конфигурацию браузера"
+msgstr "Nije uspelo čitanje konfiguracije pregledača"
+
+msgid "Не удалось прочитать настройку"
+msgstr "Nije uspelo čitanje podešavanja"
+
+msgid "Не удалось прочитать путь браузера"
+msgstr "Nije uspelo čitanje putanje pregledača"
+
+msgid "Не удалось прочитать статус автозапуска"
+msgstr "Nije uspelo čitanje statusa automatskog pokretanja"
+
+msgid "Не удалось сохранить конфигурацию"
+msgstr "Nije uspelo čuvanje konfiguracije"
+
+msgid "Не удалось сохранить настройку. Проверьте права на запись."
+msgstr "Nije uspelo čuvanje podešavanja. Proverite dozvole za upis."
+
+msgid "Не удалось сохранить путь браузера"
+msgstr "Nije uspelo čuvanje putanje pregledača"
+
+msgid "Не удалось удалить маску"
+msgstr "Nije uspelo brisanje maske"
+
+msgid "Не удалось удалить прокси"
+msgstr "Nije uspelo brisanje proxy-ja"
+
+msgid "Открыть папку с данными (конфиг, ключи)"
+msgstr "Otvori fasciklu sa podacima (konfig, ključevi)"
+
+msgid "Открыть папку с логами FlowLink Proxy"
+msgstr "Otvori fasciklu sa logovima FlowLink Proxy-ja"
+
+msgid "Очистить данные"
+msgstr "Obriši podatke"
+
+msgid "Очистить логи"
+msgstr "Obriši logove"
+
+msgid "Ошибка автопоиска"
+msgstr "Greška automatskog pronalaženja"
+
+msgid "Перезапустить браузер"
+msgstr "Ponovo pokreni pregledač"
+
+msgid "Поле \"autostartBrowser\" должно быть булевым (true/false)"
+msgstr "Polje \"autostartBrowser\" mora biti logičko (true/false)"
+
+msgid "Поле \"enabled\" должно быть булевым (true/false)"
+msgstr "Polje \"enabled\" mora biti logičko (true/false)"
+
+msgid "Поле \"label\" должно быть строкой"
+msgstr "Polje \"label\" mora biti string"
+
+msgid "Поле \"language\" должно быть непустой строкой"
+msgstr "Polje \"language\" mora biti ne-prazan string"
+
+msgid "Поле \"password\" должно быть строкой"
+msgstr "Polje \"password\" mora biti string"
+
+msgid "Поле \"port\" должно быть целым числом от 1 до 65535"
+msgstr "Polje \"port\" mora biti ceo broj od 1 do 65535"
+
+msgid "Поле \"username\" должно быть строкой"
+msgstr "Polje \"username\" mora biti string"
+
+msgid "Посмотреть данные"
+msgstr "Pogledaj podatke"
+
+msgid "Посмотреть логи"
+msgstr "Pogledaj logove"
+
+msgid "Прокси с таким host:port уже существует"
+msgstr "Proxy sa ovim host:port već postoji"
+
+msgid "Путь не может быть пустым"
+msgstr "Putanja ne može biti prazna"
+
+msgid "Расширение FlowLink Proxy не подключено. Установите и запустите расширение в браузере"
+msgstr "FlowLink Proxy ekstenzija nije povezana. Instalirajte i pokrenite ekstenziju u pregledaču"
+
+msgid "Расширение FlowLink Proxy подключено к бэкенду"
+msgstr "FlowLink Proxy ekstenzija je povezana sa backend-om"
+
+msgid "Расширение: не подключено"
+msgstr "Ekstenzija: nije povezana"
+
+msgid "Расширение: подключено"
+msgstr "Ekstenzija: povezana"
+
+msgid "Слишком много заголовков или превышен их суммарный размер (максимум {max_headers} шт / {max_header_size} байт)"
+msgstr "Previše zaglavlja ili je prekoračena njihova ukupna veličina (maksimum {max_headers} kom / {max_header_size} bajtova)"
+
+msgid "Таймаут ожидания запроса"
+msgstr "Vremensko ograničenje zahteva"
+
+msgid "Тело запроса должно быть JSON-объектом"
+msgstr "Telo zahteva mora biti JSON objekat"
+
+msgid "Тело запроса слишком большое (максимум {max_body} байт)"
+msgstr "Telo zahteva je preveliko (maksimum {max_body} bajtova)"
+
+msgid "Требуется поле \"autostartBrowser\" (true/false)"
+msgstr "Polje \"autostartBrowser\" (true/false) je obavezno"
+
+msgid "Требуется поле \"browserPath\""
+msgstr "Polje \"browserPath\" je obavezno"
+
+msgid "Требуется поле \"enabled\" (true/false)"
+msgstr "Polje \"enabled\" (true/false) je obavezno"
+
+msgid "Требуется поле \"host\" (строка)"
+msgstr "Polje \"host\" (string) je obavezno"
+
+msgid "Требуется поле \"language\""
+msgstr "Polje \"language\" je obavezno"
+
+msgid "Требуется поле \"pattern\" (строка)"
+msgstr "Polje \"pattern\" (string) je obavezno"
+
+msgid "Требуется поле \"proxyId\""
+msgstr "Polje \"proxyId\" je obavezno"
+
+msgid "Удалить все файлы логов"
+msgstr "Obriši sve datoteke logova"
+
+msgid "Удалить конфигурацию и все данные"
+msgstr "Obriši konfiguraciju i sve podatke"
+
+msgid "Указать, какой браузер использовать"
+msgstr "Naznači koji pregledač koristiti"
+
+msgid "Файл .desktop является ярлыком. Укажите путь к исполняемому файлу напрямую."
+msgstr "Datoteka .desktop je prečica. Navedite putanju do izvršne datoteke direktno."
+
+msgid "Файл не является исполняемым"
+msgstr "Datoteka nije izvršna"
+
+msgid "Файл с расширением «{ext}» не является исполняемым файлом браузера"
+msgstr "Datoteka sa ekstenzijom «{ext}» nije izvršna datoteka pregledača"
+
+msgid "данные"
+msgstr "podaci"
+
+msgid "логи"
+msgstr "logovi"

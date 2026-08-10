@@ -8,40 +8,32 @@ SOCKS5 клиент на чистом asyncio + struct (без внешних з
 - CONNECT-команду
 """
 
+from __future__ import annotations
+
 import asyncio
+import ipaddress
 import logging
 import socket
 import struct
 
 from server.protocols.base import ProxyError, ProxyProtocol
+from server.protocols.socks5_constants import (
+    ATYP_DOMAIN,
+    ATYP_IPV4,
+    ATYP_IPV6,
+    CMD_CONNECT,
+    METHOD_NO_AUTH,
+    METHOD_USERPASS,
+    SOCKS5_ERRORS,
+    SOCKS5_RSV,
+    SOCKS5_SUCCESS,
+    SOCKS5_VERSION,
+    USERPASS_SUCCESS,
+    USERPASS_VERSION,
+)
+from server.utils import safe_close_writer
 
 logger = logging.getLogger('flowlink.socks5')
-
-SOCKS5_VERSION = 0x05
-CMD_CONNECT = 0x01
-ATYP_IPV4 = 0x01
-ATYP_DOMAIN = 0x03
-
-METHOD_NO_AUTH = 0x00
-METHOD_USERPASS = 0x02
-METHOD_NO_ACCEPTABLE = 0xFF
-
-USERPASS_VERSION = 0x01
-USERPASS_SUCCESS = 0x00
-
-SOCKS5_RSV = 0x00
-SOCKS5_SUCCESS = 0x00
-
-SOCKS5_ERRORS = {
-    0x01: 'Общая ошибка SOCKS-сервера',
-    0x02: 'Соединение запрещено правилами',
-    0x03: 'Сеть недоступна',
-    0x04: 'Хост недоступен',
-    0x05: 'Соединение отклонено',
-    0x06: 'Истёк TTL',
-    0x07: 'Команда не поддерживается',
-    0x08: 'Тип адреса не поддерживается',
-}
 
 
 class Socks5Error(ProxyError):
@@ -52,6 +44,12 @@ class Socks5Protocol(ProxyProtocol):
     """Реализация SOCKS5 прокси-протокола."""
 
     def __init__(self, config: dict):
+        """Инициализирует протокол SOCKS5.
+
+        Args:
+            config: Словарь с параметрами прокси (host, port,
+                username, password).
+        """
         super().__init__(config)
         self._host = config.get('host', '')
         self._port = config.get('port', 0)
@@ -90,25 +88,47 @@ class Socks5Protocol(ProxyProtocol):
             ) from e
         return reader, writer
 
-    async def ping(self, timeout: float = 5) -> bool:
+    async def ping(self, timeout: float = 5) -> tuple[bool, str | None]:
         """
         Проверяет доступность SOCKS5-прокси (TCP + handshake без CONNECT).
 
-        Returns True, если прокси ответил на handshake, иначе False.
+        Returns:
+            Кортеж (alive, error_kind): alive — True если прокси ответил,
+            error_kind — тип ошибки ('timeout' | 'refused' | 'reset' |
+            'handshake' | None при успехе).
         """
         try:
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(self._host, self._port),
                 timeout=timeout,
             )
-        except (OSError, ConnectionError, asyncio.TimeoutError):
-            return False
+        except asyncio.TimeoutError:
+            logger.debug('SOCKS5 ping: таймаут подключения к %s:%d',
+                         self._host, self._port)
+            return False, 'timeout'
+        except ConnectionRefusedError:
+            logger.debug('SOCKS5 ping: соединение отклонено %s:%d',
+                         self._host, self._port)
+            return False, 'refused'
+        except ConnectionResetError:
+            logger.debug('SOCKS5 ping: соединение сброшено %s:%d',
+                         self._host, self._port)
+            return False, 'reset'
+        except OSError as e:
+            logger.debug('SOCKS5 ping: не удалось подключиться к %s:%d: %s',
+                         self._host, self._port, e)
+            return False, 'network'
 
         try:
-            await self._handshake(reader, writer)
-            return True
-        except ProxyError:
-            return False
+            await asyncio.wait_for(self._handshake(reader, writer), timeout=timeout)
+            return True, None
+        except (ProxyError, asyncio.IncompleteReadError,
+                ValueError, asyncio.TimeoutError) as e:
+            # Расширенный перехват: не только Socks5Error, но и ошибки
+            # чтения/распаковки ответа — ping не должен падать.
+            logger.debug('SOCKS5 ping: прокси %s:%d недоступен: %s',
+                         self._host, self._port, e)
+            return False, 'handshake'
         finally:
             writer.close()
 
@@ -116,19 +136,20 @@ class Socks5Protocol(ProxyProtocol):
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
-    ):
+    ) -> None:
         """
         SOCKS5 method negotiation + аутентификация.
 
         Протокол:
           1. Клиент шлёт [ver=0x05, n_methods, methods...]
           2. Сервер отвечает [ver, chosen_method]
-          3. Если chosen_method == 0x02 — клиент шлёт [up_ver=0x01, user_len, user, pass_len, pass]
+          3. Если chosen_method == 0x02 — клиент шлёт [up_ver=0x01, user_len,
+          user, pass_len, pass]
           4. Сервер отвечает [up_ver, status] (0x00 = успех)
 
         Вызывает Socks5Error при ошибке.
         """
-        # Шаг 1: отправляем список поддерживаемых методов аутентификации
+        # Отправляем список поддерживаемых методов аутентификации
         has_auth = bool(self._username and self._password)
         methods = [METHOD_NO_AUTH]
         if has_auth:
@@ -140,7 +161,7 @@ class Socks5Protocol(ProxyProtocol):
         writer.write(msg)
         await writer.drain()
 
-        # Шаг 2: читаем ответ сервера — выбранный метод
+        # Читаем ответ сервера — выбранный метод
         resp = await reader.readexactly(2)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug('SOCKS5 <<< handshake: %s', resp.hex(' '))
@@ -148,7 +169,7 @@ class Socks5Protocol(ProxyProtocol):
         if ver != SOCKS5_VERSION:
             raise Socks5Error(f'Неверная версия SOCKS: {ver}')
 
-        # Шаг 3: если сервер выбрал username/password — отправляем учётные данные
+        # Если сервер выбрал username/password — отправляем учётные данные
         if method == METHOD_USERPASS and has_auth:
             username_bytes = self._username.encode()
             password_bytes = self._password.encode()
@@ -170,28 +191,42 @@ class Socks5Protocol(ProxyProtocol):
             _, up_status = struct.unpack('!BB', auth_resp)
             if up_status != USERPASS_SUCCESS:
                 writer.close()
-                raise Socks5Error('Ошибка аутентификации SOCKS5: неверный логин/пароль')
+                raise Socks5Error(
+                    'Ошибка аутентификации SOCKS5: неверный логин/пароль'
+                )
 
         elif method == METHOD_NO_AUTH:
             pass
 
-        elif method == METHOD_NO_ACCEPTABLE:
-            raise Socks5Error('SOCKS5: нет приемлемого метода аутентификации')
+        else:
+            raise Socks5Error(
+                f'SOCKS5: сервер выбрал недопустимый метод аутентификации: {method}'
+            )
 
     @staticmethod
     def _encode_address(host: str) -> tuple[int, bytes]:
-        """Кодирует адрес в формат SOCKS5 (IPv4 или домен)."""
+        """Кодирует адрес в формат SOCKS5 (IPv4, IPv6 или домен)."""
         try:
-            return ATYP_IPV4, socket.inet_aton(host)
-        except OSError:
-            host_bytes = host.encode()
-            return ATYP_DOMAIN, bytes([len(host_bytes)]) + host_bytes
+            addr = ipaddress.ip_address(host)
+            if addr.version == 4:
+                return ATYP_IPV4, socket.inet_aton(host)
+            if addr.version == 6:
+                return ATYP_IPV6, addr.packed
+        except ValueError:
+            logger.debug("Адрес '%s' не является IP-адресом, обрабатываем как домен", host)
+
+        host_bytes = host.encode()
+        if len(host_bytes) > 255:
+            raise Socks5Error(
+                f'Доменное имя слишком длинное: {len(host_bytes)} байт (максимум 255)'
+            )
+        return ATYP_DOMAIN, bytes([len(host_bytes)]) + host_bytes
 
     @staticmethod
     async def _skip_bind_address(
         reader: asyncio.StreamReader,
         atyp: int,
-    ):
+    ) -> None:
         """Пропускает bind address в ответе SOCKS5."""
         if atyp == ATYP_IPV4:
             await reader.readexactly(4 + 2)
@@ -219,8 +254,13 @@ class Socks5Protocol(ProxyProtocol):
         Ответ сервера:
           [ver, rep, rsv, atyp, bind_addr, bind_port]
         """
+        # Отмена по таймауту (asyncio.wait_for) на этапе open_connection
+        # не требует очистки: writer ещё не создан, а CancelledError не
+        # перехватывается блоком ниже и распространяется автоматически.
         try:
-            reader, writer = await asyncio.open_connection(self._host, self._port)
+            reader, writer = await asyncio.open_connection(
+                self._host, self._port
+            )
         except (OSError, ConnectionError) as e:
             raise Socks5Error(
                 f'Не удалось подключиться к {self._host}:{self._port}: {e}'
@@ -247,19 +287,33 @@ class Socks5Protocol(ProxyProtocol):
 
             header = await reader.readexactly(4)
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug('SOCKS5 <<< connect reply header: %s', header.hex(' '))
+                logger.debug(
+                    'SOCKS5 <<< connect reply header: %s', header.hex(' ')
+                )
             ver, rep, _rsv, atyp_resp = struct.unpack('!BBBB', header)
             if ver != SOCKS5_VERSION:
                 raise Socks5Error(f'Неверная версия SOCKS в ответе: {ver}')
 
             if rep != SOCKS5_SUCCESS:
-                error_msg = SOCKS5_ERRORS.get(rep, f'Unknown error {rep}')
+                error_msg = SOCKS5_ERRORS.get(rep, f'Неизвестная ошибка {rep}')
                 raise Socks5Error(f'SOCKS5 CONNECT отказан: {error_msg}')
 
             await self._skip_bind_address(reader, atyp_resp)
 
-        except (OSError, ConnectionError, asyncio.IncompleteReadError) as e:
-            writer.close()
+        except asyncio.CancelledError:
+            # Отмена по таймауту (asyncio.wait_for): соединение уже открыто,
+            # но CONNECT не завершён. Без закрытия writer TCP-соединение
+            # утекает — закрываем и перевыбрасываем отмену.
+            safe_close_writer(writer)
+            raise
+        except (
+            OSError, ConnectionError, asyncio.IncompleteReadError, Socks5Error
+        ) as e:
+            # Закрываем writer при ЛЮБОЙ ошибке (включая Socks5Error из
+            # _handshake), чтобы не допустить утечки TCP-соединения.
+            safe_close_writer(writer)
+            if isinstance(e, Socks5Error):
+                raise
             raise Socks5Error(f'Ошибка SOCKS5: {e}') from e
 
         return reader, writer

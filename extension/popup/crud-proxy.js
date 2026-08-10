@@ -4,17 +4,20 @@
  * Использует config-based API: GET /api/config → modify → POST /api/config.
  */
 
-import { apiGet, apiPost } from '../shared/api.js';
-import { isValidIP, isValidPort, setLoading } from '../shared/utils.js';
+import { apiPatch, apiPost, apiDelete } from '../shared/api.js';
+import { isValidHost, isValidPort, setLoading } from '../shared/utils.js';
 import { showModal, closeModal } from './modal.js';
 import { showToast } from './popup.js';
+import { t } from '../shared/i18n.js';
+import { clearDraft } from './draft.js';
 
 /**
  * Открывает модальное окно добавления нового прокси.
  */
 export function openAddProxyModal() {
   clearProxyForm();
-  document.getElementById('modal-proxy-title').textContent = 'Добавить прокси';
+  clearDraft().catch(e => console.warn('[FlowLink Proxy] crud-proxy: ошибка очистки черновика:', e));
+  document.getElementById('modal-proxy-title').textContent = t('addProxyTitle');
   document.getElementById('proxy-id').value = '';
   showModal('modal-proxy');
 }
@@ -24,7 +27,20 @@ export function openAddProxyModal() {
  * @param {object} proxy — объект прокси (поля: proxyId, host, port, username, password, label).
  */
 export function openEditProxyModal(proxy) {
-  document.getElementById('modal-proxy-title').textContent = 'Редактировать прокси';
+  if (!proxy) return;
+  clearDraft().catch(e => console.warn('[FlowLink Proxy] crud-proxy: ошибка очистки черновика:', e));
+  // Сброс видимости пароля при открытии редактирования
+  const pwdInput = document.getElementById('proxy-password');
+  const pwdBtn = document.getElementById('btn-password-toggle');
+  if (pwdInput) pwdInput.type = 'password';
+  if (pwdBtn) {
+    pwdBtn.title = t('showPassword');
+    const closed = pwdBtn.querySelector('.eye-closed');
+    const open = pwdBtn.querySelector('.eye-open');
+    if (closed) closed.classList.remove('hidden');
+    if (open) open.classList.add('hidden');
+  }
+  document.getElementById('modal-proxy-title').textContent = t('editProxyTitle');
   document.getElementById('proxy-id').value = proxy.proxyId;
   document.getElementById('proxy-host').value = proxy.host;
   document.getElementById('proxy-port').value = proxy.port;
@@ -47,7 +63,7 @@ function clearProxyForm() {
   const pwdBtn = document.getElementById('btn-password-toggle');
   if (pwdInput) pwdInput.type = 'password';
   if (pwdBtn) {
-    pwdBtn.title = 'Показать пароль';
+    pwdBtn.title = t('showPassword');
     const closed = pwdBtn.querySelector('.eye-closed');
     const open = pwdBtn.querySelector('.eye-open');
     if (closed) closed.classList.remove('hidden');
@@ -91,49 +107,38 @@ export async function handleSaveProxy(loadAndRender) {
 
   hideFieldErrors();
   let hasError = false;
-  if (!host) { showFieldError('proxy-host', 'Введите хост'); hasError = true; }
+  if (!host) { showFieldError('proxy-host', t('enterHost')); hasError = true; }
   if (!port || !isValidPort(port)) {
-    showFieldError('proxy-port', port ? 'Порт от 1 до 65535' : 'Введите порт');
+    showFieldError('proxy-port', port ? t('portRange') : t('enterPort'));
     hasError = true;
   }
   if (hasError) return;
-  if (!isValidIP(host)) { showFieldError('proxy-host', 'Неверный формат IP'); return; }
+  if (!isValidHost(host)) { showFieldError('proxy-host', t('invalidHost')); return; }
 
   const saveBtn = document.getElementById('btn-proxy-save');
   setLoading(saveBtn, true);
   try {
-    const config = await apiGet('/config');
-    const proxies = config.proxies || [];
-
-    // Проверка дубликата host:port
-    const duplicates = proxies.filter(
-      p => p.host === host && p.port === port && p.proxyId !== proxyId
-    );
-    if (duplicates.length > 0) {
-      showFieldError('proxy-host', 'Прокси с таким host:port уже существует');
-      setLoading(saveBtn, false);
-      return;
-    }
-
     if (proxyId) {
-      const idx = proxies.findIndex(p => p.proxyId === proxyId);
-      if (idx !== -1) {
-        proxies[idx] = { ...proxies[idx], host, port, username, password, label };
-      }
-    } else {
-      proxies.push({
-        proxyId: crypto.randomUUID(),
+      // Редактирование существующего прокси — точечный PATCH
+      await apiPatch(`/proxy/${encodeURIComponent(proxyId)}`, {
         host, port, username, password, label,
-        isEnabled: true,
+      });
+    } else {
+      // Создание нового прокси — точечный POST
+      await apiPost('/proxies', {
+        host, port, username, password, label,
       });
     }
-    config.proxies = proxies;
-    await apiPost('/config', config);
     closeModal();
     await loadAndRender();
   } catch (e) {
-    const msg = e.message.includes('Failed to fetch') || e.message.includes('HTTP')
-      ? 'Не удалось связаться с бэкендом. Проверьте, запущен ли FlowLink Proxy.'
+    console.error('[FlowLink Proxy] Ошибка сохранения прокси:', e);
+    // Типизированная ошибка (ApiError.kind) или обратная совместимость
+    const isNetworkError = e.kind === 'network' || e.kind === 'timeout'
+      || e.message.startsWith('NETWORK:') || e.message.startsWith('TIMEOUT:')
+      || e.message.includes('Failed to fetch');
+    const msg = isNetworkError
+      ? t('backendUnreachable')
       : e.message;
     showFieldError('proxy-host', msg);
   } finally {
@@ -150,14 +155,11 @@ export async function handleSaveProxy(loadAndRender) {
 export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
   setLoading(btn, true);
   try {
-    const config = await apiGet('/config');
-    config.proxies = (config.proxies || []).filter(p => p.proxyId !== proxyId);
-    config.masks = (config.masks || []).filter(m => m.proxyId !== proxyId);
-    await apiPost('/config', config);
+    await apiDelete(`/proxy/${encodeURIComponent(proxyId)}`);
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка удаления прокси:', e);
-    showToast('Не удалось удалить прокси. Проверьте соединение с бэкендом.');
+    showToast(t('deleteProxyFailed'), 'error');
   } finally {
     setLoading(btn, false);
   }
@@ -172,16 +174,24 @@ export async function handleDeleteProxy(proxyId, loadAndRender, btn) {
 export async function handleToggleProxy(proxyId, loadAndRender, checkbox) {
   checkbox.disabled = true;
   try {
-    const config = await apiGet('/config');
-    const proxy = (config.proxies || []).find(p => p.proxyId === proxyId);
-    if (proxy) {
-      proxy.isEnabled = !proxy.isEnabled;
-      await apiPost('/config', config);
-    }
+    const enabled = checkbox.checked;
+    await apiPatch(`/proxy/${encodeURIComponent(proxyId)}/enabled`, { enabled });
     await loadAndRender();
   } catch (e) {
     console.error('[FlowLink Proxy] Ошибка переключения прокси:', e);
-    showToast('Не удалось переключить прокси. Проверьте соединение с бэкендом.');
+    // При ошибке возвращаем чекбокс в исходное состояние
+    const enabled = checkbox.checked;
+    checkbox.checked = !enabled;
+
+    // При 422 сервер возвращает текст конфликта масок — показываем его.
+    // Чекбокс возвращаем в исходное состояние при ошибке.
+    const isNetworkError = e.kind === 'network' || e.kind === 'timeout'
+      || e.message.startsWith('NETWORK:') || e.message.startsWith('TIMEOUT:')
+      || e.message.includes('Failed to fetch');
+    const msg = isNetworkError
+      ? t('toggleProxyFailed')
+      : e.message;
+    showToast(msg, 'error');
   } finally {
     checkbox.disabled = false;
   }

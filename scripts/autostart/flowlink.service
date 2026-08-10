@@ -1,0 +1,13 @@
+[Unit]
+Description=FlowLink Proxy — шлюз для маршрутизации трафика
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/FlowLink\ Proxy
+Environment=FLOWLINK_DATA_DIR=%h/.FlowHack/FlowLink Proxy
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

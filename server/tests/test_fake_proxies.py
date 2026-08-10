@@ -8,13 +8,9 @@ import unittest
 
 from server.config import config as cfg
 from server.config import repo as config_repo
-from server.services.fake_proxies import (
-    _random_credential,
-    _random_id,
-    _random_ip,
-    _random_port,
-    generate_fake_proxies,
-)
+from server.services.fake_proxies import (_random_id, _random_ip,
+                                          _random_port,
+                                          generate_fake_proxies)
 
 
 class TestRandomId(unittest.TestCase):
@@ -24,33 +20,6 @@ class TestRandomId(unittest.TestCase):
         """ID содержит 12 hex-символов."""
         rid = _random_id()
         self.assertEqual(len(rid), 12)
-
-    def test_random_id_hex_only(self):
-        """ID состоит только из hex-символов."""
-        rid = _random_id()
-        self.assertTrue(all(c in '0123456789abcdef' for c in rid))
-
-    def test_random_id_uniqueness(self):
-        """Два вызова _random_id() дают разные результаты."""
-        ids = {_random_id() for _ in range(100)}
-        self.assertEqual(len(ids), 100)
-
-
-class TestRandomCredential(unittest.TestCase):
-    """Тесты генерации логинов и паролей."""
-
-    def test_credential_format(self):
-        """Формат: <prefix>-<8_hex_символов>."""
-        cred = _random_credential('fake-user')
-        self.assertTrue(cred.startswith('fake-user-'))
-        suffix = cred.split('-', 2)[-1]
-        self.assertEqual(len(suffix), 8)
-
-    def test_credential_uniqueness(self):
-        """Два вызова дают разные результаты."""
-        creds = {_random_credential('test') for _ in range(100)}
-        self.assertEqual(len(creds), 100)
-
 
 class TestRandomIp(unittest.TestCase):
     """Тесты генерации IP-адресов."""

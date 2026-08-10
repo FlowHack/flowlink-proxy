@@ -10,16 +10,18 @@ import unittest
 from unittest.mock import patch
 
 from server.config import config as cfg
+from server.config import crypto as crypto_mod
 from server.config import repo as config_repo
 from server.servers.handlers import (_close_tunnels_on_config_change,
                                      _extract_masks_dict,
                                      _extract_proxies_dict,
-                                     _log_config_changes,
-                                     handle_get_config, handle_get_status,
-                                     handle_get_version, handle_post_config,
-                                     handle_post_enabled)
+                                     _log_config_changes, handle_get_browser_config,
+                                     handle_get_config,
+                                     handle_get_status, handle_get_version,
+                                     handle_post_config, handle_post_enabled,
+                                     handle_rotate_key)
 from server.services.router import MaskRouter
-from server.tests.base import TempConfigMixin, TempConfigEnabledMixin
+from server.tests.base import TempConfigEnabledMixin, TempConfigMixin
 
 
 class TestExtractHelpers(unittest.TestCase):
@@ -139,6 +141,26 @@ class TestHandleGetVersion(unittest.TestCase):
         result = handle_get_version()
         self.assertIn('version', result)
         self.assertIsInstance(result['version'], str)
+
+
+class TestHandleGetBrowserConfig(unittest.TestCase):
+    """Тесты handle_get_browser_config."""
+
+    def test_response_has_no_detected_browsers(self):
+        """Ответ не содержит поле detectedBrowsers (убрано из горячего пути)."""
+        with patch('server.servers.handlers.browser_config.get_browser_config',
+                   return_value={'browserPath': '/path', 'autostartBrowser': True}):
+            result = handle_get_browser_config()
+        self.assertNotIn('detectedBrowsers', result)
+        self.assertEqual(result['browserPath'], '/path')
+
+    def test_response_includes_browser_path_and_autostart(self):
+        """Ответ содержит browserPath и autostartBrowser."""
+        with patch('server.servers.handlers.browser_config.get_browser_config',
+                   return_value={'browserPath': '/custom/path', 'autostartBrowser': False}):
+            result = handle_get_browser_config()
+        self.assertEqual(result['browserPath'], '/custom/path')
+        self.assertFalse(result['autostartBrowser'])
 
 
 class TestCloseTunnelsOnConfigChange(unittest.TestCase):
@@ -272,6 +294,35 @@ class TestLogConfigChanges(unittest.TestCase):
         msgs = self._get_log_messages()
         self.assertTrue(any('Удалена маска' in m for m in msgs))
 
+    def test_mask_change_not_logged(self):
+        """Изменение regexString маски НЕ логируется (фиксация текущего контракта)
+
+        _log_config_changes сообщает только о добавленных/удалённых масках,
+        изменение существующей маски не попадает в лог.
+        """
+        old_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}}
+        new_m = {'m1': {'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.org'}}
+        proxy = {'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080}}
+        _log_config_changes(proxy, proxy, old_m, new_m)
+        self.assertEqual(self._get_log_messages(), [])
+
+    def test_proxy_username_password_change_not_logged(self):
+        """Изменение только username/password прокси НЕ логируется
+
+        Текущий контракт: логируется смена host/port, а смена
+        credentials (username/password) — нет.
+        """
+        old_p = {
+            'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
+                   'username': 'old_user', 'password': 'old_pass'},
+        }
+        new_p = {
+            'p1': {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
+                   'username': 'new_user', 'password': 'new_pass'},
+        }
+        _log_config_changes(old_p, new_p, {}, {})
+        self.assertEqual(self._get_log_messages(), [])
+
 
 class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
     """Тесты handle_post_config — критический путь сохранения конфига."""
@@ -291,6 +342,7 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
             'masks': [{'maskId': 'm1', 'proxyId': 'p1', 'regexString': r'\.com'}],
         }
         result = asyncio.run(handle_post_config(data, self.router))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         # Проверяем, что данные действительно сохранились
         loaded = cfg.load_config()
@@ -299,13 +351,19 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
 
     def test_post_config_non_dict_returns_error(self):
         """POST /api/config с не-данными возвращает ошибку"""
-        result = asyncio.run(handle_post_config('not a dict', self.router))
+        # type: ignore[reportArgumentType] — намеренно передаём не-словарь для проверки ошибки
+        result = asyncio.run(
+            handle_post_config('not a dict', self.router),  # type: ignore[reportArgumentType]
+        )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)
 
     def test_post_config_empty_data(self):
         """POST /api/config с пустыми данными сохраняет пустой конфиг"""
         data = {'proxies': [], 'masks': []}
         result = asyncio.run(handle_post_config(data, self.router))
+        assert isinstance(result, dict)
         self.assertTrue(result.get('success'))
         loaded = cfg.load_config()
         self.assertEqual(len(loaded['proxies']), 0)
@@ -317,11 +375,13 @@ class TestHandlePostConfig(TempConfigMixin, unittest.TestCase):
             'proxies': [{'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080, 'isEnabled': True}],
             'masks': [],
         })
-        cfg._invalidate_cache()
+        # Принудительный сброс кэша — необходимо для изоляции тестов
+        cfg.invalidate_cache()
         # Сохраняем конфиг без этого прокси
         data = {'proxies': [], 'masks': []}
         with patch('server.servers.handlers.close_tunnels_for_proxy') as mock_close:
             result = asyncio.run(handle_post_config(data, self.router))
+            assert isinstance(result, dict)
             self.assertTrue(result.get('success'))
             mock_close.assert_called_once_with('p1')
 
@@ -338,6 +398,8 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
         """POST /api/enabled {enabled: true} → success"""
         cfg.set_enabled(False)
         result = asyncio.run(handle_post_enabled({'enabled': True}, self.router))
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertTrue(result.get('success'))
         self.assertTrue(result.get('enabled'))
         self.assertTrue(cfg.is_enabled())
@@ -346,6 +408,8 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
         """POST /api/enabled {enabled: false} → success"""
         cfg.set_enabled(True)
         result = asyncio.run(handle_post_enabled({'enabled': False}, self.router))
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertTrue(result.get('success'))
         self.assertFalse(result.get('enabled'))
         self.assertFalse(cfg.is_enabled())
@@ -353,9 +417,89 @@ class TestHandlePostEnabled(TempConfigEnabledMixin, unittest.TestCase):
     def test_missing_enabled_field_returns_error(self):
         """POST /api/enabled без поля enabled → ошибка"""
         result = asyncio.run(handle_post_enabled({}, self.router))
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)
 
     def test_non_dict_returns_error(self):
         """POST /api/enabled с не-данными → ошибка"""
-        result = asyncio.run(handle_post_enabled('invalid', self.router))
+        result = asyncio.run(
+            # type: ignore[reportArgumentType] — намеренно передаём строку для проверки ошибки
+            handle_post_enabled('invalid', self.router),  # type: ignore[reportArgumentType]
+        )
+        if isinstance(result, tuple):
+            result = result[0]
         self.assertIn('error', result)
+
+
+class TestGetStatusCryptoFlag(unittest.TestCase):
+    """Тесты поля cryptoHealthy в /api/status."""
+
+    def test_get_status_includes_crypto_healthy(self):
+        """Статус содержит булев флаг здоровья крипто-модуля."""
+        status = handle_get_status(debug=False)
+        self.assertIn('cryptoHealthy', status)
+        self.assertIsInstance(status['cryptoHealthy'], bool)
+
+
+class TestRotateKey(TempConfigMixin, unittest.TestCase):
+    """Тесты ротации ключа на уровне обработчика handle_rotate_key."""
+
+    def setUp(self):
+        """Изолирует и ключ, и конфиг во временной директории."""
+        super().setUp()
+        self.orig_key_file = crypto_mod.KEY_FILE
+        self.orig_salt_file = crypto_mod.SALT_FILE
+        crypto_mod.KEY_FILE = os.path.join(self.tmpdir, '.flowlink.key')
+        crypto_mod.SALT_FILE = os.path.join(self.tmpdir, '.flowlink.salt')
+        # Сбрасываем кэш ключей при подмене путей, чтобы он не «протекал»
+        crypto_mod.reset_key_cache()
+
+    def tearDown(self):
+        """Восстанавливает пути ключа/соли и удаляет временную папку."""
+        crypto_mod.reset_key_cache()
+        crypto_mod.KEY_FILE = self.orig_key_file
+        crypto_mod.SALT_FILE = self.orig_salt_file
+        super().tearDown()
+
+    def test_rotate_key_preserves_passwords(self):
+        """После handle_rotate_key пароли перешифрованы новым ключом и читаемы."""
+        data = {
+            'proxies': [
+                {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
+                 'username': 'user', 'password': 'secret-password'},
+            ],
+            'masks': [],
+        }
+        cfg.save_config(data)
+        result = asyncio.run(handle_rotate_key())
+        if isinstance(result, tuple):
+            result = result[0]
+        self.assertTrue(result.get('success'))
+        saved = cfg.load_config()
+        proxies = _extract_proxies_dict(saved)
+        self.assertEqual(proxies['p1']['password'], 'secret-password')
+
+    def test_rotate_key_rolls_back_on_save_error(self):
+        """При сбое перешифрования старые ключ и соль восстанавливаются."""
+        data = {
+            'proxies': [
+                {'proxyId': 'p1', 'host': '1.1.1.1', 'port': 1080,
+                 'username': 'user', 'password': 'secret-password'},
+            ],
+            'masks': [],
+        }
+        cfg.save_config(data)
+        old_key, old_salt = crypto_mod.read_key_material()
+        with patch.object(cfg, 'save_config', side_effect=OSError('disk full')):
+            result = asyncio.run(handle_rotate_key())
+        if isinstance(result, tuple):
+            result = result[0]
+        self.assertIn('error', result)
+        # Ключ и соль откачены — конфиг остался читаемым прежним ключом
+        restored_key, restored_salt = crypto_mod.read_key_material()
+        self.assertEqual(restored_key, old_key)
+        self.assertEqual(restored_salt, old_salt)
+        saved = cfg.load_config()
+        proxies = _extract_proxies_dict(saved)
+        self.assertEqual(proxies['p1']['password'], 'secret-password')
