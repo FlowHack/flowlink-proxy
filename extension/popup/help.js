@@ -448,6 +448,7 @@ const HELP_TEXTS = {
       ru: `
     <h3>Обновление расширения</h3>
     <ol>
+      <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
       <li><strong>CRX:</strong> скачайте новый <code>FlowLink-Proxy-v*.crx</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, перетащите на <code>chrome://extensions</code></li>
       <li><strong>ZIP (unpacked):</strong> скачайте <code>FlowLink-Proxy-v*.zip</code>, распакуйте в папку расширения, затем на <code>chrome://extensions</code> нажмите «Обновить» (круглая стрелка) у карточки FlowLink Proxy</li>
     </ol>
@@ -455,6 +456,7 @@ const HELP_TEXTS = {
       en: `
     <h3>Extension update</h3>
     <ol>
+      <li><strong>From store:</strong> the extension will update automatically</li>
       <li><strong>CRX:</strong> download the new <code>FlowLink-Proxy-v*.crx</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, drag it onto <code>chrome://extensions</code></li>
       <li><strong>ZIP (unpacked):</strong> download <code>FlowLink-Proxy-v*.zip</code>, unpack into the extension folder, then on <code>chrome://extensions</code> click «Update» (circular arrow) on the FlowLink Proxy card</li>
     </ol>
@@ -462,6 +464,7 @@ const HELP_TEXTS = {
       sr: `
     <h3>Ažuriranje ekstenzije</h3>
     <ol>
+      <li><strong>Iz prodavnice:</strong> ekstenzija će se ažurirati automatski</li>
       <li><strong>CRX:</strong> preuzmite novi <code>FlowLink-Proxy-v*.crx</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, prevucite na <code>chrome://extensions</code></li>
       <li><strong>ZIP (unpacked):</strong> preuzmite <code>FlowLink-Proxy-v*.zip</code>, raspakujte u fasciklu ekstenzije, zatim na <code>chrome://extensions</code> kliknite «Ažuriraj» (kružna strelica) na kartici FlowLink Proxy</li>
     </ol>
