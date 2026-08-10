@@ -396,6 +396,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
         except tk.TclError:
             sh = 1080
         # self._root может быть None до вызова show()
+        # self._root может быть None до вызова show()
         pointer_y = self._root.winfo_pointery()  # type: ignore[union-attr]
         above_y = pointer_y - height - 8
         if above_y >= 0:
@@ -557,6 +558,7 @@ class FlowLinkPopup:  # pylint: disable=too-many-instance-attributes  # сост
                     # add='+' сохраняет существующие глобальные биндинги.
                     self._popup.bind_all(
                         '<Button-1>',
+                        # колбэк-метод: pyright не знает сигнатуру события Tk
                         self._on_global_click,  # type: ignore[reportArgumentType]
                         add='+',
                     )

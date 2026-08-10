@@ -1134,9 +1134,10 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
     except OSError as e:
         logger.warning('Не удалось записать файл портов: %s', e)
 
-    # Уведомляем расширение о готовности бэкенда (после перезапуска).
-    # Расширение может переподключиться к SSE и перечитать конфиг.
-    asyncio.create_task(emit_event('backend_ready', {'apiPort': args.api_port}))
+    # Событие backend_ready отправляется в server/services/sse.py при
+    # подключении SSE-клиента: при перезапуске бэкенда расширение
+    # подключается ПОСЛЕ старта, поэтому ранняя постановка события
+    # в очередь приводила к его потере при очистке очереди.
 
     # Словарь callbacks создаётся заранее и передаётся в _watch_api_connection,
     # чтобы уведомление могло привязаться к tk_root трея (заполняется позже).
@@ -1333,7 +1334,9 @@ if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        pass
+        # Штатное завершение по Ctrl+C: фиксируем в логе и выходим
+        logger = logging.getLogger('flowlink')
+        logger.debug('Прерывание по Ctrl+C, завершаем работу')
     except Exception as e:  # pylint: disable=broad-exception-caught  # последний рубеж: лог ошибки
         # Последний рубеж: логируем и корректно завершаем процесс
         logger = logging.getLogger('flowlink')

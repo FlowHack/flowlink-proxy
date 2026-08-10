@@ -632,7 +632,15 @@ async def handle_rotate_key() -> dict | tuple[dict, int]:
     try:
         data = cfg.load_config()
         old_key, old_salt = _crypto.read_key_material()
-        _crypto.rotate_key()
+        try:
+            _crypto.rotate_key()
+        except Exception:  # pylint: disable=broad-exception-caught  # откат обязателен и при частичном сбое ротации
+            # Ротация упала (например, OSError при записи соли): ключ мог
+            # смениться, а соль — нет. Восстанавливаем старую пару, иначе
+            # зашифрованные старым ключом данные на диске станут
+            # нечитаемыми (GCM InvalidTag) — потеря паролей.
+            _crypto.restore_key_material(old_key, old_salt)
+            raise
         try:
             cfg.save_config(data)
         except Exception:  # pylint: disable=broad-exception-caught  # откат обязателен при любой ошибке перешифрования

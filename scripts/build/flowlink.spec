@@ -41,7 +41,7 @@ fi
 %{_datadir}/applications/flowlink-proxy.desktop
 
 %changelog
-* Sat Jul 13 2026 FlowLink Proxy <flowlink.proxy@atomicmail.io> - 0.1.0-1
+* Mon Aug 10 2026 FlowLink Proxy <flowlink.proxy@atomicmail.io> - 0.1.0-1
 - System autostart support
 - Browser auto-detection
 - Standalone binary with PyInstaller

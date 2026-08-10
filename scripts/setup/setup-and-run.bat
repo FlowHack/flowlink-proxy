@@ -32,6 +32,11 @@ REM --- Install dependencies ---
 if exist "server\requirements.txt" (
     echo [+] Installing dependencies...
     call venv\Scripts\pip install -q -r server\requirements.txt
+    REM Проверка результата установки зависимостей: при сбое прерываем запуск
+    if %errorlevel% neq 0 (
+        echo [!] Failed to install dependencies.
+        exit /b 1
+    )
     echo [+] Dependencies installed.
 )
 

@@ -18,7 +18,7 @@ from server.config import repo as config_repo
 from server.config.repo import load_raw, save_raw
 
 try:
-    # cryptography — runtime зависимость
+    # cryptography — runtime зависимость; атрибут существует только при установленной библиотеке
     from cryptography.exceptions import \
         CryptographyException  # type: ignore[reportAttributeAccessIssue]
 except ImportError:

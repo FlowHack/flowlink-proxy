@@ -41,6 +41,10 @@ class _RequestTooLarge(Exception):
     """Тело запроса превышает MAX_POST_BODY."""
 
 
+class _RequestNegativeLength(Exception):
+    """Отрицательное значение Content-Length в запросе."""
+
+
 class _RequestHeaderLimit(Exception):
     """Превышен лимит количества или суммарного размера заголовков."""
 
@@ -469,6 +473,12 @@ async def _parse_http_request(
                 peername, headers['content-length'], e,
             )
 
+    if content_length < 0:
+        # Отрицательный Content-Length — некорректный запрос: защита от
+        # попыток обойти лимиты тела через отрицательные значения.
+        logger.warning('API: отрицательный Content-Length от %s', peername)
+        raise _RequestNegativeLength()
+
     if content_length > MAX_POST_BODY:
         logger.warning('API: слишком большой запрос (%s байт) от %s',
                        content_length, peername)
@@ -797,6 +807,11 @@ class ApiServer(BaseServer):
                             '(максимум {max_body} байт)').format(
                                 max_body=MAX_POST_BODY,
                             )},
+            )
+        except _RequestNegativeLength:
+            await _build_response(
+                writer, 400,
+                {'error': _('Некорректный Content-Length в запросе')},
             )
         except _RequestHeaderLimit:
             await _build_response(
