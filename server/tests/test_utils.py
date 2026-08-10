@@ -300,6 +300,44 @@ class TestReopenLogging(unittest.TestCase):
         # Файл лога пересоздан новым хендлером
         self.assertTrue(os.path.isfile(self._log_file))
 
+    def test_recreate_after_false_restores_handler_and_writes(self):
+        """После recreate=False и удаления файла reopen_logging() восстанавливает хендлер.
+
+        Воспроизводит сценарий clear_logs_only: хендлер закрывается без
+        пересоздания (recreate=False), файл лога удаляется, затем в finally
+        вызывается reopen_logging() — файловый логгер должен вернуться
+        и продолжить писать в файл.
+        """
+        reopen_logging(recreate=False)
+        # Хендлер удалён из корневого логгера, файл лога освобождён
+        self.assertEqual(self._file_handlers(), [])
+        if os.path.isfile(self._log_file):
+            os.remove(self._log_file)
+        self.assertFalse(os.path.exists(self._log_file))
+
+        # Восстановление хендлера по пути, сохранённому в _log_file
+        reopen_logging()
+        handlers = self._file_handlers()
+        self.assertEqual(len(handlers), 1)
+
+        # Реальная запись: файл по пути восстановленного хендлера должен
+        # существовать и содержать сообщение. Временно поднимаем уровень
+        # корневого логгера, чтобы сообщение уровня INFO гарантированно
+        # дошло до файла, и возвращаем прежний уровень в finally.
+        root = logging.getLogger()
+        saved_level = root.level
+        root.setLevel(logging.DEBUG)
+        try:
+            message = 'тестовая запись после пересоздания хендлера'
+            logging.getLogger('flowlink').info(message)
+        finally:
+            root.setLevel(saved_level)
+
+        self.assertTrue(os.path.isfile(self._log_file))
+        with open(self._log_file, encoding='utf-8') as f:
+            content = f.read()
+        self.assertIn(message, content)
+
     def test_preserves_debug_level_after_reopen(self):
         """reopen_logging() сохраняет DEBUG-уровень, заданный в setup_logging.
 

@@ -13,6 +13,13 @@ import sys
 # pylint: disable=invalid-name  # мутабельная переменная уровня модуля, а не константа
 _current_level = logging.INFO
 
+# Путь к файлу лога, сохранённый при настройке или переоткрытии файлового
+# хендлера. Нужен reopen_logging для пересоздания хендлера после вызова
+# recreate=False (очистка логов): хендлер уже удалён из корневого логгера,
+# поэтому путь к файлу больше неоткуда взять.
+# pylint: disable=invalid-name  # мутабельная переменная уровня модуля, а не константа
+_log_file: str | None = None
+
 
 def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
     """
@@ -23,6 +30,11 @@ def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
     recreate=False пропускает создание нового хендлера — файл лога
     освобождается и может быть удалён без ошибки [WinError 32].
 
+    Путь к файлу лога запоминается в модульной переменной _log_file,
+    поэтому хендлер можно пересоздать даже когда он уже удалён из
+    корневого логгера (сценарий очистки логов: recreate=False, затем
+    удаление файлов и повторный вызов с recreate=True).
+
     Args:
         recreate: Создавать ли новый хендлер после закрытия старого.
             False нужно для очистки логов: файл лога освобождается
@@ -30,7 +42,8 @@ def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
         level: Уровень логирования для нового хендлера. Если None, используется
             текущий уровень (_current_level), сохранённый при setup_logging.
     """
-    global _current_level  # pylint: disable=global-statement  # синхронизация уровня
+    # pylint: disable=global-statement  # синхронизация уровня и пути лога между вызовами
+    global _current_level, _log_file
     if level is None:
         level = _current_level
     else:
@@ -50,37 +63,43 @@ def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
             log_file = handler.baseFilename  # type: ignore[attr-defined]
             break
 
-    if old_handler is None:
-        logger = logging.getLogger('flowlink')
-        logger.warning(
-            'reopen_logging: RotatingFileHandler не найден, '
-            'переоткрытие не требуется',
-        )
-        return
+    if old_handler is not None:
+        if log_file is None:
+            logger = logging.getLogger('flowlink')
+            logger.warning(
+                'reopen_logging: baseFilename равен None, '
+                'переоткрытие невозможно',
+            )
+            return
+        # Сохраняем путь к файлу лога: после recreate=False хендлер
+        # удаляется, и путь понадобится для его пересоздания.
+        _log_file = log_file
+        # Закрываем и удаляем старый хендлер
+        try:
+            old_handler.close()
+        except OSError as e:
+            logger = logging.getLogger('flowlink')
+            logger.warning(
+                'reopen_logging: ошибка при закрытии хендлера: %s', e,
+            )
+        root.removeHandler(old_handler)
 
-    log_file = old_handler.baseFilename
-    if log_file is None:
-        logger = logging.getLogger('flowlink')
-        logger.warning(
-            'reopen_logging: baseFilename равен None, '
-            'переоткрытие невозможно',
-        )
-        return
-
-    # Закрываем и удаляем старый хендлер
-    try:
-        old_handler.close()
-    except OSError as e:
-        logger = logging.getLogger('flowlink')
-        logger.warning(
-            'reopen_logging: ошибка при закрытии хендлера: %s', e,
-        )
-    root.removeHandler(old_handler)
-
-    # При recreate=False не создаём новый хендлер — файл лога остаётся
-    # освобождённым для удаления (очистка логов).
-    if not recreate:
-        return
+        # При recreate=False не создаём новый хендлер — файл лога остаётся
+        # освобождённым для удаления (очистка логов).
+        if not recreate:
+            return
+    else:
+        # Хендлер не найден (например, уже удалён вызовом recreate=False
+        # при очистке логов). Продолжаем только если требуется пересоздание
+        # и путь к файлу лога сохранён в _log_file.
+        if not recreate or _log_file is None:
+            logger = logging.getLogger('flowlink')
+            logger.warning(
+                'reopen_logging: RotatingFileHandler не найден, '
+                'переоткрытие не требуется',
+            )
+            return
+        log_file = _log_file
 
     # Создаём новый хендлер с теми же параметрами
     try:
@@ -118,7 +137,8 @@ def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
 def setup_logging(debug: bool = False) -> None:
     """Настраивает корневой логгер: консоль (INFO/DEBUG) + файл с ротацией (INFO/DEBUG)."""
     level = logging.DEBUG if debug else logging.INFO
-    global _current_level  # pylint: disable=global-statement  # запись уровня для reopen_logging
+    # pylint: disable=global-statement  # запись уровня и пути лога для reopen_logging
+    global _current_level, _log_file
     _current_level = level
     fmt = logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
@@ -151,6 +171,10 @@ def setup_logging(debug: bool = False) -> None:
         file_handler = logging.handlers.RotatingFileHandler(
             log_file, maxBytes=5_242_880, backupCount=3, encoding='utf-8',
         )
+        # Сохраняем путь к файлу лога: он нужен reopen_logging для
+        # пересоздания хендлера после recreate=False (очистка логов),
+        # когда хендлер уже удалён из корневого логгера.
+        _log_file = log_file
         # Ограничиваем доступ к файлу лога: только владелец (0600),
         # т.к. лог может содержать чувствительные данные запросов
         try:
