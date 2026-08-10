@@ -49,7 +49,7 @@ case "$(uname -s)" in
     *)          OS_DIR="unknown"; EXT="";;
 esac
 
-BINARY_NAME="FlowLink Proxy${EXT}"
+BINARY_NAME="flowlink-proxy${EXT}"
 
 # --- Путь к бинарникам venv (bin для Unix, Scripts для Windows) ---
 if [ "$OS_DIR" = "windows" ]; then

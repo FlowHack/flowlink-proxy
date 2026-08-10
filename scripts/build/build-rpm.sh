@@ -46,7 +46,7 @@ if [ -z "$BINARY" ]; then
     exit 1
 fi
 
-install -m 755 "$BINARY" "$TARBALL_DIR/FlowLink Proxy"
+install -m 755 "$BINARY" "$TARBALL_DIR/flowlink-proxy"
 
 # Копирование EULA и LICENSE
 for doc in EULA.rtf LICENSE.txt; do

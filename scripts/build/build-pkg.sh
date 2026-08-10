@@ -54,7 +54,7 @@ ROOT_DIR="$BUILD_DIR/root"
 mkdir -p "$ROOT_DIR$INSTALL_DIR/bin"
 mkdir -p "$ROOT_DIR$INSTALL_DIR/share/$PKG_NAME"
 
-install -m 755 "$BINARY" "$ROOT_DIR$INSTALL_DIR/bin/FlowLink Proxy"
+install -m 755 "$BINARY" "$ROOT_DIR$INSTALL_DIR/bin/flowlink-proxy"
 
 for doc in EULA.rtf LICENSE.txt; do
     if [ -f "$PROJECT_DIR/$doc" ]; then
