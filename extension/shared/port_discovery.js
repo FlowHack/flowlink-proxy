@@ -10,7 +10,7 @@
  *
  * Безопасность:
  * - Запросы идут ТОЛЬКО на 127.0.0.1 (нет DNS-резолва, нет SSRF)
- * - Не используется тело ответа — только проверка status code
+ * - Тело ответа читается только для идентификации бэкенда (поле version)
  * - Таймаут предотвращает зависание при недоступных портах
  */
 
@@ -30,9 +30,6 @@ const PROBE_HOST = '127.0.0.1';
 /** Префикс логов для идентификации в консоли. */
 const LOG_PREFIX = '[FlowLink Proxy]';
 
-/** Флаг предотвращения параллельного сканирования. */
-let _isScanning = false;
-
 /**
  * Promise текущего сканирования: при повторном вызове discoverPort во время
  * активного сканирования возвращается он же (дедупликация), а не старый порт,
@@ -42,15 +39,20 @@ let _isScanning = false;
 let _scanPromise = null;
 
 /**
- * Проверяет, отвечает ли бэкенд на данном порту.
+ * Проверяет, отвечает ли бэкенд FlowLink на данном порту.
  *
- * Использует GET /api/version — лёгкий запрос, не нагружающий сервер.
+ * Критерий «это бэкенд FlowLink»: HTTP 2xx от /api/version + непустое строковое
+ * поле `version` в JSON-теле ответа. Это НАМЕРЕННО строже, чем быстрая проверка
+ * quickPing в popup.js (которая принимает любой HTTP-код 100–599 для проверки
+ * живости процесса): у задач разные цели — поллинг проверяет «процесс отвечает»,
+ * сканер — «это наш бэкенд».
+ *
  * Таймаут через AbortController предотвращает зависание на недоступных портах.
  *
  * @param {number} port — порт для проверки (1–65535).
- * @returns {Promise<boolean>} — true, если бэкенд доступен и вернул HTTP 200.
+ * @returns {Promise<boolean>} — true, если порт жив И это бэкенд FlowLink.
  */
-async function isPortAlive(port) {
+export async function isPortAlive(port) {
   // Валидация порта — не допускаем некорректные значения
   if (!isValidPort(port)) {
     return false;
@@ -64,7 +66,18 @@ async function isPortAlive(port) {
     const res = await fetch(`http://${PROBE_HOST}:${port}/api/version`, {
       signal: ctrl.signal,
     });
-    return res.ok;
+    // Любой HTTP-код вне 2xx — порт не считается живым
+    if (!res.ok) {
+      return false;
+    }
+    // Идентификация бэкенда: тело должно содержать непустое строковое поле version.
+    // Любая ошибка парсинга — тихий отказ (порт просто не считается живым).
+    try {
+      const body = await res.json();
+      return typeof body?.version === 'string' && body.version.length > 0;
+    } catch {
+      return false;
+    }
   } catch {
     // AbortError (таймаут), TypeError (сеть недоступна), любой другой — порт не жив
     return false;
@@ -80,11 +93,15 @@ async function isPortAlive(port) {
  * Сканирует диапазон портов и возвращает первый доступный.
  * Запросы выполняются параллельно для скорости (обычно < 1с на весь диапазон).
  *
+ * ВАЖНО: возвращается ПЕРВЫЙ живой порт ПО ПОРЯДКУ ДИАПАЗОНА (8080→8090),
+ * а не первый ответивший. Это детерминированный выбор — порт не «прыгает»
+ * между сессиями, если одновременно отвечают несколько бэкендов.
+ *
  * @param {number} skipPort — порт, который уже проверен (пропускается, чтобы
  *   не делать дублирующий запрос).
  * @returns {Promise<number|null>} — найденный порт или null, если ни один не отвечает.
  */
-async function scanPorts(skipPort) {
+export async function scanPorts(skipPort) {
   const promises = [];
   for (let port = SCAN_START; port <= SCAN_END; port++) {
     if (port === skipPort) continue;
@@ -121,7 +138,6 @@ export async function discoverPort() {
     return _scanPromise;
   }
 
-  _isScanning = true;
   const currentPort = extractPortFromBase(API_BASE);
 
   // Оборачиваем сканирование в async-функцию: _scanPromise присваивается
@@ -175,7 +191,6 @@ export async function discoverPort() {
       );
       return currentPort;
     } finally {
-      _isScanning = false;
       // Сбрасываем Promise только после полного завершения сканирования
       _scanPromise = null;
     }

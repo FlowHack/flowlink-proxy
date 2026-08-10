@@ -1065,7 +1065,38 @@ def _autostart_browser_on_startup(
     _launch_browser_sync(callbacks, browser_path, args.proxy_port)
 
 
-async def _run_server(  # pylint: disable=too-many-statements  # сложная оркестрация запуска серверов и трея, разбиение нецелесообразно
+async def _find_available_port(start: int, end: int) -> int | None:
+    """Ищет свободный TCP-порт на loopback-интерфейсе в диапазоне [start, end]."""
+    for port in range(start, end + 1):
+        try:
+            probe = await asyncio.start_server(
+                lambda *_: None, host='127.0.0.1', port=port,
+            )
+        except OSError:
+            continue
+        probe.close()
+        await probe.wait_closed()
+        return port
+    return None
+
+
+async def _resolve_api_port(requested: int) -> int:
+    """Возвращает свободный порт API: запрошенный, при занятости — из 8080–8090."""
+    if await _find_available_port(requested, requested) is not None:
+        return requested
+    free = await _find_available_port(8080, 8090)
+    if free is not None:
+        logger.warning(
+            'Порт API %d занят, использую свободный порт %d из диапазона расширения 8080–8090',
+            requested, free,
+        )
+        return free
+    logger.error('Порт API %d занят и нет свободных портов в 8080–8090', requested)
+    return requested
+
+
+# pylint: disable-next=too-many-statements,too-many-branches  # оркестрация запуска серверов
+async def _run_server(
     args: argparse.Namespace,
 ) -> None:
     """Запускает proxy + API серверы и ждёт сигнала остановки.
@@ -1092,9 +1123,19 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
     # открытый маршрут GET /api/bootstrap.
     auth_token = secrets.token_urlsafe(32)
 
+    # Авто-подбор порта API: если запрошенный порт занят, используем свободный
+    # из диапазона 8080–8090, который сканирует расширение Chrome.
+    api_port = await _resolve_api_port(args.api_port)
+    if not 8080 <= api_port <= 8090:
+        logger.warning(
+            'Порт API %d вне диапазона сканирования расширения (8080–8090) — '
+            'расширение не сможет найти бэкенд автоматически',
+            api_port,
+        )
+
     proxy_server = ProxyServer(router, port=args.proxy_port)
     api_server = ApiServer(
-        router, port=args.api_port,
+        router, port=api_port,
         debug=args.debug, need_update=args.need_update,
         auth_token=auth_token,
     )
@@ -1105,7 +1146,7 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
             api_server.start(),
         )
         logger.info('Прокси-сервер слушает 127.0.0.1:%d', args.proxy_port)
-        logger.info('API-сервер слушает 127.0.0.1:%d', args.api_port)
+        logger.info('API-сервер слушает 127.0.0.1:%d', api_port)
     except OSError as e:
         # Останавливаем уже запущенные серверы при ошибке
         try:
@@ -1130,7 +1171,7 @@ async def _run_server(  # pylint: disable=too-many-statements  # сложная 
     # не должна останавливать уже работающие серверы — файл нужен только
     # для отладки и внешних инструментов.
     try:
-        write_port_file(args.api_port, args.proxy_port)
+        write_port_file(api_port, args.proxy_port)
     except OSError as e:
         logger.warning('Не удалось записать файл портов: %s', e)
 

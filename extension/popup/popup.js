@@ -349,8 +349,12 @@ async function pollBackend() {
         _pollFailCount = 0;
         console.log('[FlowLink Proxy] Бэкенд не отвечает, пересканирую порты...');
         try {
+          // Сохраняем порт ДО пересканирования: discoverPort() сам обновляет
+          // API_BASE через setApiPort() до возврата результата, поэтому сравнение
+          // со значением API_BASE после вызова всегда было бы равно foundPort.
+          const previousPort = extractPortFromBase(API_BASE);
           const foundPort = await discoverPort();
-          if (foundPort !== extractPortFromBase(API_BASE)) {
+          if (foundPort !== previousPort) {
             console.log('[FlowLink Proxy] Найден новый порт:', foundPort);
             await loadAndRender();
           }
