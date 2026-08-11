@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from server.logging_config import reopen_logging
+from server.logging_config import SelfHealingRotatingFileHandler, reopen_logging
 from server.utils import (_validate_port, clear_all_data, clear_data_only,
                           clear_logs_only, get_data_dir, redact_url,
                           write_port_file)
@@ -337,6 +337,52 @@ class TestReopenLogging(unittest.TestCase):
         with open(self._log_file, encoding='utf-8') as f:
             content = f.read()
         self.assertIn(message, content)
+
+    def test_self_heals_after_external_file_removal(self):
+        """Внешнее удаление файла лога: хендлер переоткрывает файл при записи.
+
+        Имитирует ручное удаление файла лога (без кнопки «Очистить логи»):
+        открытый SelfHealingRotatingFileHandler должен обнаружить пропажу
+        файла и пересоздать его при следующей записи.
+        """
+        # Заменяем обычный хендлер из setUp на самовосстанавливающийся
+        self._root.removeHandler(self._handler)
+        self._handler.close()
+        heal_handler = SelfHealingRotatingFileHandler(
+            self._log_file, maxBytes=1024, backupCount=1, encoding='utf-8',
+        )
+        self._root.addHandler(heal_handler)
+        try:
+            root = logging.getLogger()
+            saved_level = root.level
+            root.setLevel(logging.DEBUG)
+            try:
+                first = 'сообщение до удаления файла'
+                logging.getLogger('flowlink').info(first)
+                self.assertTrue(os.path.isfile(self._log_file))
+                with open(self._log_file, encoding='utf-8') as f:
+                    self.assertIn(first, f.read())
+
+                # Имитация ручного удаления файла лога извне
+                os.remove(self._log_file)
+                self.assertFalse(os.path.exists(self._log_file))
+
+                second = 'сообщение после внешнего удаления файла'
+                logging.getLogger('flowlink').info(second)
+                # Хендлер не сломан и остался в корневом логгере
+                self.assertIn(heal_handler, self._root.handlers)
+            finally:
+                root.setLevel(saved_level)
+        finally:
+            self._root.removeHandler(heal_handler)
+            heal_handler.close()
+
+        # Файл пересоздан и содержит только новое сообщение
+        self.assertTrue(os.path.isfile(self._log_file))
+        with open(self._log_file, encoding='utf-8') as f:
+            content = f.read()
+        self.assertIn(second, content)
+        self.assertNotIn(first, content)
 
     def test_preserves_debug_level_after_reopen(self):
         """reopen_logging() сохраняет DEBUG-уровень, заданный в setup_logging.

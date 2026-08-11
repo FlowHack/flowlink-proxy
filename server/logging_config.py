@@ -21,6 +21,39 @@ _current_level = logging.INFO
 _log_file: str | None = None
 
 
+class SelfHealingRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """
+    Файловый хендлер с ротацией, который самовосстанавливается при
+    внешнем удалении файла лога.
+
+    Если пользователь вручную удалил файл лога (например, в проводнике,
+    без кнопки «Очистить логи»), обычный RotatingFileHandler продолжает
+    писать в уже удалённый inode, и новые записи «не появляются» (Linux).
+    Этот хендлер перед каждой записью проверяет наличие файла и при
+    необходимости переоткрывает его заново.
+    """
+    # pylint: disable=too-few-public-methods  # публичный метод один — emit, остальное наследуем
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Записывает сообщение, при необходимости переоткрыв файл лога."""
+        # Файл удалён/переименован извне (или поток ещё не открыт) —
+        # закрываем старый поток и переоткрываем файл
+        if self.stream is None or not os.path.exists(self.baseFilename):
+            try:
+                if self.stream is not None:
+                    self.stream.close()
+                # Файл после переоткрытия пуст, поэтому ротация по размеру
+                # (shouldRollover) корректно не сработает
+                self.stream = self._open()
+            except OSError:
+                # Не логируем через flowlink-логгер: warning снова попадёт
+                # в emit, файла всё ещё нет — получится бесконечная рекурсия.
+                # handleError печатает ошибку в stderr штатным механизмом.
+                self.handleError(record)
+                return
+        super().emit(record)
+
+
 def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
     """
     Переоткрывает файловый хендлер логгера.
@@ -109,7 +142,7 @@ def reopen_logging(recreate: bool = True, level: int | None = None) -> None:
             '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
         )
-        new_handler = logging.handlers.RotatingFileHandler(
+        new_handler = SelfHealingRotatingFileHandler(
             log_file, maxBytes=5_242_880, backupCount=3, encoding='utf-8',
         )
         # Ограничиваем доступ к файлу лога: только владелец (0600)
@@ -168,7 +201,7 @@ def setup_logging(debug: bool = False) -> None:
         log_dir = os.path.join(base, 'logs')
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, 'FlowLink Proxy.log')
-        file_handler = logging.handlers.RotatingFileHandler(
+        file_handler = SelfHealingRotatingFileHandler(
             log_file, maxBytes=5_242_880, backupCount=3, encoding='utf-8',
         )
         # Сохраняем путь к файлу лога: он нужен reopen_logging для
