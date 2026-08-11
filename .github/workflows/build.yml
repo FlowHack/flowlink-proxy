@@ -225,7 +225,12 @@ jobs:
   create-release:
     needs: [build-linux, build-macos-intel, build-macos-arm, build-windows, build-crx]
     runs-on: ubuntu-latest
-    if: always() && !cancelled()
+    if: ${{ !cancelled() &&
+          needs.build-linux.result == 'success' &&
+          needs.build-macos-intel.result == 'success' &&
+          needs.build-macos-arm.result == 'success' &&
+          needs.build-windows.result == 'success' &&
+          needs.build-crx.result == 'success' }}
     permissions:
       contents: write
       actions: read

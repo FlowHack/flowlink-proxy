@@ -89,8 +89,13 @@ VSVersionInfo(
 
 def main() -> None:
     """Точка входа: генерирует version_info-файл по аргументам CLI."""
+    # Принудительная переконфигурация stdout на utf-8 (Windows CI с cp1252).
+    # Двойная защита от UnicodeEncodeError при кириллице в выводе.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     if len(sys.argv) != 3:
-        print("Использование: python make_version_info.py <VERSION> <OUTPUT_PATH>")
+        print("Usage: python make_version_info.py <VERSION> <OUTPUT_PATH>")
         sys.exit(2)
 
     version = sys.argv[1]
@@ -100,10 +105,10 @@ def main() -> None:
     try:
         output_path.write_text(content, encoding="utf-8")
     except OSError as exc:
-        print(f"Ошибка записи version_info в {output_path}: {exc}")
+        print(f"Failed to write version_info to {output_path}: {exc}")
         sys.exit(1)
 
-    print(f"version_info записан в {output_path} (версия: {version})")
+    print(f"version_info: {output_path} (version: {version})")
 
 
 if __name__ == "__main__":

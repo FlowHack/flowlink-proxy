@@ -1,3 +1,0 @@
-# Release workflow объединён с Build workflow.
-# См. .github/workflows/build.yml, джоба create-release.
-# Этот файл оставлен для истории и больше не используется.
