@@ -28,9 +28,13 @@
   --radius: 8px;
   --radius-sm: 4px;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Размер попапа — осознанные константы: ширина фиксированная (420px),
+     высота резиновая (400–520px). В MV3 размер попапа задаётся только
+     через CSS — в манифесте для action нет параметров width/height. */
   --popup-width: 420px;
 }
 
+/* Попап: ширина из --popup-width, высота резиновая 400–520px. */
 body {
   width: var(--popup-width);
   min-height: 400px;
@@ -396,6 +400,7 @@ body {
 
 .modal-wide {
   width: 600px;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -512,6 +517,7 @@ body {
 /* ───── Вкладки помощи (ext-раздел) ───── */
 .help-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 8px 0;
   padding: 0 4px;
