@@ -62,6 +62,50 @@ for doc in EULA.rtf LICENSE.txt; do
     fi
 done
 
+# --- Сборка .app-бандла (чтобы приложение появлялось в Launchpad) ---
+APP_NAME="FlowLink Proxy.app"
+APP_DIR="$ROOT_DIR/Applications/$APP_NAME"
+mkdir -p "$APP_DIR/Contents/MacOS"
+mkdir -p "$APP_DIR/Contents/Resources"
+
+# Исполняемый файл внутри бандла — без расширения
+install -m 755 "$BINARY" "$APP_DIR/Contents/MacOS/FlowLink Proxy"
+
+# Иконка бандла (если доступна)
+if [ -f "$PROJECT_DIR/scripts/icons/icon.icns" ]; then
+    install -m 644 "$PROJECT_DIR/scripts/icons/icon.icns" "$APP_DIR/Contents/Resources/icon.icns"
+fi
+
+# Info.plist — heredoc без кавычек у маркера, чтобы подставлялись ${VERSION} и ${IDENTIFIER}
+cat > "$APP_DIR/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>FlowLink Proxy</string>
+	<key>CFBundleDisplayName</key>
+	<string>FlowLink Proxy</string>
+	<key>CFBundleIdentifier</key>
+	<string>${IDENTIFIER}</string>
+	<key>CFBundleVersion</key>
+	<string>${VERSION}</string>
+	<key>CFBundleShortVersionString</key>
+	<string>${VERSION}</string>
+	<key>CFBundleExecutable</key>
+	<string>FlowLink Proxy</string>
+	<key>CFBundleIconFile</key>
+	<string>icon.icns</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.15</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>
+EOF
+
 # --- Проверка наличия pkgbuild и productbuild ---
 if ! command -v pkgbuild &>/dev/null || ! command -v productbuild &>/dev/null; then
     echo "[!] pkgbuild/productbuild не найдены. Установите Xcode Command Line Tools."
