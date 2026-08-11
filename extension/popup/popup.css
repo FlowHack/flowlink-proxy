@@ -400,7 +400,8 @@ body {
 
 .modal-wide {
   width: 600px;
-  max-width: 100%;
+  /* Зазоры по краям, чтобы модалка не упиралась в борта попапа (как у .modal) */
+  max-width: calc(100% - 40px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
