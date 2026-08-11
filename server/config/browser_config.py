@@ -110,6 +110,8 @@ def _detect_windows() -> list[tuple[str, str]]:
         ('Mozilla Firefox', os.path.join(pf, r'Mozilla Firefox\firefox.exe')),
         ('Mozilla Firefox (x86)', os.path.join(pf86, r'Mozilla Firefox\firefox.exe')),
         ('Opera', os.path.join(local, r'Programs\Opera\opera.exe')),
+        # Opera GX
+        ('Opera GX', os.path.join(local, r'Programs\Opera GX\opera.exe')),
         ('Brave', os.path.join(pf, r'BraveSoftware\Brave-Browser\Application\brave.exe')),
     ]
 
@@ -134,6 +136,7 @@ def _detect_linux() -> list[tuple[str, str]]:
         'yandex-browser': 'Яндекс Браузер',
         'yandex-browser-stable': 'Яндекс Браузер',
         'opera': 'Opera',
+        'opera-gx': 'Opera GX',
         'brave-browser': 'Brave',
         'microsoft-edge-stable': 'Microsoft Edge',
     }
@@ -167,6 +170,8 @@ def _detect_macos() -> list[tuple[str, str]]:
         ('Mozilla Firefox', os.path.join(apps, 'Firefox.app/Contents/MacOS/firefox')),
         ('Microsoft Edge', os.path.join(apps, 'Microsoft Edge.app/Contents/MacOS/Microsoft Edge')),
         ('Opera', os.path.join(apps, 'Opera.app/Contents/MacOS/Opera')),
+        # Opera GX
+        ('Opera GX', os.path.join(apps, 'Opera GX.app/Contents/MacOS/Opera GX')),
         ('Brave', os.path.join(apps, 'Brave Browser.app/Contents/MacOS/Brave Browser')),
         ('Safari', os.path.join(apps, 'Safari.app/Contents/MacOS/Safari')),
     ]
