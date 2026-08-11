@@ -132,8 +132,22 @@ NOCONSOLE_FLAG=""
 DATA_SEP=":"
 [ "$OS_DIR" = "windows" ] && DATA_SEP=";"
 
+# Режим сборки: Windows — onedir (снижает ложные срабатывания Defender,
+# исключает распаковку в %TEMP%), Unix — onefile (структуры deb/rpm/pkg
+# и create-release.sh ожидают файл releases/FlowLink Proxy)
+MODE_FLAG="--onefile"
+[ "$OS_DIR" = "windows" ] && MODE_FLAG="--onedir"
+
+# Version resource для Windows-сборки (снижает ложные срабатывания Defender)
+VERSION_FILE_FLAG=""
+if [ "$OS_DIR" = "windows" ]; then
+    mkdir -p server/work
+    "$VENV_BIN/python" scripts/build/make_version_info.py "$VERSION" server/work/version_info.txt
+    VERSION_FILE_FLAG="--version-file=server/work/version_info.txt"
+fi
+
 $PYTHON -m PyInstaller \
-    --onefile \
+    $MODE_FLAG \
     $NOCONSOLE_FLAG \
     --name "$BINARY_NAME" \
     $ICON_FLAG \
@@ -146,6 +160,7 @@ $PYTHON -m PyInstaller \
     --hidden-import pystray \
     --hidden-import PIL \
     --collect-all tkinter \
+    $VERSION_FILE_FLAG \
     --paths=server \
     --distpath server/dist \
     --workpath server/work \
@@ -155,22 +170,44 @@ $PYTHON -m PyInstaller \
 
 info "Сборка завершена!"
 
-# --- Проверка, что бинарник действительно собран ---
-if [ ! -f "server/dist/$BINARY_NAME" ]; then
-    error "Бинарник не найден: server/dist/$BINARY_NAME. Сборка PyInstaller завершилась неудачно."
+mkdir -p releases
+
+if [ "$OS_DIR" = "windows" ]; then
+    # Windows: onedir — в dist лежит папка с бинарником и _internal/
+    BUNDLE_DIR="server/dist/$BINARY_NAME"
+    DEST_DIR="releases/$BINARY_NAME"
+
+    # --- Проверка, что бинарник действительно собран ---
+    if [ ! -f "$BUNDLE_DIR/$BINARY_NAME" ]; then
+        error "Бинарник не найден: $BUNDLE_DIR/$BINARY_NAME. Сборка PyInstaller завершилась неудачно."
+    fi
+
+    # --- Копирование папки сборки в releases/ ---
+    rm -rf "$DEST_DIR"
+    mv "$BUNDLE_DIR" "$DEST_DIR"
+    rm -rf server/dist
+
+    BINARY="$DEST_DIR/$BINARY_NAME"
+    BIN_SIZE=$(du -sh "$DEST_DIR" 2>/dev/null | cut -f1 || echo "?")
+else
+    # Unix (linux/macos): onefile — в dist лежит один бинарник
+    # --- Проверка, что бинарник действительно собран ---
+    if [ ! -f "server/dist/$BINARY_NAME" ]; then
+        error "Бинарник не найден: server/dist/$BINARY_NAME. Сборка PyInstaller завершилась неудачно."
+    fi
+
+    # --- Копирование в releases/ ---
+    rm -f "releases/$BINARY_NAME"
+    mv "server/dist/$BINARY_NAME" "releases/"
+    rm -rf server/dist
+
+    BINARY="releases/$BINARY_NAME"
+    BIN_SIZE=$(du -h "$BINARY" 2>/dev/null | cut -f1 || echo "?")
 fi
 
-# --- Копирование в releases/ ---
-mkdir -p releases
-rm -f "releases/$BINARY_NAME"
-mv "server/dist/$BINARY_NAME" "releases/"
-rm -rf server/dist
-
-BINARY="releases/$BINARY_NAME"
 echo ""
 echo "========================================"
 echo "  Бинарник: $BINARY"
-BIN_SIZE=$(du -h "$BINARY" 2>/dev/null | cut -f1 || echo "?")
 echo "  Размер:   $BIN_SIZE"
 echo ""
 echo "  Запуск:"

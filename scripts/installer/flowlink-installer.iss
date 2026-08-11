@@ -45,9 +45,14 @@ Name: "desktopicon"; Description: "Создать ярлык на рабочем
 Name: "autostart"; Description: "Запускать FlowLink Proxy при входе в Windows"; GroupDescription: "Автозапуск:"; Flags: checkedonce
 
 [Files]
-Source: "..\..\releases\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\releases\FlowLink Proxy\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\EULA.rtf"; DestDir: "{app}"; Flags: ignoreversion
+
+[InstallDelete]
+; Чистый апгрейд от старых onefile-сборок (exe в корне и распакованный _internal)
+Type: filesandordirs; Name: "{app}\_internal"
+Type: files; Name: "{app}\FlowLink Proxy.exe"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

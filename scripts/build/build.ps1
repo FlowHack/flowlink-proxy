@@ -93,8 +93,16 @@ if (Test-Path "scripts/icons/icon.ico") {
 
 $binaryName = "FlowLink Proxy.exe"
 
+# Генерация version resource для Windows (снижает ложные срабатывания Defender)
+New-Item -ItemType Directory -Force -Path "server/work" | Out-Null
+& $python "scripts/build/make_version_info.py" $VERSION "server/work/version_info.txt"
+if ($LASTEXITCODE -ne 0) {
+    Error "Не удалось сгенерировать version resource"
+}
+$versionFlag = "--version-file=server/work/version_info.txt"
+
 & $python -m PyInstaller `
-    --onefile `
+    --onedir `
     --noconsole `
     --name $binaryName `
     $iconFlag `
@@ -107,6 +115,7 @@ $binaryName = "FlowLink Proxy.exe"
     --hidden-import pystray `
     --hidden-import PIL `
     --collect-all tkinter `
+    $versionFlag `
     --paths server `
     --distpath server/dist `
     --workpath server/work `
@@ -127,26 +136,27 @@ if ($buildExit -ne 0) {
     Error "Сборка не удалась"
 }
 
-# Копирование в releases/
+# Копирование в releases/ (onedir: переносим папку с бинарником и _internal)
 New-Item -ItemType Directory -Force -Path "releases" | Out-Null
-$destPath = Join-Path "releases" $binaryName
+$bundleDir = Join-Path "server/dist" $binaryName
+$destDir = Join-Path "releases" $binaryName
 try {
-    Move-Item "server/dist/$binaryName" $destPath -Force -ErrorAction Stop
+    Move-Item $bundleDir $destDir -Force -ErrorAction Stop
 } catch {
     if ($cleanVenv) { Remove-Item -Recurse -Force $venvPath -ErrorAction SilentlyContinue }
-    Error "Не удалось переместить бинарник в releases/: $($_.Exception.Message)"
+    Error "Не удалось переместить сборку в releases/: $($_.Exception.Message)"
 }
 Remove-Item -Recurse -Force "server/dist" -ErrorAction SilentlyContinue
 
-$binary = Get-Item $destPath -ErrorAction SilentlyContinue
+$binary = Get-Item (Join-Path $destDir $binaryName) -ErrorAction SilentlyContinue
 if (-not $binary) {
     Error "Бинарник не найден. Сборка могла завершиться с ошибкой."
 }
-$size = "{0:N0} KB" -f ($binary.Length / 1KB)
+$size = "{0:N0} KB" -f ((Get-ChildItem -Recurse -File $destDir | Measure-Object -Property Length -Sum).Sum / 1KB)
 
 Info "Сборка завершена!"
 Write-Host ""
-Write-Host "Бинарник: $destPath ($size)"
+Write-Host "Бинарник: $destDir\$binaryName ($size)"
 Write-Host ""
 Write-Host "Запуск:"
-Write-Host "  .\$destPath"
+Write-Host "  .\$destDir\$binaryName"

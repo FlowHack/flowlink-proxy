@@ -384,7 +384,7 @@ flowlink-proxy/
 │   │   └── setup-and-run-macos.sh    # macOS: проверка Python+tkinter + запуск
 │   ├── build/
 │   │   ├── build.bat              # Windows: обёртка для build.ps1
-│   │   ├── build.ps1              # Windows: сборка standalone (PyInstaller)
+│   │   ├── build.ps1              # Windows: сборка standalone onedir (PyInstaller)
 │   │   ├── build.sh               # Linux/macOS: сборка standalone (PyInstaller)
 │   │   ├── build-deb.sh           # Linux: сборка .deb-пакета
 │   │   ├── build-rpm.sh           # Linux: сборка .rpm-пакета

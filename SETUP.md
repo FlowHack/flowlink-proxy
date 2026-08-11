@@ -283,7 +283,8 @@ rm -rf venv/                      # Linux / macOS
 scripts\build\build.bat
 ```
 
-Результат: `releases\FlowLink Proxy.exe`
+Результат: `releases\FlowLink Proxy\FlowLink Proxy.exe`
+(папка `releases\FlowLink Proxy\` содержит бинарник и каталог `_internal\`)
 
 ### Упаковка архивов релиза
 
