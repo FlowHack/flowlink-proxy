@@ -45,7 +45,7 @@ Name: "desktopicon"; Description: "Создать ярлык на рабочем
 Name: "autostart"; Description: "Запускать FlowLink Proxy при входе в Windows"; GroupDescription: "Автозапуск:"; Flags: checkedonce
 
 [Files]
-Source: "..\..\releases\FlowLink Proxy\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\releases\FlowLink Proxy.exe\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\EULA.rtf"; DestDir: "{app}"; Flags: ignoreversion
 
