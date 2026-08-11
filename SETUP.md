@@ -334,7 +334,7 @@ scripts\build\build.bat
 
 ### Из магазина
 
-> **Ссылка будет добавлена после публикации в Chrome Web Store / Opera Add-ons.**
+> **Ссылка будет добавлена после публикации в Opera Add-ons.**
 
 ### Из исходника (unpacked)
 

@@ -23,7 +23,7 @@ _PORT_MIN = 1
 _PORT_MAX = 65535
 
 # ID расширения Chrome для CORS-allowlist.
-# TODO: заменить на реальный ID расширения из Chrome WebStore после публикации.
+# TODO: заменить на реальный ID расширения из Opera Add-ons после публикации.
 # В unpacked-режиме ID определяется ключом 'key' в manifest.json.
 ALLOWED_EXTENSION_ID = None  # type: str | None
 

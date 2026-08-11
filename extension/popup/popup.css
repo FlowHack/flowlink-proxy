@@ -408,6 +408,11 @@ body {
   padding: 16px 16px 0;
 }
 
+/* В модальном окне помощи заголовка нет — кнопка закрытия прижата вправо */
+#modal-help .modal-header {
+  justify-content: flex-end;
+}
+
 .modal-title {
   font-size: 16px;
   font-weight: 600;

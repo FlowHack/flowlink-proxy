@@ -144,10 +144,11 @@ const _PORTS_TROUBLESHOOT = (lang = 'ru') => {
  * Тексты помощи для разных режимов.
  * Ключи:
  *   backend — установка бэкенда (с подвкладками windows/linux/macos/source).
+ *   browser — выбор браузера для автозапуска.
  *   port — настройка порта и диагностика.
- *   ext — установка расширения (с подвкладками store/crx/source).
- *   updateExe/updateSource/updateExt — обновление (заголовок «Обновление»).
+ *   update-backend/update-ext — обновление бэкенда и расширения.
  *   faq — ответы на частые вопросы (FAQ).
+ *   license — лицензия.
  */
 const HELP_TEXTS = {
   backend: (lang = 'ru') => {
@@ -374,32 +375,6 @@ const HELP_TEXTS = {
       <li><strong>Preko Git-a:</strong> <code>git pull</code></li>
       <li><strong>Ili ZIP:</strong> preuzmite novu arhivu, raspakujte je preko stare fascikle</li>
       <li>Zaustavite stari proces, ponovo pokrenite: <code>python -m server</code></li>
-    </ol>
-  `,
-    };
-    return texts[lang] || texts.ru;
-  },
-  updateExt: (lang = 'ru') => (tag) => {
-    const texts = {
-      ru: `
-    
-    <ol>
-      <li><strong>Из магазина:</strong> расширение обновится автоматически</li>
-      <li><strong>Unpacked:</strong> откройте <code>chrome://extensions</code> (или <code>browser://extensions</code>), нажмите «Обновить» (круглая стрелка)</li>
-    </ol>
-  `,
-      en: `
-    
-    <ol>
-      <li><strong>From store:</strong> the extension will update automatically</li>
-      <li><strong>Unpacked:</strong> open <code>chrome://extensions</code> (or <code>browser://extensions</code>), click "Update" (circular arrow)</li>
-    </ol>
-  `,
-      sr: `
-    
-    <ol>
-      <li><strong>Iz prodavnice:</strong> ekstenzija će se ažurirati automatski</li>
-      <li><strong>Unpacked:</strong> otvorite <code>chrome://extensions</code> (ili <code>browser://extensions</code>), kliknite "Ažuriraj" (kružna strelica)</li>
     </ol>
   `,
     };
@@ -1607,16 +1582,6 @@ export function openHelpModal(tab, isUpdate, updateTag, context) {
   _isUpdateMode = !!isUpdate;
   _updateTag = updateTag || '';
   _context = context || 'general';
-  const title = document.querySelector('#modal-help .modal-title');
-  if (!title) {
-    console.warn('[FlowLink Proxy] Заголовок модального окна помощи не найден');
-    return;
-  }
-  if (isUpdate || _context === 'update') {
-    title.textContent = 'Обновление';
-  } else {
-    title.textContent = 'Настройка FlowLink Proxy';
-  }
   showModal('modal-help');
   switchHelpTab(tab || _defaultTabForContext());
 }
