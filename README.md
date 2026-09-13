@@ -27,7 +27,7 @@
      │                      │
      ▼                      ▼
 SOCKS5 с паролем       Прямое соединение
-(ваш сервер)           ( Happ / интернет )
+(ваш сервер)           ( App / интернет )
 ```
 
 ---
@@ -93,7 +93,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 | **macOS Intel** | `FlowLink-Proxy-v*-macos-x64.tar.gz` | Распакуйте → запустите |
 | **macOS Apple Silicon** | `FlowLink-Proxy-v*-macos-arm64.tar.gz` | Распакуйте → запустите |
 | **macOS** | `FlowLink-Proxy-<версия>-macos-<арх>.pkg` | Дважды кликните по `.pkg` |
-| **Все платформы** | `FlowLink-Proxy-v*-extension.zip` / `.crx` | Расширение Chrome: распакуйте ZIP и загрузите как распакованное (или установите `.crx`) |
+| **Все платформы** | `FlowLink-Proxy-v{версия}.zip` / `.crx` | Расширение Chrome: распакуйте ZIP и загрузите как распакованное (или установите `.crx`) |
 
 > **Внимание:** при первом запуске установщика Windows SmartScreen может показать предупреждение «Windows защитил ваш компьютер». Нажмите **«Подробнее»** → **«Выполнить в любом случае»**. Это стандартное поведение для новых программ без платной цифровой подписи — предупреждение исчезнет после набора репутации.
 >
@@ -105,11 +105,11 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 
 ### 2. Установите расширение
 
-Расширение можно установить двумя способами: из архива релиза (`FlowLink-Proxy-v*-extension.zip` или `.crx` — см. вложения релиза) или из исходников. В обоих случаях:
+Расширение можно установить двумя способами: из архива релиза (`FlowLink-Proxy-v{версия}.zip` или `.crx` — см. вложения релиза) или из исходников. В обоих случаях:
 
 1. Откройте страницу расширений в браузере (см. таблицу ниже).
 2. Включите «Режим разработчика».
-3. **Из ZIP:** распакуйте архив → «Загрузить распакованное расширение» → выберите распакованную папку. **Из исходников:** «Загрузить распакованное расширение» → выберите папку `extension/`. **Из `.crx`:** перетащите файл `.crx` на страницу расширений.
+3. **Из `.crx`:** перетащите файл `.crx` на страницу расширений и подтвердите установку. **Из ZIP:** распакуйте архив → «Загрузить распакованное расширение» → выберите распакованную папку. **Из исходников:** «Загрузить распакованное расширение» → выберите папку `extension/`.
 
 | Браузер | Страница расширений |
 |---------|---------------------|
@@ -149,7 +149,7 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 
 Маска определяет, какие сайты идут через прокси, а какие — напрямую.
 
-1. Нажмите на **иконку масок** (ряду с нужным прокси) — откроется список масок для этого прокси
+1. Нажмите на **иконку масок** (рядом с нужным прокси) — откроется список масок для этого прокси
 2. Нажмите **«Добавить маску»**
 3. Введите шаблон. Примеры:
    - `*google.com*` — все домены google.com
@@ -172,11 +172,11 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 #### Включение и выключение
 
 - **Глобальный тоггл** (внизу окна) — включает/выключает весь FlowLink Proxy. При выключении весь трафик идёт напрямую (минуя прокси).
-- **Тоггл прокси** (ряду с каждым прокси) — включает/выключает отдельный прокси. Маски, привязанные к выключенному прокси, игнорируются.
+- **Тоггл прокси** (рядом с каждым прокси) — включает/выключает отдельный прокси. Маски, привязанные к выключенному прокси, игнорируются.
 
 #### Пинг
 
-Нажмите **«Пинг»** чтобы проверить доступность всех прокси. Результат показывает время отклика (в мс) или «н/д» если прокси недоступен.
+Нажмите **«Пинг»**, чтобы проверить доступность всех прокси. Результат показывает время отклика (в мс) или «н/д», если прокси недоступен.
 
 #### Настройки (⚙)
 
@@ -245,174 +245,14 @@ FlowLink Proxy создан с использованием **AI-assisted develo
 | «Нет связи с бэкендом» | Бэкенд не запущен. Запустите бинарник или `python -m server` |
 | `ERR_PROXY_CONNECTION_FAILED` | Браузер на SOCKS5 вместо HTTP. Флаг: `--proxy-server=127.0.0.1:8080` |
 | Порт 8080 занят | Завершите старый процесс: Linux `lsof -i :8080`, Windows — Диспетчер задач |
-| Windows Defender сообщает о трояне (`Trojan:Win32/Bearfoos.A!ml`) | Ложное срабатывание эвристики на PyInstaller-сборку. Разрешите файл: **«Защита от вирусов и угроз» → «Действия» → «Разрешить на устройстве»**. В новых onedir-сборках (с version resource) обнаружение устранено; при повторном срабатывании подайте заявку: [Microsoft WDSI](https://www.microsoft.com/en-us/wdsi/filesubmission) |
 
-Подробная таблица проблем: **[SETUP.md](SETUP.md#устранение-проблем-при-установке)**. Отладка: **[DEBUG.md](DEBUG.md)**
+Полная таблица проблем и решений: **[SETUP.md](SETUP.md#устранение-проблем-при-установке)**. Отладка: **[DEBUG.md](DEBUG.md)**
 
 ---
 
 ## Структура проекта
 
-```
-flowlink-proxy/
-├── server/                    # Python-бэкенд
-│   ├── __main__.py            # Точка входа (CLI + tray icon)
-│   ├── version.py             # Версия проекта
-│   ├── logging_config.py      # Настройка логгера (файл + консоль)
-│   ├── tray/                  # System tray icon (tkinter / pystray / ctypes)
-│   │   ├── __init__.py        # Координатор: start_tray()
-│   │   ├── platform.py        # Определение ОС и возможностей
-│   │   ├── popup.py           # Tkinter безрамочное меню (тёмная тема)
-│   │   ├── menu.py            # Общая логика построения меню
-│   │   ├── pystray_base.py    # Базовый класс pystray-трея
-│   │   ├── win32.py           # Win32 Tray (ctypes)
-│   │   ├── linux.py           # Linux Tray (pystray + tkinter)
-│   │   └── macos.py           # macOS Tray (pystray + tkinter)
-│   ├── config/
-│   │   ├── config.py          # Бизнес-логика конфига (proxies, masks, enabled)
-│   │   ├── repo.py            # Чтение/запись config.json
-│   │   ├── crypto.py          # AES-GCM шифрование паролей (PBKDF2)
-│   │   ├── autostart.py       # Настройки автозапуска браузера
-│   │   ├── browser_config.py  # Конфигурация браузера (автопоиск, валидация, запуск)
-│   │   ├── browser_process.py # Управление процессами браузера (поиск PID, kill)
-│   │   └── system_autostart.py # Автозапуск с системой (Win/Linux/macOS)
-│   ├── protocols/
-│   │   ├── base.py            # ABC ProxyProtocol
-│   │   ├── socks5.py          # SOCKS5-клиент (чистый asyncio + struct)
-│   │   ├── factory.py         # Фабрика протоколов
-│   │   ├── parser.py          # Парсинг CONNECT/HTTP-запросов
-│   │   ├── mock_socks5.py     # Тестовый SOCKS5-сервер (--dev)
-│   │   └── socks5_constants.py # Константы SOCKS5-протокола
-│   ├── services/
-│   │   ├── router.py          # Маршрутизация URL по маскам
-│   │   ├── tunnel.py          # Установка туннелей (SOCKS5 / прямой) + SSRF-защита
-│   │   ├── pipe.py            # Двусторонняя пересылка данных
-│   │   ├── ping.py            # Пинг прокси (SOCKS5 handshake)
-│   │   ├── debug.py           # Debug-утилиты
-│   │   ├── events.py          # SSE-шина событий
-│   │   ├── sse.py             # SSE-обработчик (text/event-stream)
-│   │   ├── extension_connection.py # Отслеживание подключения расширения
-│   │   ├── fake_proxies.py    # Генерация тестовых прокси (--count-proxy)
-│   │   └── mask_conflicts.py  # Проверка конфликтов масок (пересечение паттернов)
-│   ├── servers/
-│   │   ├── base_server.py     # ABC BaseServer
-│   │   ├── proxy.py           # HTTP CONNECT прокси (порт 8080)
-│   │   ├── api.py             # HTTP API (порт 8081)
-│   │   └── handlers.py        # Обработчики API-эндпоинтов
-│   ├── ui/
-│   │   ├── dialogs.py         # Кастомные tkinter-диалоги (show_info, show_item_picker)
-│   │   └── theme.py           # Тёмная тема для диалогов
-│   ├── utils.py               # Утилиты (get_data_dir, clear_all_data, write_port_file)
-│   ├── icons/                 # Иконки бэкенда (icon.ico, icon.png)
-│   ├── requirements.txt       # Зависимости Python
-│   └── tests/                 # Юнит-тесты
-│       ├── base.py            # Базовые миксины (TempConfigMixin)
-│       ├── conftest.py        # Общие вспомогательные функции
-│       ├── test_config.py
-│       ├── test_crypto.py
-│       ├── test_handlers.py
-│       ├── test_events.py
-│       ├── test_proxy_server.py
-│       ├── test_router.py
-│       ├── test_socks5.py
-│       ├── test_tunnel.py     # SSRF-защита validate_target()
-│       ├── test_utils.py
-│       ├── test_autostart.py
-│       ├── test_browser_config.py
-│       ├── test_fake_proxies.py
-│       ├── test_system_autostart.py
-│       ├── test_tray_menu.py
-│       ├── test_tray_platform.py
-│       ├── test_tray_popup.py
-│       ├── test_tray_fallback.py
-│       ├── test_main_launch_browser.py
-│       ├── test_main_autostart.py
-│       ├── test_main_close_browser.py
-│       ├── test_extension_timeout.py
-│       ├── test_extension_connection.py
-│       ├── test_dialogs.py
-│       ├── test_build_scripts.py
-│       ├── test_browser_process.py
-│       └── test_api_routes.py
-│
-├── extension/                 # Chrome-расширение (Manifest V3)
-│   ├── manifest.json          # Манифест расширения
-│   ├── _locales/              # Локализация расширения (ru/en/sr)
-│   ├── background/
-│   │   └── service-worker.js  # SSE-клиент + pushEnabledState
-│   ├── popup/
-│   │   ├── popup.html         # Главное окно
-│   │   ├── popup.css          # Стили
-│   │   ├── popup.js           # Главный контроллер
-│   │   ├── crud-proxy.js      # CRUD-операции с прокси
-│   │   ├── crud-mask.js       # CRUD-операции с масками
-│   │   ├── draft.js           # Черновики форм (chrome.storage.session)
-│   │   ├── ping.js            # Пинг прокси
-│   │   ├── settings.js        # Настройки порта API
-│   │   ├── tab-status.js      # Статус текущей вкладки
-│   │   ├── modal.js           # Модальные окна
-│   │   ├── help.js            # Окно помощи
-│   │   ├── help-page.js       # Логика статической справки (help.html)
-│   │   ├── help.css           # Стили справки
-│   │   ├── help.html          # Статическая справка (открывается из tkinter-диалога)
-│   │   └── updater.js         # Проверка обновлений
-│   ├── shared/
-│   │   ├── api.js             # HTTP хелперы (apiGet, apiPost, apiPatch, apiDelete, apiPostRaw)
-│   │   ├── auth.js            # Работа с токеном авторизации API
-│   │   ├── constants.js       # API_BASE, GitHub URLs
-│   │   ├── dom.js             # escapeHtml, утилиты DOM
-│   │   ├── i18n.js            # Словарь переводов (RU/EN/SR)
-│   │   ├── utils.js           # Валидация IP/port, wildcard→regex, copyEmailToClipboard
-│   │   └── port_discovery.js  # Автообнаружение порта API
-│   ├── tests/                 # Тесты расширения
-│   │   ├── auth.test.js       # Тесты токена авторизации
-│   │   ├── draft.test.js      # Тесты черновиков форм
-│   │   ├── help.test.js       # Тесты логики вкладок справки
-│   │   └── port.test.js       # Тесты автообнаружения порта
-│   └── icons/                 # Иконки расширения
-│
-├── scripts/
-│   ├── installer/
-│   │   └── flowlink-installer.iss  # Inno Setup установщик Windows
-│   ├── icons/
-│   │   ├── icon.ico            # Иконка для установщика и ярлыков
-│   │   ├── icon.png            # Иконка для Linux/macOS
-│   │   └── icon.icns           # Иконка для macOS
-│   ├── launcher/
-│   │   ├── FlowLink Proxy-linux.sh  # Linux-лаунчер (только бинарник)
-│   │   └── FlowLink Proxy-macos.sh  # macOS-лаунчер (только бинарник)
-│   ├── setup/
-│   │   ├── setup-and-run.bat         # Windows: проверка Python+tkinter + запуск
-│   │   ├── setup-and-run-linux.sh    # Linux: проверка Python+tkinter + запуск
-│   │   └── setup-and-run-macos.sh    # macOS: проверка Python+tkinter + запуск
-│   ├── build/
-│   │   ├── build.bat              # Windows: обёртка для build.ps1
-│   │   ├── build.ps1              # Windows: сборка standalone onedir (PyInstaller)
-│   │   ├── build.sh               # Linux/macOS: сборка standalone (PyInstaller)
-│   │   ├── build-deb.sh           # Linux: сборка .deb-пакета
-│   │   ├── build-rpm.sh           # Linux: сборка .rpm-пакета
-│   │   ├── flowlink.spec          # RPM-спецификация
-│   │   ├── build-pkg.sh           # macOS: сборка .pkg-пакета
-│   │   └── create-release.sh      # Упаковка архивов релиза
-│   ├── crx/
-│   │   ├── build-crx.sh           # Linux/macOS: сборка CRX-расширения
-│   │   ├── build-crx.ps1          # Windows: сборка CRX-расширения
-│   │   └── crx-private-key.pem    # Приватный ключ подписи CRX (не коммитится)
-│   ├── install/
-│   │   └── install.sh             # Универсальный standalone-установщик
-│   └── autostart/
-│       ├── flowlink.service       # Linux: systemd-сервис
-│       ├── flowlink.desktop       # Linux: десктоп-файл
-│       └── com.flowlink.proxy.plist # macOS: LaunchAgent
-│
-├── AI_DEV_LOG.md              # Журнал разработки (локально, не комиттится)
-├── SETUP.md                   # Подробная установка и настройка
-├── DEBUG.md                   # Отладка, CLI-флаги, API
-├── PRIVACY_POLICY.md          # Политика конфиденциальности
-├── README.md                  # Этот файл
-├── EULA.rtf                   # Лицензионное соглашение конечного пользователя
-└── LICENSE.txt                # GNU AGPL v3
-```
+Структура кода — см. [DEBUG.md](DEBUG.md#структура-проекта).
 
 ---
 
@@ -468,7 +308,7 @@ flowlink-proxy/
 Автозапуск браузера настраивается только через трей-меню («Автозапуск браузера») — в расширении такой настройки нет. Значение сохраняется в файле `.flowlink-settings` в директории данных.
 
 ### Как выбрать браузер для запуска?
-Выбор браузера доступен только в трей-меню («Выбрать браузер...»). В расширении показывается только баннер-предупреждение, если браузер не выбран. FlowLink Proxy автоматически обнаруживает установленные браузеры (Chrome, Edge, Yandex, Firefox, Opera, Brave и др.) и предлагает выбрать нужный.
+Выбор браузера доступен только в трей-меню («Выбрать браузер...»). В расширении показывается только баннер-предупреждение, если браузер не выбран. FlowLink Proxy автоматически обнаруживает установленные браузеры (Chrome, Edge, Yandex, Opera, Brave и др.) и предлагает выбрать нужный.
 
 ### Можно ли запустить несколько экземпляров параллельно?
 Да. Запустите несколько экземпляров с разными портами, например `--proxy-port 8080 --api-port 8081` и `--proxy-port 8084 --api-port 8085`. Расширение автоматически подключится к найденному бэкенду в диапазоне портов 8080–8090.

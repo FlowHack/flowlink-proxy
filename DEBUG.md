@@ -6,7 +6,9 @@
 2. [Логирование](#логирование)
 3. [API для разработчиков](#api-для-разработчиков)
 4. [Устранение проблем](#устранение-проблем)
-5. [Сборка и упаковка релиза](#сборка-и-упаковка-релиза)
+5. [Сборка из исходного кода](#сборка-из-исходного-кода)
+6. [Скрипты и их настройка](#скрипты-и-их-настройка)
+7. [Структура проекта](#структура-проекта)
 
 ---
 
@@ -342,37 +344,17 @@ curl -X POST http://127.0.0.1:8081/api/ping \
 
 ## Устранение проблем
 
-### Бэкенд не запускается
-
-| Причина | Решение |
-|---------|---------|
-| Python не найден | Установите Python 3.10+ и добавьте в PATH |
-| Порт занят | `lsof -i :8080` (Linux) или Диспетчер задач (Windows) → завершите старый процесс |
-| Зависимости не установлены | `pip install -r server/requirements.txt` |
-
-### Расширение не подключается
-
-1. Проверьте, запущен ли бэкенд
-2. Проверьте порт API в настройках расширения (⚙) — должен совпадать с `--api-port`
-3. Запустите с `--debug` и смотрите логи
-
-### `ERR_PROXY_CONNECTION_FAILED`
-
-В браузере указан SOCKS5 вместо HTTP-прокси. Проверьте флаг: `--proxy-server=127.0.0.1:8080`
+Общие проблемы установки и запуска (бэкенд не запускается, расширение не подключается, `ERR_PROXY_CONNECTION_FAILED`, занятый порт и т.д.) — см. [SETUP.md](SETUP.md#устранение-проблем-при-установке). Ниже — только dev-специфичные случаи.
 
 ### PowerShell блокирует `.ps1`
 
 ```bat
-scripts\build.bat
+scripts\build\build.bat
 ```
 Или:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+powershell -ExecutionPolicy Bypass -File scripts\build\build.ps1
 ```
-
-### Браузер не использует прокси
-
-Запускайте браузер **только** через ярлык с `--proxy-server`. Если открыть браузер напрямую (без флага), трафик идёт мимо FlowLink Proxy.
 
 ### Меню трея не отображается или падает
 
@@ -384,7 +366,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 ---
 
-## Сборка и упаковка релиза
+## Сборка из исходного кода
 
 Этот раздел для разработчиков и сборщиков пакетов.
 
@@ -398,7 +380,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 scripts\build\build.bat
 ```
 
-Результат: `releases/FlowLink Proxy` (Linux/macOS) или `releases\FlowLink Proxy.exe` (Windows)
+Результат: `releases/FlowLink Proxy` (Linux/macOS) или `releases\FlowLink Proxy\FlowLink Proxy.exe` (Windows, onedir)
 
 ### Упаковка архива релиза (Linux / macOS)
 
@@ -411,7 +393,7 @@ scripts\build\build.bat
 - `FlowLink-Proxy-vX.X.X-linux-x64.tar.gz`
 - (на macOS: `...-macos-x64.tar.gz` или `...-macos-arm64.tar.gz`)
 
-Внутри архива: бинарник, лаунчер, EULA.rtf, LICENSE.txt, README.md. SETUP.md и DEBUG.md в архив не попадают.
+Внутри архива: бинарник, лаунчер, установщик `install.sh`, папка `scripts/autostart/` (шаблоны автозапуска), `EULA.rtf`, `LICENSE.txt`, `README.md`. SETUP.md и DEBUG.md в архив не попадают.
 
 ### Сборка .deb-пакета (Linux)
 
@@ -420,7 +402,7 @@ scripts\build\build.bat
 ./scripts/build/build-deb.sh
 ```
 
-Результат: `releases/flowlink-proxy_<версия>_<арх>.deb`
+Результат: `releases/FlowLink-Proxy_<версия>_<арх>.deb`
 
 ### Сборка .rpm-пакета (Linux)
 
@@ -429,7 +411,7 @@ scripts\build\build.bat
 ./scripts/build/build-rpm.sh
 ```
 
-Результат: `~/rpmbuild/RPMS/x86_64/flowlink-proxy-<версия>-1.<dist>.x86_64.rpm`
+Результат: `~/rpmbuild/RPMS/x86_64/FlowLink-Proxy-<версия>-1.x86_64.rpm`
 
 ### Сборка .pkg-пакета (macOS)
 
@@ -438,7 +420,7 @@ scripts\build\build.bat
 ./scripts/build/build-pkg.sh
 ```
 
-Результат: `releases/flowlink-proxy-<версия>-macos-<арх>.pkg`
+Результат: `releases/FlowLink-Proxy-<версия>-macos-<арх>.pkg`
 
 ### Сборка установщика Windows
 
@@ -448,3 +430,209 @@ scripts\build\build.bat
 4. Результат: `releases/FlowLink-Proxy-vX.X.X-Setup.exe`
 
 > **Архитектура:** Inno Setup соберёт установщик под x64. В .iss уже указано `ArchitecturesInstallIn64BitMode=x64compatible` — автоматически выбирает правильную Program Files папку (32 или 64 бит).
+
+---
+
+## Скрипты и их настройка
+
+### Сводная таблица переменных
+
+| Скрипт | Переменная | По умолч. | Описание |
+|--------|------------|-----------|----------|
+| `launcher/FlowLink Proxy-linux.sh` | — | — | Лаунчер запускает бинарник напрямую. Браузер выбирается через трей-меню или расширение |
+| `launcher/FlowLink Proxy-macos.sh` | — | — | Лаунчер запускает бинарник напрямую. Браузер выбирается через трей-меню или расширение |
+| `setup/setup-and-run-linux.sh` | — | — | Dev-скрипт: venv + зависимости + запуск `python -m server` |
+| `setup/setup-and-run-macos.sh` | — | — | Dev-скрипт: venv + зависимости + запуск `python -m server` |
+| `setup/setup-and-run.bat` | — | — | Dev-скрипт Windows: venv + зависимости + запуск `python -m server` |
+| `crx/build-crx.sh` / `build-crx.ps1` | — | — | Сборка расширения: `.crx` и `.zip` |
+| `install/` | — | — | Установочные файлы/шаблоны для релизных пакетов |
+| `autostart/flowlink.service` | `ExecStart` | — | Путь к бинарнику (настраивается вручную) |
+| `autostart/flowlink.service` | `FLOWLINK_DATA_DIR` | `%h/.FlowHack/FlowLink Proxy` | Папка данных |
+| `autostart/flowlink.desktop` | `Exec` | — | Путь к бинарнику (настраивается вручную; пробел экранируется как `\ `) |
+
+### Скрипты запуска
+
+| Скрипт | Платформа | Назначение |
+|--------|-----------|------------|
+| `launcher/FlowLink Proxy-linux.sh` | Linux | Лаунчер: запускает бинарник напрямую |
+| `launcher/FlowLink Proxy-macos.sh` | macOS | Лаунчер: запускает бинарник напрямую |
+| `setup/setup-and-run-linux.sh` | Linux | Dev-скрипт: venv + зависимости + запуск `python -m server` |
+| `setup/setup-and-run-macos.sh` | macOS | Dev-скрипт: venv + зависимости + запуск `python -m server` |
+| `setup/setup-and-run.bat` | Windows | Dev-скрипт: venv + зависимости + запуск `python -m server` |
+
+### Файлы автозапуска
+
+| Файл | Платформа | Назначение |
+|------|-----------|------------|
+| `autostart/flowlink.service` | Linux (systemd) | Автозапуск бэкенда как сервис |
+| `autostart/flowlink.desktop` | Linux (GNOME/KDE) | Ярлык в меню приложений |
+| `autostart/com.flowlink.proxy.plist` | macOS (launchd) | Автозапуск бэкенда |
+
+---
+
+## Структура проекта
+
+```
+flowlink-proxy/
+├── server/                    # Python-бэкенд
+│   ├── __main__.py            # Точка входа (CLI + tray icon)
+│   ├── version.py             # Версия проекта
+│   ├── logging_config.py      # Настройка логгера (файл + консоль)
+│   ├── i18n.py                # Локализация бэкенда (ru/en/sr)
+│   ├── locales/               # Переводы бэкенда (gettext)
+│   │   ├── en/                # Английский (LC_MESSAGES)
+│   │   └── sr/                # Сербский (LC_MESSAGES)
+│   ├── tray/                  # System tray icon (tkinter / pystray / ctypes)
+│   │   ├── __init__.py        # Координатор: start_tray()
+│   │   ├── platform.py        # Определение ОС и возможностей
+│   │   ├── popup.py           # Tkinter безрамочное меню (тёмная тема)
+│   │   ├── menu.py            # Общая логика построения меню
+│   │   ├── pystray_base.py    # Базовый класс pystray-трея
+│   │   ├── win32.py           # Win32 Tray (ctypes)
+│   │   ├── linux.py           # Linux Tray (pystray + tkinter)
+│   │   └── macos.py           # macOS Tray (pystray + tkinter)
+│   ├── config/
+│   │   ├── config.py          # Бизнес-логика конфига (proxies, masks, enabled)
+│   │   ├── repo.py            # Чтение/запись config.json
+│   │   ├── crypto.py          # AES-GCM шифрование паролей (PBKDF2)
+│   │   ├── autostart.py       # Настройки автозапуска браузера
+│   │   ├── browser_config.py  # Конфигурация браузера (автопоиск, валидация, запуск)
+│   │   ├── browser_process.py # Управление процессами браузера (поиск PID, kill)
+│   │   └── system_autostart.py # Автозапуск с системой (Win/Linux/macOS)
+│   ├── protocols/
+│   │   ├── base.py            # ABC ProxyProtocol
+│   │   ├── socks5.py          # SOCKS5-клиент (чистый asyncio + struct)
+│   │   ├── factory.py         # Фабрика протоколов
+│   │   ├── parser.py          # Парсинг CONNECT/HTTP-запросов
+│   │   ├── mock_socks5.py     # Тестовый SOCKS5-сервер (--dev)
+│   │   └── socks5_constants.py # Константы SOCKS5-протокола
+│   ├── services/
+│   │   ├── router.py          # Маршрутизация URL по маскам
+│   │   ├── tunnel.py          # Установка туннелей (SOCKS5 / прямой) + SSRF-защита
+│   │   ├── pipe.py            # Двусторонняя пересылка данных
+│   │   ├── ping.py            # Пинг прокси (SOCKS5 handshake)
+│   │   ├── debug.py           # Debug-утилиты
+│   │   ├── events.py          # SSE-шина событий
+│   │   ├── sse.py             # SSE-обработчик (text/event-stream)
+│   │   ├── extension_connection.py # Отслеживание подключения расширения
+│   │   ├── fake_proxies.py    # Генерация тестовых прокси (--count-proxy)
+│   │   └── mask_conflicts.py  # Проверка конфликтов масок (пересечение паттернов)
+│   ├── servers/
+│   │   ├── base_server.py     # ABC BaseServer
+│   │   ├── proxy.py           # HTTP CONNECT прокси (порт 8080)
+│   │   ├── api.py             # HTTP API (порт 8081)
+│   │   └── handlers.py        # Обработчики API-эндпоинтов
+│   ├── ui/
+│   │   ├── dialogs.py         # Кастомные tkinter-диалоги (show_info, show_item_picker)
+│   │   └── theme.py           # Тёмная тема для диалогов
+│   ├── utils.py               # Утилиты (get_data_dir, clear_all_data, write_port_file)
+│   ├── icons/                 # Иконки бэкенда (icon.ico, icon1024.png)
+│   ├── requirements.txt       # Зависимости Python
+│   └── tests/                 # Юнит-тесты
+│       ├── base.py            # Базовые миксины (TempConfigMixin)
+│       ├── conftest.py        # Общие вспомогательные функции
+│       ├── test_config.py
+│       ├── test_crypto.py
+│       ├── test_handlers.py
+│       ├── test_events.py
+│       ├── test_proxy_server.py
+│       ├── test_router.py
+│       ├── test_socks5.py
+│       ├── test_tunnel.py     # SSRF-защита validate_target()
+│       ├── test_utils.py
+│       ├── test_autostart.py
+│       ├── test_browser_config.py
+│       ├── test_fake_proxies.py
+│       ├── test_system_autostart.py
+│       ├── test_tray_menu.py
+│       ├── test_tray_platform.py
+│       ├── test_tray_popup.py
+│       ├── test_tray_fallback.py
+│       ├── test_main_launch_browser.py
+│       ├── test_main_autostart.py
+│       ├── test_main_close_browser.py
+│       ├── test_extension_timeout.py
+│       ├── test_extension_connection.py
+│       ├── test_dialogs.py
+│       ├── test_build_scripts.py
+│       ├── test_browser_process.py
+│       └── test_api_routes.py
+│
+├── extension/                 # Chrome-расширение (Manifest V3)
+│   ├── manifest.json          # Манифест расширения
+│   ├── _locales/              # Локализация расширения (ru/en/sr)
+│   ├── background/
+│   │   └── service-worker.js  # SSE-клиент + pushEnabledState
+│   ├── popup/
+│   │   ├── popup.html         # Главное окно
+│   │   ├── popup.css          # Стили
+│   │   ├── popup.js           # Главный контроллер
+│   │   ├── crud-proxy.js      # CRUD-операции с прокси
+│   │   ├── crud-mask.js       # CRUD-операции с масками
+│   │   ├── draft.js           # Черновики форм (chrome.storage.session)
+│   │   ├── ping.js            # Пинг прокси
+│   │   ├── settings.js        # Настройки порта API
+│   │   ├── tab-status.js      # Статус текущей вкладки
+│   │   ├── modal.js           # Модальные окна
+│   │   ├── help.js            # Окно помощи
+│   │   ├── help-page.js       # Логика статической справки (help.html)
+│   │   ├── help.css           # Стили справки
+│   │   ├── help.html          # Статическая справка (открывается из tkinter-диалога)
+│   │   └── updater.js         # Проверка обновлений
+│   ├── shared/
+│   │   ├── api.js             # HTTP хелперы (apiGet, apiPost, apiPatch, apiDelete, apiPostRaw)
+│   │   ├── auth.js            # Работа с токеном авторизации API
+│   │   ├── constants.js       # API_BASE, GitHub URLs
+│   │   ├── dom.js             # escapeHtml, утилиты DOM
+│   │   ├── i18n.js            # Словарь переводов (RU/EN/SR)
+│   │   ├── utils.js           # Валидация IP/port, wildcard→regex, copyEmailToClipboard
+│   │   └── port_discovery.js  # Автообнаружение порта API
+│   ├── tests/                 # Тесты расширения
+│   │   ├── auth.test.js       # Тесты токена авторизации
+│   │   ├── draft.test.js      # Тесты черновиков форм
+│   │   ├── help.test.js       # Тесты логики вкладок справки
+│   │   └── port.test.js       # Тесты автообнаружения порта
+│   └── icons/                 # Иконки расширения
+│
+├── scripts/
+│   ├── installer/
+│   │   └── flowlink-installer.iss  # Inno Setup установщик Windows
+│   ├── icons/
+│   │   ├── icon.ico            # Иконка для установщика и ярлыков
+│   │   ├── icon1024.png        # Иконка для Linux/macOS
+│   │   └── icon.icns           # Иконка для macOS
+│   ├── launcher/
+│   │   ├── FlowLink Proxy-linux.sh  # Linux-лаунчер (только бинарник)
+│   │   └── FlowLink Proxy-macos.sh  # macOS-лаунчер (только бинарник)
+│   ├── setup/
+│   │   ├── setup-and-run.bat         # Windows: проверка Python+tkinter + запуск
+│   │   ├── setup-and-run-linux.sh    # Linux: проверка Python+tkinter + запуск
+│   │   └── setup-and-run-macos.sh    # macOS: проверка Python+tkinter + запуск
+│   ├── build/
+│   │   ├── build.bat              # Windows: обёртка для build.ps1
+│   │   ├── build.ps1              # Windows: сборка standalone onedir (PyInstaller)
+│   │   ├── build.sh               # Linux/macOS: сборка standalone (PyInstaller)
+│   │   ├── build-deb.sh           # Linux: сборка .deb-пакета
+│   │   ├── build-rpm.sh           # Linux: сборка .rpm-пакета
+│   │   ├── flowlink.spec          # RPM-спецификация
+│   │   ├── build-pkg.sh           # macOS: сборка .pkg-пакета
+│   │   └── create-release.sh      # Упаковка архивов релиза
+│   ├── crx/
+│   │   ├── build-crx.sh           # Linux/macOS: сборка CRX-расширения
+│   │   ├── build-crx.ps1          # Windows: сборка CRX-расширения
+│   │   └── crx-private-key.pem    # Приватный ключ подписи CRX (не коммитится)
+│   ├── install/
+│   │   └── install.sh             # Универсальный standalone-установщик
+│   └── autostart/
+│       ├── flowlink.service       # Linux: systemd-сервис
+│       ├── flowlink.desktop       # Linux: десктоп-файл
+│       └── com.flowlink.proxy.plist # macOS: LaunchAgent
+│
+├── AI_DEV_LOG.md              # Журнал разработки (локально, не комиттится)
+├── SETUP.md                   # Подробная установка и настройка
+├── DEBUG.md                   # Отладка, CLI-флаги, API
+├── PRIVACY_POLICY.md          # Политика конфиденциальности
+├── README.md                  # Этот файл
+├── EULA.rtf                   # Лицензионное соглашение конечного пользователя
+└── LICENSE.txt                # GNU AGPL v3
+```

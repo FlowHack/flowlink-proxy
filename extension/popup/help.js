@@ -14,9 +14,9 @@ import { getCurrentLang } from '../shared/i18n.js';
 const _EMAIL = 'flowlink.proxy@atomicmail.io';
 const _EMAIL_FOOTER = (lang = 'ru') => {
   const texts = {
-    ru: 'Не удалось решить проблему? Напишите на {email} — поможем.',
-    en: 'Could not solve the problem? Write to {email} — we will help.',
-    sr: 'Niste uspeli da rešite problem? Pišite na {email} — pomoći ćemo.',
+    ru: 'Не удалось решить проблему? Просмотрите расширенную документацию — <a href="https://github.com/FlowHack/flowlink-proxy/blob/develop/README.md" target="_blank" rel="noopener">README</a> и <a href="https://github.com/FlowHack/flowlink-proxy/blob/develop/SETUP.md" target="_blank" rel="noopener">SETUP.md</a>, а если это не поможет — напишите нам на {email} — обязательно поможем.',
+    en: 'Could not solve the problem? Check the extended documentation — <a href="https://github.com/FlowHack/flowlink-proxy/blob/develop/README.md" target="_blank" rel="noopener">README</a> and <a href="https://github.com/FlowHack/flowlink-proxy/blob/develop/SETUP.md" target="_blank" rel="noopener">SETUP.md</a>, and if that doesn\'t help, write to us at {email} — we\'d be happy to help.',
+    sr: 'Niste uspeli da rešite problem? Pogledajte proširenu dokumentaciju — <a href="https://github.com/FlowHack/flowlink-proxy/blob/develop/README.md" target="_blank" rel="noopener">README</a> i <a href="https://github.com/FlowHack/flowlink-proxy/blob/develop/SETUP.md" target="_blank" rel="noopener">SETUP.md</a>, a ako to ne pomogne, pišite nam na {email} — rado ćemo pomoći.',
   };
   const titles = {
     ru: 'Нажмите, чтобы скопировать',
@@ -202,7 +202,7 @@ const HELP_TEXTS = {
       <ol>
         <li>Откройте меню FlowLink Proxy в системном трее (иконка в правом нижнем углу экрана).</li>
         <li>Выберите пункт <strong>«Браузер»</strong> (или «Выбрать браузер»).</li>
-        <li>В открывшемся списке укажите ваш браузер (Chrome, Firefox, Edge и т.д.).</li>
+        <li>В открывшемся списке укажите ваш браузер (Chrome, Edge и т.д.).</li>
         <li>Если браузера нет в списке — нажмите «Указать вручную» и выберите исполняемый файл браузера.</li>
       </ol>
       <p>После выбора браузера автозапуск будет работать: при запуске бэкенда браузер откроется автоматически.</p>
@@ -217,7 +217,7 @@ const HELP_TEXTS = {
       <ol>
         <li>Open the FlowLink Proxy menu in the system tray (icon in the bottom right corner of the screen).</li>
         <li>Select the <strong>"Browser"</strong> item (or "Select browser").</li>
-        <li>In the list that appears, specify your browser (Chrome, Firefox, Edge, etc.).</li>
+        <li>In the list that appears, specify your browser (Chrome, Edge, etc.).</li>
         <li>If your browser is not in the list — click "Specify manually" and select the browser executable file.</li>
       </ol>
       <p>After selecting the browser, autostart will work: when the backend starts, the browser will open automatically.</p>
@@ -232,7 +232,7 @@ const HELP_TEXTS = {
       <ol>
         <li>Otvorite FlowLink Proxy meni u sistemskoj traci (ikonica u donjem desnom uglu ekrana).</li>
         <li>Izaberite stavku <strong>"Pregledač"</strong> (ili "Izaberi pregledač").</li>
-        <li>U listi koja se pojavi, navedite svoj pregledač (Chrome, Firefox, Edge, itd.).</li>
+        <li>U listi koja se pojavi, navedite svoj pregledač (Chrome, Edge, itd.).</li>
         <li>Ako vaš pregledač nije u listi — kliknite "Navedi ručno" i izaberite izvršnu datoteku pregledača.</li>
       </ol>
       <p>Nakon izbora pregledača, automatsko pokretanje će raditi: kada se backend pokrene, pregledač će se automatski otvoriti.</p>
@@ -245,7 +245,7 @@ const HELP_TEXTS = {
   port: (lang = 'ru') => {
     const texts = {
       ru: `
-    <h3>Настройка порта</h3>
+    <h3>Порты</h3>
 
     <div class="help-section" id="help-port">
       <h4>🔌 Автоматическое обнаружение</h4>
@@ -269,7 +269,7 @@ const HELP_TEXTS = {
     <p>Если проблема не решена — обратитесь в поддержку (ссылка ниже).</p>
   `,
       en: `
-    <h3>Port setup</h3>
+    <h3>Ports</h3>
 
     <div class="help-section" id="help-port">
       <h4>🔌 Auto detection</h4>
@@ -293,7 +293,7 @@ const HELP_TEXTS = {
     <p>If the problem is not resolved — contact support (link below).</p>
   `,
       sr: `
-    <h3>Podešavanje porta</h3>
+    <h3>Portovi</h3>
 
     <div class="help-section" id="help-port">
       <h4>🔌 Automatsko otkrivanje</h4>
@@ -427,6 +427,7 @@ const HELP_TEXTS = {
       <li><strong>CRX:</strong> скачайте новый <code>FlowLink-Proxy-v*.crx</code> со страницы <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, перетащите на <code>chrome://extensions</code></li>
       <li><strong>ZIP (unpacked):</strong> скачайте <code>FlowLink-Proxy-v*.zip</code>, распакуйте в папку расширения, затем на <code>chrome://extensions</code> нажмите «Обновить» (круглая стрелка) у карточки FlowLink Proxy</li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       en: `
     <h3>Extension update</h3>
@@ -435,6 +436,7 @@ const HELP_TEXTS = {
       <li><strong>CRX:</strong> download the new <code>FlowLink-Proxy-v*.crx</code> from <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, drag it onto <code>chrome://extensions</code></li>
       <li><strong>ZIP (unpacked):</strong> download <code>FlowLink-Proxy-v*.zip</code>, unpack into the extension folder, then on <code>chrome://extensions</code> click «Update» (circular arrow) on the FlowLink Proxy card</li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
       sr: `
     <h3>Ažuriranje ekstenzije</h3>
@@ -443,6 +445,7 @@ const HELP_TEXTS = {
       <li><strong>CRX:</strong> preuzmite novi <code>FlowLink-Proxy-v*.crx</code> sa <a href="${GITHUB_RELEASES_URL}" target="_blank" rel="noopener">GitHub Releases</a>, prevucite na <code>chrome://extensions</code></li>
       <li><strong>ZIP (unpacked):</strong> preuzmite <code>FlowLink-Proxy-v*.zip</code>, raspakujte u fasciklu ekstenzije, zatim na <code>chrome://extensions</code> kliknite «Ažuriraj» (kružna strelica) na kartici FlowLink Proxy</li>
     </ol>
+    ${_EMAIL_FOOTER(lang)}
   `,
     };
     return texts[lang] || texts.ru;

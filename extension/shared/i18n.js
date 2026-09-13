@@ -45,7 +45,7 @@ const TRANSLATIONS = {
     apiPort: 'Порт API:',
     backend: 'Бэкенд',
     browser: 'Браузер',
-    portSetup: 'Настройка порта',
+    portSetup: 'Порты',
     faq: 'FAQ',
     updateBackend: 'Обновление бэкенда',
     updateExt: 'Обновление расширения',
@@ -113,7 +113,7 @@ const TRANSLATIONS = {
     sectionInDev: 'Раздел в разработке.',
     renderError: 'Ошибка при отображении помощи. Попробуйте перезагрузить popup.',
     renderSubError: 'Ошибка рендеринга. Перезагрузите popup.',
-    emailFooter: 'Не удалось решить проблему? Напишите на {email} — поможем.'
+    emailFooter: 'Не удалось решить проблему? Просмотрите расширенную документацию — README и SETUP.md, а если это не поможет — напишите нам на {email} — обязательно поможем.'
   },
   en: {
     appName: 'FlowLink Proxy',
@@ -148,7 +148,7 @@ const TRANSLATIONS = {
     apiPort: 'API port:',
     backend: 'Backend',
     browser: 'Browser',
-    portSetup: 'Port setup',
+    portSetup: 'Ports',
     faq: 'FAQ',
     updateBackend: 'Update backend',
     updateExt: 'Update extension',
@@ -215,7 +215,7 @@ const TRANSLATIONS = {
     sectionInDev: 'Section under development.',
     renderError: 'Error displaying help. Try reloading the popup.',
     renderSubError: 'Rendering error. Reload the popup.',
-    emailFooter: 'Could not solve the problem? Write to {email} — we will help.'
+    emailFooter: 'Could not solve the problem? Check the extended documentation — README and SETUP.md, and if that doesn\'t help, write to us at {email} — we\'d be happy to help.'
   },
   sr: {
     appName: 'FlowLink Proxy',
@@ -250,7 +250,7 @@ const TRANSLATIONS = {
     apiPort: 'API port:',
     backend: 'Backend',
     browser: 'Pregledač',
-    portSetup: 'Podešavanje porta',
+    portSetup: 'Portovi',
     faq: 'FAQ',
     updateBackend: 'Ažuriranje backend-a',
     updateExt: 'Ažuriranje ekstenzije',
@@ -317,7 +317,7 @@ const TRANSLATIONS = {
     sectionInDev: 'Sekcija u razvoju.',
     renderError: 'Greška pri prikazivanju pomoći. Pokušajte da ponovo učitate popup.',
     renderSubError: 'Greška pri renderovanju. Ponovo učitajte popup.',
-    emailFooter: 'Niste uspeli da rešite problem? Pišite na {email} — pomoći ćemo.'
+    emailFooter: 'Niste uspeli da rešite problem? Pogledajte proširenu dokumentaciju — README i SETUP.md, a ako to ne pomogne, pišite nam na {email} — rado ćemo pomoći.'
   }
 };
 
