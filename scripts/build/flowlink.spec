@@ -1,5 +1,5 @@
 Name:           FlowLink-Proxy
-Version:        %{?version}%{!?version:0.1.0}
+Version:        %{?version}%{!?version:0.1.2}
 Release:        1%{?dist}
 Summary:        FlowLink Proxy — шлюз для маршрутизации трафика
 License:        AGPLv3
@@ -47,6 +47,10 @@ fi
 %{_datadir}/applications/flowlink-proxy.desktop
 
 %changelog
+* Sun Sep 13 2026 FlowLink Proxy <flowlink.proxy@atomicmail.io> - 0.1.2-1
+- Browser auto-detection: Vivaldi added (Windows/Linux/macOS)
+- Browser auto-detection: Brave on Windows (x86) fixed
+- Documentation cleanup and extension help improvements
 * Mon Aug 10 2026 FlowLink Proxy <flowlink.proxy@atomicmail.io> - 0.1.0-1
 - System autostart support
 - Browser auto-detection
