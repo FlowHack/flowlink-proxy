@@ -5,9 +5,11 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from server.config.browser_config import (auto_detect_browsers,
                                           get_browser_config, get_browser_path,
@@ -81,7 +83,7 @@ class TestDetectWindows(unittest.TestCase):
         return os.path.normpath(path).replace('\\', '/')
 
     def test_detects_vivaldi(self):
-        """Находит Vivaldi и Vivaldi (x86) при наличии файлов."""
+        """Находит Vivaldi в Program Files и x86 при наличии файлов."""
         vivaldi = r'C:\Program Files\Vivaldi\Application\vivaldi.exe'
         vivaldi86 = r'C:\Program Files (x86)\Vivaldi\Application\vivaldi.exe'
         expected = {self._norm(p) for p in (vivaldi, vivaldi86)}
@@ -91,8 +93,58 @@ class TestDetectWindows(unittest.TestCase):
 
         result = self._run_detect(isfile)
         names = {item['name'] for item in result}
-        self.assertIn('Vivaldi', names)
+        self.assertIn('Vivaldi (Program Files)', names)
         self.assertIn('Vivaldi (x86)', names)
+
+    def test_detects_vivaldi_localappdata(self):
+        """Находит Vivaldi из LOCALAPPDATA (per-user установка)."""
+        vivaldi = r'C:\Users\test\AppData\Local\Vivaldi\Application\vivaldi.exe'
+
+        def isfile(path):
+            return self._norm(path) == self._norm(vivaldi)
+
+        result = self._run_detect(isfile)
+        names = {item['name'] for item in result}
+        self.assertIn('Vivaldi', names)
+
+    def test_detects_brave_localappdata(self):
+        """Находит Brave из LOCALAPPDATA (per-user установка)."""
+        brave = (
+            r'C:\Users\test\AppData\Local\BraveSoftware\Brave-Browser'
+            r'\Application\brave.exe'
+        )
+
+        def isfile(path):
+            return self._norm(path) == self._norm(brave)
+
+        result = self._run_detect(isfile)
+        names = {item['name'] for item in result}
+        self.assertIn('Brave', names)
+
+    def test_detects_vivaldi_from_registry(self):
+        """Находит Vivaldi через реестр App Paths (per-user установка)."""
+        vivaldi = r'C:\Users\test\AppData\Local\Vivaldi\Application\vivaldi.exe'
+        fake_key = MagicMock()
+        fake_key.__enter__.return_value = fake_key
+        fake_winreg = SimpleNamespace(
+            HKEY_CURRENT_USER=1,
+            HKEY_LOCAL_MACHINE=2,
+            OpenKey=MagicMock(return_value=fake_key),
+            QueryValueEx=MagicMock(return_value=(vivaldi, 0)),
+        )
+
+        with patch('server.config.browser_config.sys.platform', 'win32'), \
+             patch.dict(os.environ, {
+                 'LOCALAPPDATA': r'C:\Users\test\AppData\Local',
+                 'PROGRAMFILES': r'C:\Program Files',
+                 'PROGRAMFILES(X86)': r'C:\Program Files (x86)',
+             }), \
+             patch.dict(sys.modules, {'winreg': fake_winreg}), \
+             patch('server.config.browser_config.os.path.isfile',
+                   return_value=True):
+            result = auto_detect_browsers()
+        names = {item['name'] for item in result}
+        self.assertIn('Vivaldi', names)
 
     def test_detects_brave_x86(self):
         """Находит Brave (x86) при наличии файла в pf86."""

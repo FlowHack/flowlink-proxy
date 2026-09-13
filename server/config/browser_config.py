@@ -64,6 +64,32 @@ def auto_detect_browsers() -> list[dict]:
     return found
 
 
+def _browser_name_from_registry_path(path: str) -> str:
+    """
+    Определяет имя браузера по пути из реестра Windows (App Paths).
+
+    Args:
+        path: Путь к исполняемому файлу браузера из реестра.
+
+    Returns:
+        Имя браузера (по умолчанию Google Chrome).
+    """
+    path_lower = path.lower()
+    markers = (
+        ('vivaldi', 'Vivaldi'),
+        ('brave', 'Brave'),
+        ('msedge', 'Microsoft Edge'),
+        ('edge', 'Microsoft Edge'),
+        ('yandex', 'Яндекс Браузер'),
+        ('opera', 'Opera'),
+        ('firefox', 'Mozilla Firefox'),
+    )
+    for marker, name in markers:
+        if marker in path_lower:
+            return name
+    return 'Google Chrome'
+
+
 def _detect_windows() -> list[tuple[str, str]]:
     """Обнаруживает браузеры в стандартных путях Windows."""
     candidates = []
@@ -77,6 +103,10 @@ def _detect_windows() -> list[tuple[str, str]]:
              r'Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe'),
             (winreg.HKEY_LOCAL_MACHINE,  # type: ignore[reportAttributeAccessIssue]
              r'Software\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe'),
+            (winreg.HKEY_CURRENT_USER,  # type: ignore[reportAttributeAccessIssue]
+             r'Software\Microsoft\Windows\CurrentVersion\App Paths\vivaldi.exe'),
+            (winreg.HKEY_LOCAL_MACHINE,  # type: ignore[reportAttributeAccessIssue]
+             r'Software\Microsoft\Windows\CurrentVersion\App Paths\vivaldi.exe'),
         ]
         for root, subpath in reg_paths:
             try:
@@ -87,8 +117,9 @@ def _detect_windows() -> list[tuple[str, str]]:
                         key, '',
                     )
                     if val and os.path.isfile(val):
-                        name = 'Chrome' if 'chrome' in val.lower() else 'Edge'
-                        candidates.append((name, val))
+                        candidates.append(
+                            (_browser_name_from_registry_path(val), val),
+                        )
             except OSError as e:
                 logger.debug('Не удалось прочитать реестр Windows: %s', e)
     except ImportError:
@@ -112,9 +143,12 @@ def _detect_windows() -> list[tuple[str, str]]:
         ('Opera', os.path.join(local, r'Programs\Opera\opera.exe')),
         # Opera GX
         ('Opera GX', os.path.join(local, r'Programs\Opera GX\opera.exe')),
-        ('Brave', os.path.join(pf, r'BraveSoftware\Brave-Browser\Application\brave.exe')),
+        ('Brave', os.path.join(local, r'BraveSoftware\Brave-Browser\Application\brave.exe')),
+        ('Brave (Program Files)', os.path.join(
+            pf, r'BraveSoftware\Brave-Browser\Application\brave.exe')),
         ('Brave (x86)', os.path.join(pf86, r'BraveSoftware\Brave-Browser\Application\brave.exe')),
-        ('Vivaldi', os.path.join(pf, r'Vivaldi\Application\vivaldi.exe')),
+        ('Vivaldi', os.path.join(local, r'Vivaldi\Application\vivaldi.exe')),
+        ('Vivaldi (Program Files)', os.path.join(pf, r'Vivaldi\Application\vivaldi.exe')),
         ('Vivaldi (x86)', os.path.join(pf86, r'Vivaldi\Application\vivaldi.exe')),
     ]
 
