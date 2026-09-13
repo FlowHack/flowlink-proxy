@@ -60,6 +60,92 @@ class TestAutoDetectBrowsers(unittest.TestCase):
             self.assertIsInstance(item['path'], str)
 
 
+class TestDetectWindows(unittest.TestCase):
+    """Тесты детектора браузеров Windows."""
+
+    def _run_detect(self, isfile_side_effect):
+        """Запускает auto_detect_browsers в режиме Windows с моком путей."""
+        with patch('server.config.browser_config.sys.platform', 'win32'), \
+             patch.dict(os.environ, {
+                 'LOCALAPPDATA': r'C:\Users\test\AppData\Local',
+                 'PROGRAMFILES': r'C:\Program Files',
+                 'PROGRAMFILES(X86)': r'C:\Program Files (x86)',
+             }), \
+             patch('server.config.browser_config.os.path.isfile',
+                   side_effect=isfile_side_effect):
+            return auto_detect_browsers()
+
+    @staticmethod
+    def _norm(path):
+        """Нормализует путь к сравнимому виду (независимо от разделителя)."""
+        return os.path.normpath(path).replace('\\', '/')
+
+    def test_detects_vivaldi(self):
+        """Находит Vivaldi и Vivaldi (x86) при наличии файлов."""
+        vivaldi = r'C:\Program Files\Vivaldi\Application\vivaldi.exe'
+        vivaldi86 = r'C:\Program Files (x86)\Vivaldi\Application\vivaldi.exe'
+        expected = {self._norm(p) for p in (vivaldi, vivaldi86)}
+
+        def isfile(path):
+            return self._norm(path) in expected
+
+        result = self._run_detect(isfile)
+        names = {item['name'] for item in result}
+        self.assertIn('Vivaldi', names)
+        self.assertIn('Vivaldi (x86)', names)
+
+    def test_detects_brave_x86(self):
+        """Находит Brave (x86) при наличии файла в pf86."""
+        brave86 = (
+            r'C:\Program Files (x86)\BraveSoftware\Brave-Browser'
+            r'\Application\brave.exe'
+        )
+
+        def isfile(path):
+            return self._norm(path) == self._norm(brave86)
+
+        result = self._run_detect(isfile)
+        names = {item['name'] for item in result}
+        self.assertIn('Brave (x86)', names)
+
+
+class TestDetectLinux(unittest.TestCase):
+    """Тесты детектора браузеров Linux."""
+
+    def test_detects_vivaldi(self):
+        """Находит Vivaldi при наличии 'vivaldi' в which."""
+
+        def fake_run(cmd, *unused_args, **unused_kwargs):
+            result = type('_Result', (), {'returncode': 1, 'stdout': ''})()
+            if cmd == ['which', 'vivaldi']:
+                return type('_Result', (),
+                            {'returncode': 0, 'stdout': '/usr/bin/vivaldi\n'})()
+            return result
+
+        with patch('server.config.browser_config.sys.platform', 'linux'), \
+             patch('server.config.browser_config.subprocess.run',
+                   side_effect=fake_run), \
+             patch('server.config.browser_config.os.path.isfile',
+                   return_value=True):
+            result = auto_detect_browsers()
+        names = {item['name'] for item in result}
+        self.assertIn('Vivaldi', names)
+
+
+class TestDetectMacos(unittest.TestCase):
+    """Тесты детектора браузеров macOS."""
+
+    def test_detects_vivaldi(self):
+        """Находит Vivaldi по стандартному пути /Applications."""
+        vivaldi = '/Applications/Vivaldi.app/Contents/MacOS/Vivaldi'
+        with patch('server.config.browser_config.sys.platform', 'darwin'), \
+             patch('server.config.browser_config.os.path.isfile',
+                   side_effect=lambda p: p == vivaldi):
+            result = auto_detect_browsers()
+        names = {item['name'] for item in result}
+        self.assertIn('Vivaldi', names)
+
+
 class TestValidateBrowserPath(unittest.TestCase):
     """Тесты валидации пути к браузеру."""
 
